@@ -49,10 +49,11 @@ Mind the **`assets/claude/` → target `.claude/`** rename (leading dot) on the 
 
 **How legend** — _verbatim_: copy bytes unchanged; _date_: replace `<YYYY-MM-DD>` with
 today's date; _pm_: rewrite the literal `pnpm docs:validate` to the target's invocation
-(Phase 1); _set paths_: copy the body unchanged and replace the `<src-root>` placeholder in
-the frontmatter `paths:` with the target's source root(s) — the body is feature-agnostic and
-never needs per-subsystem edits (Phase 1). The two `scripts/` files are pure verbatim — never
-summarize, paraphrase, or route them through a subagent; that is where drift enters.
+(Phase 1); _set paths_: replace the `<source-edit-path-glob>` placeholder in the frontmatter `paths:`
+with explicit source-edit path glob(s) gathered for the target repo. There is no default
+path because each project has different source roots. The two `scripts/` files are pure
+verbatim — never summarize, paraphrase, or route them through a subagent; that is where
+drift enters.
 
 Plus: add `"docs:validate": "node scripts/validate-docs.mjs"` and
 `"docs:validate:test": "node --test scripts/*.test.mjs"` to the target's `package.json`.
@@ -67,13 +68,16 @@ Ask in one message and wait for answers:
 2. **Project name** (fills `<PROJECT>` in the root `index.md` title).
 3. **Package manager** — pnpm / npm / yarn — so the human-facing `pnpm docs:validate`
    invocation in the copied files is rewritten to match (`npm run docs:validate`, etc.).
-4. **Subsystems** — the top-level code areas to seed as subsystem index nodes (name +
+4. **Source edit paths** — the path glob(s) for `.claude/rules/docs-maintenance.md`
+   frontmatter, e.g. `scripts/**/*.{py,md}` or `{packages/app,packages/lib}/src/**/*.{ts,tsx}`.
+   These are required; there is no default path.
+5. **Subsystems** — the top-level code areas to seed as subsystem index nodes (name +
    one-line description each), or "none yet".
-5. **Where existing docs live** — point me at any current docs to convert (folders, ADR
+6. **Where existing docs live** — point me at any current docs to convert (folders, ADR
    dirs, README files, wiki exports), or "none". _(This drives Phase 2 conversion.)_
 
-Then present the plan — the manifest, the subsystem list, the conversion sources — and
-ask **"Ready to apply this? (yes / no)"**. Wait for an explicit yes.
+Then present the plan — the manifest, the source edit paths, the subsystem list, the
+conversion sources — and ask **"Ready to apply this? (yes / no)"**. Wait for an explicit yes.
 
 ### Phase 1 — Install the machinery (orchestrator, via the shell — NOT agents, NOT the Edit tool)
 
@@ -89,11 +93,9 @@ Copy with the shell and substitute in place with `sed`/a script. Copying a file 
    Leave `<YYYY-MM-DD>` in the `docs-add` templates alone — those are filled per-concept.
 3. **Project** — replace `<PROJECT>` in `docs/index.md`.
 4. **docs-maintenance paths** — in `.claude/rules/docs-maintenance.md`, replace the
-   `<src-root>` placeholder in the frontmatter `paths:` with the target's source root(s)
-   (a single brace-glob can cover several packages, e.g.
-   `{pkg-a,pkg-b}/src/**/*.{ts,tsx}`). This is the only edit the file needs — the body is
-   a feature-agnostic drop-in and never gets per-subsystem changes. Delete the file
-   instead if the target doesn't want source-edit nudges.
+   `<source-edit-path-glob>` placeholder in the frontmatter `paths:` with the required source-edit path
+   glob(s) gathered in Phase 0. Always install this rule. Do not invent a default path;
+   if source edit paths are missing, stop and ask for them before applying the setup.
 5. **Package manager** — replace the **literal** string `pnpm docs:validate` with the
    target's invocation (`npm run docs:validate`, `yarn docs:validate`, or no-op for pnpm).
    It occurs in `documentation.md`, `okf.md`, `.claude/skills/docs-add/SKILL.md`, and

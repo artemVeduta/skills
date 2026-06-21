@@ -36,7 +36,7 @@ package.json — only the skill definition and its bundled assets.
   Never regenerate from memory; never route through a subagent that summarizes.
   Edit only when intentionally changing the contract, and update the matching
   test if behaviour changes.
-- **`<YYYY-MM-DD>`, `<PROJECT>`, `<src-root>` are intentional placeholders** in
+- **`<YYYY-MM-DD>`, `<PROJECT>`, `<source-edit-path-glob>` are intentional placeholders** in
   `assets/` — filled per-install. Do not fill them in this source repo.
 - **The literal `pnpm docs:validate` is a substitution target.** When rewriting
   the package manager for a target, match the full literal `pnpm docs:validate`,
