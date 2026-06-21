@@ -75,6 +75,33 @@ frontmatter), not by a `type`. There is no `type: Subsystem` frontmatter value.
 - Broken links are tolerated (they may be not-yet-written knowledge); the validator
   reports them as warnings, never errors.
 
+## Code in concepts — separate truth by type
+
+Two kinds of truth live in this repo, and each has exactly one home:
+
+- **Executable truth** — code, tests, schemas, workflow YAML, generated API reference.
+  It is verified by running it; its single source is the file that runs. This is
+  everything in the repo **outside `docs/`**.
+- **Explanatory truth** — ADRs/`Decision`s, glossary, business rules, runbooks,
+  architecture context, ownership, cross-system knowledge. It is verified by review and
+  shared understanding; its single source is the `docs/` bundle.
+
+The bundle holds explanatory truth and **points at** executable truth — it never copies
+it. So:
+
+- **Do not paste executable truth verbatim.** Reference it — name the file and symbol, or
+  link it (`see \`src/foo/Bar.ts\` → \`baz()\``). Copied code, schemas, or YAML drift the
+  moment the source changes and the validator cannot catch the divergence.
+- **Illustrative code is fine when it is not a copy:** short pseudo-code, a formula, an
+  API/type _shape_, or a minimal example written for the doc. Keep it to the smallest
+  fragment that makes the point, and prefer prose + a citation over a fragment when either
+  works.
+- A `Specification` describes behaviour and contracts; if you find yourself reproducing an
+  implementation, link to it and describe what it guarantees instead.
+
+This is the docs-bundle expression of DRY — explanatory truth here in `docs/`, executable
+truth everywhere outside it.
+
 ## Create / Update / Supersede
 
 - **Create** a concept when: a new subsystem appears (a subsystem `index.md` + initial

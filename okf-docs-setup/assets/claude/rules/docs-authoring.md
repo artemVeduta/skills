@@ -1,6 +1,6 @@
 ---
 paths:
-  - 'docs/**/*.md'
+  - "docs/**/*.md"
 ---
 
 # Authoring the docs bundle
@@ -16,4 +16,9 @@ paths:
 - **Update ceremony** (this is an edit, so it applies now): bump `timestamp`; append a
   `log.md` entry; amend `Decision`s (dated `# Amendments`, never rewrite); supersede via
   `status` + `superseded_by`, never silent delete.
+- **Separate truth by type** — `docs/` holds explanatory truth (ADRs, glossary, business
+  rules, runbooks, architecture/ownership/cross-system context); executable truth (code,
+  tests, schemas, workflow YAML, generated API ref — everything outside `docs/`) is
+  referenced, never pasted. It drifts and the validator can't catch it. Short
+  pseudo-code/formulas/shapes are fine. See "Code in concepts" in the policy.
 - Use the `docs-add` skill to scaffold a new concept; `docs-validate` is the backstop.
