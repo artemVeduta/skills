@@ -143,7 +143,7 @@ is a required step, not optional polish.
 
 ### Phase 4 — Wire it into project memory
 
-Add this Documentation section to the target's `CLAUDE.md` (create the file if absent),
+Add this Documentation section to the target's `CLAUDE.md`/`AGENTS.md` (create the file if absent),
 swapping `<pm>` for the chosen package-manager command:
 
 ```md
@@ -151,6 +151,15 @@ swapping `<pm>` for the chosen package-manager command:
 
 - Repo knowledge lives in an OKF v0.1 bundle at `docs/`. Single source of truth for the
   lifecycle: `docs/conventions/documentation.md`.
+- For any non-trivial design, review, feature work, bugfix, or refactor, consult the
+  relevant OKF docs in addition to the code: applicable `decisions/` (ADRs),
+  `specifications/`, the touched subsystem's `index.md`, `glossary/`, and `references/`.
+  Code is the source of truth for current behavior. Docs are an additional source for
+  intent, terminology, constraints, and prior decisions; do not duplicate implementation
+  details from code into docs. If docs and code disagree, verify against the code, call out
+  the mismatch, and update docs only when explicitly doing documentation work. Any sub-agent
+  dispatched for non-trivial work MUST be given the relevant `docs/` concept files in its
+  reading scope.
 - Scaffold a concept with the `docs-add` skill; check conformance with `docs-validate`
   (`<pm> docs:validate` — advisory, never blocks).
 ```
