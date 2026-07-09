@@ -1,0 +1,37 @@
+---
+type: Convention
+title: Byte-exact assets contract
+description: Rules for editing the okf-docs-setup skill's assets, its intentional placeholders, the package-manager substitution target, and the claude/ install rename.
+timestamp: 2026-07-10
+---
+
+# Byte-exact assets contract
+
+- **Everything under `skills/okf-docs-setup/assets/` is byte-exact contract
+  material.** It is copied verbatim into target repos on install. Never
+  regenerate it from memory; never route it through a subagent that summarizes.
+- **Edit assets only when intentionally changing the contract.** Structural
+  changes need a reason. When behaviour changes, update the matching test
+  (`skills/okf-docs-setup/assets/scripts/validate-docs.test.mjs`) and keep the
+  manifest table in `skills/okf-docs-setup/SKILL.md` in sync.
+- **`<YYYY-MM-DD>`, `<PROJECT>`, and `<source-edit-path-glob>` are intentional
+  placeholders** throughout `assets/` — they are filled per-install. Do not
+  fill them in this source repo.
+- **The literal `pnpm docs:validate` inside `assets/` is a substitution
+  target**, not a command. When rewriting the package manager for a target
+  repo, match the full literal `pnpm docs:validate`, never the bare
+  `docs:validate` — the bare form is also a `package.json` script *definition*
+  that must stay unchanged. (This repo's own bundle is validated with
+  `npm run docs:validate`; see
+  [/okf-docs-setup/specs/validator.md](/okf-docs-setup/specs/validator.md).)
+- **`assets/claude/` ships as `claude/`** and is renamed to `.claude/` on
+  install (leading-dot rename).
+
+## Rationale
+
+The assets are the distributed product: whatever bytes live in
+`skills/okf-docs-setup/assets/` land verbatim in every target repo. Any
+"helpful" regeneration, summarization, or premature placeholder-filling
+silently changes the contract for all future installs, and a bare
+`docs:validate` match would corrupt the shipped `package.json` script
+definitions.

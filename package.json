@@ -1,0 +1,8 @@
+{
+  "name": "skills",
+  "private": true,
+  "scripts": {
+    "docs:validate": "node scripts/validate-docs.mjs",
+    "docs:validate:test": "node --test scripts/*.test.mjs"
+  }
+}
