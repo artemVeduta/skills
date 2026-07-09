@@ -13,7 +13,6 @@ export const recommendedFields = ['title', 'description', 'timestamp'];
 const excludedTopLevelDirs = new Set(['superpowers']);
 const isoRe = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:\d{2})?)?$/;
 const isoDateRe = /^\d{4}-\d{2}-\d{2}$/;
-const linkRe = /\]\((\/[^)\s#]+)(#[^)\s]*)?\)/g;
 
 function stripInlineComment(value) {
   let inSingle = false;
@@ -53,42 +52,15 @@ export function parseFrontmatter(text) {
   if (end === -1) {
     return { ok: false, reason: 'unterminated frontmatter (no closing ---)' };
   }
+  // Extract scalar `key: value` pairs only. No validation rule consumes a
+  // list-valued field, so unrecognized lines (list items, blanks, comments)
+  // are ignored rather than rejected — deliberately tolerant for an advisory
+  // validator.
   const data = {};
-  let currentListKey = null;
   for (let i = 1; i < end; i += 1) {
-    const raw = lines[i];
-    const trimmed = raw.trim();
-    if (trimmed === '' || trimmed.startsWith('#')) {
-      currentListKey = null;
-      continue;
-    }
-    if (currentListKey && /^\s*-\s+/.test(raw)) {
-      data[currentListKey].push(
-        unquote(stripInlineComment(raw.replace(/^\s*-\s+/, '')).trim())
-      );
-      continue;
-    }
-    const m = raw.match(/^([A-Za-z0-9_]+):\s*(.*)$/);
-    if (!m) {
-      return { ok: false, reason: `unparseable frontmatter line: "${raw}"` };
-    }
-    const key = m[1];
-    const value = stripInlineComment(m[2]).trim();
-    if (value === '') {
-      data[key] = [];
-      currentListKey = key;
-      continue;
-    }
-    currentListKey = null;
-    if (value.startsWith('[') && value.endsWith(']')) {
-      data[key] = value
-        .slice(1, -1)
-        .split(',')
-        .map((s) => unquote(s.trim()))
-        .filter((s) => s !== '');
-    } else {
-      data[key] = unquote(value);
-    }
+    const m = lines[i].match(/^([A-Za-z0-9_]+):\s*(.*)$/);
+    if (!m) continue;
+    data[m[1]] = unquote(stripInlineComment(m[2]).trim());
   }
   return { ok: true, data, body: lines.slice(end + 1).join('\n') };
 }
@@ -120,6 +92,8 @@ export function validateConcept(relPath, text) {
 }
 
 export function validateReserved(relPath, text, isRoot) {
+  // Reserved-file checks emit only warnings, but the symmetric { errors, warnings }
+  // shape is deliberate so validateBundle can spread both branches identically.
   const errors = [];
   const warnings = [];
   const base = relPath.split('/').pop();
@@ -146,11 +120,19 @@ export function validateReserved(relPath, text, isRoot) {
   return { errors, warnings };
 }
 
+// Strip fenced code blocks (``` or ~~~) and inline code spans so illustrative
+// link placeholders inside code (e.g. `/absolute/path.md`) are not mistaken
+// for real bundle links.
+function stripCode(text) {
+  return text
+    .replace(/^[ \t]*(`{3,}|~{3,})[\s\S]*?\n[ \t]*\1[ \t]*$/gm, '')
+    .replace(/(`+)[^\n]*?\1/g, '');
+}
+
 export function checkLinks(relPath, text, allRelPaths) {
   const warnings = [];
-  linkRe.lastIndex = 0;
-  let m;
-  while ((m = linkRe.exec(text)) !== null) {
+  const scannable = stripCode(text);
+  for (const m of scannable.matchAll(/\]\((\/[^)\s#]+)(#[^)\s]*)?\)/g)) {
     const target = m[1].replace(/^\//, '');
     if (target.endsWith('.md') && !allRelPaths.has(target)) {
       warnings.push(`${relPath}: broken internal link -> /${target}`);
@@ -186,13 +168,11 @@ export async function walkDocs(rootDir) {
   return out;
 }
 
-/** Warnings for concepts in `concepts` not linked (by exact basename) from an index's text. */
+// Warnings for concepts in `concepts` not linked (by exact basename) from an index's text.
 export function indexCoverageWarnings(indexRel, indexText, dir, concepts) {
   const warnings = [];
   const linkedBasenames = new Set();
-  linkRe.lastIndex = 0;
-  let m;
-  while ((m = linkRe.exec(indexText)) !== null) {
+  for (const m of indexText.matchAll(/\]\((\/[^)\s#]+)(#[^)\s]*)?\)/g)) {
     const target = m[1].replace(/^\//, '');
     if (target.endsWith('.md')) {
       linkedBasenames.add(target.split('/').pop());

@@ -9,10 +9,9 @@ import {
 } from './validate-docs.mjs';
 
 test('parseFrontmatter reads a simple block', () => {
-  const r = parseFrontmatter('---\ntype: Decision\ntitle: X\ntags: [a, b]\n---\nbody');
+  const r = parseFrontmatter('---\ntype: Decision\ntitle: X\n---\nbody');
   assert.equal(r.ok, true);
   assert.equal(r.data.type, 'Decision');
-  assert.deepEqual(r.data.tags, ['a', 'b']);
   assert.equal(r.body.trim(), 'body');
 });
 
@@ -88,11 +87,6 @@ test('parseFrontmatter keeps a # inside quotes and strips a trailing comment', (
   assert.equal(r.data.type, 'Decision');
 });
 
-test('parseFrontmatter reads a multi-line block list', () => {
-  const r = parseFrontmatter('---\ntype: Decision\ntags:\n  - a\n  - b\n---\nx');
-  assert.deepEqual(r.data.tags, ['a', 'b']);
-});
-
 test('parseFrontmatter tolerates CRLF line endings', () => {
   const r = parseFrontmatter('---\r\ntype: Decision\r\n---\r\nbody');
   assert.equal(r.ok, true);
@@ -106,4 +100,19 @@ test('indexCoverageWarnings does not treat focus.md as covered by slide-focus.md
     'slide-focus.md',
   ]);
   assert.ok(warnings.some((w) => /focus\.md/.test(w) && !/slide-focus/.test(w)));
+});
+
+test('checkLinks ignores a link inside an inline code span', () => {
+  const warnings = checkLinks(
+    'a.md',
+    'placeholder `[Title](/absolute/path.md)` and real [ok](/b.md)',
+    new Set(['a.md', 'b.md'])
+  );
+  assert.equal(warnings.length, 0);
+});
+
+test('checkLinks ignores a link inside a fenced code block', () => {
+  const text = '```\nsee [x](/missing/x.md)\n```\nand real [ok](/b.md)\n';
+  const warnings = checkLinks('a.md', text, new Set(['a.md', 'b.md']));
+  assert.equal(warnings.length, 0);
 });
