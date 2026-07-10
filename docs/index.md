@@ -11,6 +11,7 @@ An Open Knowledge Format (OKF) v0.1 bundle. Lifecycle policy:
 
 - [Conventions](/conventions/index.md) - repo-wide prescriptive rules
 - [Glossary](/glossary/index.md) - repo-wide domain terms
+- [Specifications](/specs/index.md) - contracts of repo-wide utilities (skill installer)
 - [References](/references/index.md) - external material mirrored as concepts
 
 ## Subsystems

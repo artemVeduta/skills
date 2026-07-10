@@ -5,7 +5,7 @@ set -euo pipefail
 # target agent skill directories (~/.agents/skills, ~/.claude/skills,
 # ~/.claude-work/skills, or a custom path).
 #
-# Only <repo>/<skill-dir>/SKILL.md is discovered. Nested SKILL.md files
+# Only <repo>/skills/<skill>/SKILL.md is discovered. Nested SKILL.md files
 # (e.g. inside <skill>/assets/) are children of their parent skill and
 # are NOT installed standalone.
 #
@@ -66,7 +66,7 @@ done
 
 # ---- discovery (top-level skills only) ----------------------------------
 
-# -maxdepth 2: <repo>/<skill>/SKILL.md. Excludes nested SKILL.md inside
+# -maxdepth 3: <repo>/skills/<skill>/SKILL.md. Excludes nested SKILL.md inside
 # <skill>/assets/... — those are children of the parent skill.
 declare -a skill_srcs=()
 declare -a skill_names=()
@@ -76,7 +76,7 @@ while IFS= read -r -d '' skill_md; do
   name="$(basename "$src")"
   skill_srcs+=("$src")
   skill_names+=("$name")
-done < <(find "$REPO" -maxdepth 2 -name SKILL.md \
+done < <(find "$REPO" -maxdepth 3 -name SKILL.md \
            -not -path '*/.git/*' \
            -not -path '*/node_modules/*' \
            -print0)
