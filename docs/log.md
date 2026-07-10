@@ -2,6 +2,13 @@
 
 ## 2026-07-10
 
+- **Update** of [/glossary/harness.md](/glossary/harness.md) — distinguished a harness
+  product from independently configured harness profiles and recorded the
+  `CLAUDE_CONFIG_DIR` and `CODEX_HOME` isolation boundaries.
+- **Creation** of [Use three skill distribution channels](/decisions/skill-distribution-channels.md)
+  — separated development symlinks, portable pure-skill installation, and native
+  aggregate plugins; defined profile exclusivity and the registry-driven flow for
+  adding harnesses. Adds the reserved [/decisions/index.md](/decisions/index.md).
 - **Creation** of [/glossary/harness.md](/glossary/harness.md) — the term "harness":
   the agent runtime a skill is installed into, with today's supported install
   targets.

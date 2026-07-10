@@ -9,6 +9,7 @@ An Open Knowledge Format (OKF) v0.1 bundle. Lifecycle policy:
 
 ## Repo-wide
 
+- [Decisions](/decisions/index.md) - durable architectural choices and their trade-offs
 - [Conventions](/conventions/index.md) - repo-wide prescriptive rules
 - [Glossary](/glossary/index.md) - repo-wide domain terms
 - [Specifications](/specs/index.md) - contracts of repo-wide utilities (skill installer)
