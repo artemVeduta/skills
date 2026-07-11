@@ -2,6 +2,7 @@
 paths:
   - "skills/**/*"
   - "scripts/**/*"
+  - "tools/**/*"
 ---
 
 # Keep docs in sync with source

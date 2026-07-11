@@ -1,0 +1,18 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  static-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Skill linter (strict — the only gate)
+        run: npm run lint:skills:strict
+      - name: Docs validator (advisory — never fails the job)
+        run: npm run docs:validate
