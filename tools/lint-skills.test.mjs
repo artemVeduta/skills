@@ -1,5 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
 import {
   parseFrontmatter,
   lintFrontmatter,
@@ -10,7 +15,12 @@ import {
   lintCrossSkillPaths,
   lintSupportSubdirs,
   lintReadmeInventory,
+  collectSkills,
+  lintSkillTree,
+  formatReport,
 } from './lint-skills.mjs';
+
+const CLI = fileURLToPath(new URL('./lint-skills.mjs', import.meta.url));
 
 test('parseFrontmatter reads a hyphenated key', () => {
   const r = parseFrontmatter('---\nname: x\ndisable-model-invocation: true\n---\nbody');
@@ -134,4 +144,108 @@ test('lintReadmeInventory warns on a stale inventory entry', () => {
   const readme = '## Skills\n\n- [`a`](skills/a/SKILL.md) — a.\n- [`gone`](skills/gone/SKILL.md) — x.';
   const { warnings } = lintReadmeInventory(['a'], readme);
   assert.ok(warnings.some((w) => /"gone"/.test(w)));
+});
+
+async function makeTree(skills) {
+  const root = await mkdtemp(join(tmpdir(), 'skill-lint-'));
+  for (const [name, files] of Object.entries(skills)) {
+    await mkdir(join(root, name), { recursive: true });
+    for (const [rel, content] of Object.entries(files)) {
+      const full = join(root, name, rel);
+      await mkdir(join(full, '..'), { recursive: true });
+      await writeFile(full, content);
+    }
+  }
+  return root;
+}
+
+test('formatReport returns a single line for a clean tree', () => {
+  assert.match(formatReport({ errors: [], warnings: [] }), /all skills conform/);
+});
+
+test('formatReport shows both tiers and a summary', () => {
+  const out = formatReport({ errors: ['e1'], warnings: ['w1'] });
+  assert.match(out, /ERRORS/);
+  assert.match(out, /Warnings/);
+  assert.match(out, /1 error\(s\), 1 warning\(s\)/);
+});
+
+test('collectSkills picks up only directories with a SKILL.md', async () => {
+  const root = await makeTree({
+    good: { 'SKILL.md': '---\nname: good\ndescription: d\n---\nbody' },
+    notaskill: { 'notes.md': 'x' },
+  });
+  try {
+    const skills = await collectSkills(root);
+    assert.deepEqual([...skills.keys()], ['good']);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('lintSkillTree classifies a clean skill with no findings', async () => {
+  const root = await makeTree({
+    alpha: { 'SKILL.md': '---\nname: alpha\ndescription: d\n---\n## Overview\n\nok' },
+  });
+  try {
+    const readme = '## Skills\n\n- [`alpha`](skills/alpha/SKILL.md) — a.';
+    const { errors, warnings } = await lintSkillTree(root, readme);
+    assert.deepEqual(errors, []);
+    assert.deepEqual(warnings, []);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('lintSkillTree reports a name mismatch as an ERROR', async () => {
+  const root = await makeTree({
+    alpha: { 'SKILL.md': '---\nname: beta\ndescription: d\n---\n## Overview\n' },
+  });
+  try {
+    const { errors } = await lintSkillTree(root, '');
+    assert.ok(errors.some((e) => /!= directory name/.test(e)));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('lintSkillTree reports a dependency cycle as an ERROR', async () => {
+  const root = await makeTree({
+    a: { 'SKILL.md': '---\nname: a\ndescription: d\n---\n## Required skills\n\n- b\n' },
+    b: { 'SKILL.md': '---\nname: b\ndescription: d\n---\n## Required skills\n\n- a\n' },
+  });
+  try {
+    const { errors } = await lintSkillTree(root, '');
+    assert.ok(errors.some((e) => /cycle/.test(e)));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('lintSkillTree reports a missing required skill as an ERROR', async () => {
+  const root = await makeTree({
+    a: { 'SKILL.md': '---\nname: a\ndescription: d\n---\n## Required skills\n\n- ghost\n' },
+  });
+  try {
+    const { errors } = await lintSkillTree(root, '');
+    assert.ok(errors.some((e) => /ghost/.test(e) && /does not exist/.test(e)));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('CLI exits 0 by default even with errors, and 1 under --strict', async () => {
+  const root = await makeTree({
+    a: { 'SKILL.md': '---\nname: mismatch\ndescription: d\n---\n## Overview\n' },
+  });
+  try {
+    const plain = spawnSync(process.execPath, [CLI, root, '/dev/null'], { encoding: 'utf8' });
+    assert.equal(plain.status, 0);
+    assert.match(plain.stdout, /ERRORS/);
+
+    const strict = spawnSync(process.execPath, [CLI, '--strict', root, '/dev/null'], { encoding: 'utf8' });
+    assert.equal(strict.status, 1);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });

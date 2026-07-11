@@ -1,7 +1,12 @@
+import { readdir, readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   parseRequiredSkills,
   parseRuntimeInvocations,
   reconcileInvocations,
+  missingNodes,
+  findCycles,
 } from './skill-graph.mjs';
 
 export const ALLOWED_KEYS = new Set([
@@ -168,4 +173,123 @@ export function lintReadmeInventory(skillNames, readmeText) {
     }
   }
   return { errors: [], warnings };
+}
+
+export async function collectSkills(skillsRoot) {
+  const skills = new Map();
+  let entries;
+  try {
+    entries = await readdir(skillsRoot, { withFileTypes: true });
+  } catch {
+    return skills;
+  }
+  for (const e of entries) {
+    if (!e.isDirectory()) continue;
+    const dirName = e.name;
+    const skillDir = join(skillsRoot, dirName);
+    let text;
+    try {
+      text = await readFile(join(skillDir, 'SKILL.md'), 'utf8');
+    } catch {
+      continue;
+    }
+    const fm = parseFrontmatter(text);
+    const children = await readdir(skillDir, { withFileTypes: true });
+    const subdirNames = children.filter((c) => c.isDirectory()).map((c) => c.name);
+    skills.set(dirName, {
+      relPath: dirName,
+      dirName,
+      text,
+      data: fm.ok ? fm.data : {},
+      body: fm.ok ? fm.body : '',
+      fmOk: fm.ok,
+      fmReason: fm.ok ? null : fm.reason,
+      subdirNames,
+    });
+  }
+  return skills;
+}
+
+export async function lintSkillTree(skillsRoot, readmeText) {
+  const errors = [];
+  const warnings = [];
+  const skills = await collectSkills(skillsRoot);
+  const knownSkillNames = new Set(skills.keys());
+  const knownSkills = new Map();
+  for (const [name, s] of skills) {
+    knownSkills.set(name, { userInvoked: s.data['disable-model-invocation'] === 'true' });
+  }
+
+  const collect = (r) => {
+    errors.push(...r.errors);
+    warnings.push(...r.warnings);
+  };
+
+  for (const [name, s] of skills) {
+    const rel = `${s.relPath}/SKILL.md`;
+    if (!s.fmOk) {
+      errors.push(`${rel}: ${s.fmReason}`);
+      continue;
+    }
+    collect(lintFrontmatter(rel, s.data));
+    collect(lintName(rel, s.data.name, s.dirName));
+    collect(lintBody(rel, s.body));
+    collect(lintHeadings(rel, s.body));
+    collect(lintDependencies(rel, s.body, knownSkills));
+    collect(lintCrossSkillPaths(rel, name, s.body, knownSkillNames));
+    collect(lintSupportSubdirs(s.relPath, s.subdirNames));
+  }
+
+  const graph = new Map();
+  for (const [name, s] of skills) {
+    graph.set(name, s.fmOk ? parseRequiredSkills(s.body) : []);
+  }
+  for (const { from, missing } of missingNodes(graph)) {
+    errors.push(`${from}/SKILL.md: required skill "${missing}" does not exist in the library`);
+  }
+  for (const cycle of findCycles(graph)) {
+    errors.push(`dependency cycle: ${cycle.join(' -> ')} -> ${cycle[0]}`);
+  }
+
+  collect(lintReadmeInventory([...knownSkillNames], readmeText));
+  return { errors, warnings };
+}
+
+export function formatReport({ errors, warnings }) {
+  if (errors.length === 0 && warnings.length === 0) {
+    return 'lint:skills — all skills conform; no findings.';
+  }
+  const lines = [];
+  if (errors.length > 0) {
+    lines.push(`ERRORS — contract breaks (${errors.length}):`);
+    for (const e of errors) lines.push(`  ${e}`);
+    lines.push('');
+  }
+  if (warnings.length > 0) {
+    lines.push(`Warnings — style drift (${warnings.length}):`);
+    for (const w of warnings) lines.push(`  ${w}`);
+    lines.push('');
+  }
+  lines.push(`${errors.length} error(s), ${warnings.length} warning(s).`);
+  return lines.join('\n');
+}
+
+async function main() {
+  const argv = process.argv.slice(2);
+  const strict = argv.includes('--strict');
+  const positional = argv.filter((a) => !a.startsWith('--'));
+  const skillsRoot = positional[0] || 'skills';
+  const readmePath = positional[1] || 'README.md';
+  let readmeText = '';
+  try {
+    readmeText = await readFile(readmePath, 'utf8');
+  } catch {
+  }
+  const result = await lintSkillTree(skillsRoot, readmeText);
+  console.log(formatReport(result));
+  process.exit(strict && result.errors.length > 0 ? 1 : 0);
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  main();
 }
