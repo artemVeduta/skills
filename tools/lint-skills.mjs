@@ -1,3 +1,9 @@
+import {
+  parseRequiredSkills,
+  parseRuntimeInvocations,
+  reconcileInvocations,
+} from './skill-graph.mjs';
+
 export const ALLOWED_KEYS = new Set([
   'name',
   'description',
@@ -99,6 +105,66 @@ export function lintHeadings(relPath, body) {
     const canonical = canonicalByLower.get(heading.toLowerCase());
     if (canonical && canonical !== heading) {
       warnings.push(`${relPath}: heading "${heading}" is a near-miss of canonical "${canonical}"`);
+    }
+  }
+  return { errors: [], warnings };
+}
+
+export function lintDependencies(relPath, body, knownSkills) {
+  const errors = [];
+  const declared = parseRequiredSkills(body);
+  const invoked = parseRuntimeInvocations(body);
+  for (const name of reconcileInvocations(declared, invoked)) {
+    errors.push(`${relPath}: runtime invocation \`/${name}\` is not declared in ## Required skills`);
+  }
+  for (const dep of declared) {
+    if (knownSkills.has(dep) && knownSkills.get(dep).userInvoked) {
+      errors.push(
+        `${relPath}: required skill "${dep}" is user-invoked (disable-model-invocation: true) and cannot be a dependency`
+      );
+    }
+  }
+  return { errors, warnings: [] };
+}
+
+export function lintCrossSkillPaths(relPath, skillName, body, knownSkillNames) {
+  const errors = [];
+  for (const other of knownSkillNames) {
+    if (other === skillName) continue;
+    if (new RegExp(`(?:skills/|\\.\\./)${other}/`).test(body)) {
+      errors.push(
+        `${relPath}: references another skill's files by path (skills/${other}/ …); invoke by canonical name instead`
+      );
+    }
+  }
+  return { errors, warnings: [] };
+}
+
+export function lintSupportSubdirs(relPath, subdirNames) {
+  const warnings = [];
+  for (const name of subdirNames) {
+    if (!ROLE_SUBDIRS.has(name)) {
+      warnings.push(`${relPath}: support subdir "${name}/" is not role-named (scripts/, templates/, assets/)`);
+    }
+  }
+  return { errors: [], warnings };
+}
+
+export function lintReadmeInventory(skillNames, readmeText) {
+  const warnings = [];
+  const listed = new Set();
+  for (const m of readmeText.matchAll(/\]\(skills\/([^/)]+)\/SKILL\.md\)/g)) {
+    listed.add(m[1]);
+  }
+  const actual = new Set(skillNames);
+  for (const name of actual) {
+    if (!listed.has(name)) {
+      warnings.push(`README.md: skill "${name}" is missing from the inventory`);
+    }
+  }
+  for (const name of listed) {
+    if (!actual.has(name)) {
+      warnings.push(`README.md: inventory lists "${name}" but no such skill directory exists`);
     }
   }
   return { errors: [], warnings };

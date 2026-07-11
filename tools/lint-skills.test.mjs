@@ -6,6 +6,10 @@ import {
   lintName,
   lintBody,
   lintHeadings,
+  lintDependencies,
+  lintCrossSkillPaths,
+  lintSupportSubdirs,
+  lintReadmeInventory,
 } from './lint-skills.mjs';
 
 test('parseFrontmatter reads a hyphenated key', () => {
@@ -70,4 +74,64 @@ test('lintHeadings accepts the exact canonical heading and free-form headings', 
 test('lintHeadings ignores headings inside a fenced code block', () => {
   const body = '```md\n## Common mistakes\n```\n';
   assert.equal(lintHeadings('a/SKILL.md', body).warnings.length, 0);
+});
+
+test('lintDependencies errors on an undeclared runtime invocation', () => {
+  const { errors } = lintDependencies('a/SKILL.md', 'Invoke `/other`.', new Map());
+  assert.ok(errors.some((e) => /\/other/.test(e) && /Required skills/.test(e)));
+});
+
+test('lintDependencies accepts a declared invocation', () => {
+  const body = '## Required skills\n\n- other\n\n## Overview\n\nInvoke `/other`.';
+  const known = new Map([['other', { userInvoked: false }]]);
+  assert.equal(lintDependencies('a/SKILL.md', body, known).errors.length, 0);
+});
+
+test('lintDependencies errors when a required skill is user-invoked', () => {
+  const body = '## Required skills\n\n- other\n';
+  const known = new Map([['other', { userInvoked: true }]]);
+  assert.ok(lintDependencies('a/SKILL.md', body, known).errors.some((e) => /user-invoked/.test(e)));
+});
+
+test('lintDependencies ignores namespaced invocations', () => {
+  const { errors } = lintDependencies('a/SKILL.md', 'Invoke `/superpowers:brainstorming`.', new Map());
+  assert.equal(errors.length, 0);
+});
+
+test('lintCrossSkillPaths errors on a path into another skill', () => {
+  const { errors } = lintCrossSkillPaths(
+    'a/SKILL.md',
+    'a',
+    'see skills/other/helper.md',
+    new Set(['a', 'other'])
+  );
+  assert.equal(errors.length, 1);
+});
+
+test('lintCrossSkillPaths ignores same-skill and target-repo paths', () => {
+  const { errors } = lintCrossSkillPaths(
+    'a/SKILL.md',
+    'a',
+    'copy assets/scripts/x.mjs to scripts/x.mjs',
+    new Set(['a', 'other'])
+  );
+  assert.equal(errors.length, 0);
+});
+
+test('lintSupportSubdirs warns on a non-role-named subdir', () => {
+  const { warnings } = lintSupportSubdirs('a', ['assets', 'helpers']);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /helpers/);
+});
+
+test('lintReadmeInventory warns on a skill missing from the inventory', () => {
+  const readme = '## Skills\n\n- [`a`](skills/a/SKILL.md) — does a thing.';
+  const { warnings } = lintReadmeInventory(['a', 'b'], readme);
+  assert.ok(warnings.some((w) => /"b"/.test(w) && /missing/.test(w)));
+});
+
+test('lintReadmeInventory warns on a stale inventory entry', () => {
+  const readme = '## Skills\n\n- [`a`](skills/a/SKILL.md) — a.\n- [`gone`](skills/gone/SKILL.md) — x.';
+  const { warnings } = lintReadmeInventory(['a'], readme);
+  assert.ok(warnings.some((w) => /"gone"/.test(w)));
 });
