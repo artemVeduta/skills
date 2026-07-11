@@ -3,6 +3,12 @@
 Personal library of Claude Code skills (`skills/<name>/`) with shared shell utilities
 in `scripts/`.
 
+## Skill inventory
+
+- Root `README.md` is the public skill inventory and install entry point. Adding or
+  removing a skill under `skills/` updates the README inventory (one line per skill:
+  name + purpose) in the same change.
+
 ## Documentation
 
 - Repo knowledge lives in an OKF v0.1 bundle at `docs/`. Single source of truth for the
