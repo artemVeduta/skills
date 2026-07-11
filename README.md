@@ -46,10 +46,29 @@ come along.
 
 ### Native aggregate plugins
 
-Claude Code and Codex each get a thin native plugin packaging the complete skill
-tree; the harness CLI owns install, namespacing, enablement, and updates, per
-configuration root (`CLAUDE_CONFIG_DIR` / `CODEX_HOME`). The marketplace manifests
-have not landed yet — until they do, use one of the two channels above.
+Install the whole library as one native plugin; the harness CLI owns install,
+namespacing, enablement, and updates, per configuration root
+(`CLAUDE_CONFIG_DIR` / `CODEX_HOME`).
+
+**Claude Code:**
+
+```bash
+claude plugin marketplace add artemVeduta/skills
+claude plugin install skills@artemveduta
+```
+
+Skills install namespaced (e.g. `/skills:okf-docs-setup`). Update path:
+`claude plugin marketplace update artemveduta` (the harness plugin updater).
+
+**Codex:**
+
+```bash
+codex plugin marketplace add artemVeduta/skills
+codex plugin add skills@artemveduta
+```
+
+Update path: `codex plugin marketplace upgrade artemveduta` (the harness
+plugin updater).
 
 ## Warnings
 

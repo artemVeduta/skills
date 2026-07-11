@@ -2,6 +2,13 @@
 
 ## 2026-07-11
 
+- **Creation** of [Native aggregate plugins & release script](/specs/native-plugins-and-release.md)
+  — implemented issue #21: Codex + Claude Code plugin/marketplace manifests, the
+  `scripts/release.mjs` snapshot-release ritual, and the README native-channel
+  instructions; resolves the platform PRD's release-script and `scripts/`↔`tools/`
+  implementer-owned gaps.
+- **Update** — rewrote [Skills library & building platform — PRD](/specs/skills-platform.md)
+
 - **Update** — rewrote [Skills library & building platform — PRD](/specs/skills-platform.md)
   from the locked-spec format into the to-spec PRD template (problem/solution, user
   stories, per-area implementation decisions, testing seams, out-of-scope,

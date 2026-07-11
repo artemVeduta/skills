@@ -1,0 +1,11 @@
+{
+  "name": "artemveduta",
+  "owner": { "name": "Artem Veduta" },
+  "plugins": [
+    {
+      "name": "skills",
+      "source": "./",
+      "description": "Artem Veduta's personal library of agent skills."
+    }
+  ]
+}

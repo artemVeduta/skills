@@ -3,6 +3,8 @@
   "private": true,
   "scripts": {
     "docs:validate": "node scripts/validate-docs.mjs",
-    "docs:validate:test": "node --test scripts/*.test.mjs"
+    "docs:validate:test": "node --test scripts/validate-docs.test.mjs",
+    "release": "node scripts/release.mjs",
+    "test": "node --test scripts/*.test.mjs"
   }
 }
