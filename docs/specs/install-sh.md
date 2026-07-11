@@ -1,80 +1,286 @@
 ---
 type: Specification
-title: install.sh — library skill installer
-description: Contract of scripts/install.sh — how this library's skills are discovered and symlinked into agent-harness skill directories, which harness targets are supported, when re-running is safe, and how it fails.
-timestamp: 2026-07-10
+title: install.sh — development-links install wizard
+description: PRD for rebuilding scripts/install.sh into the registry-driven interactive wizard that validates the skill dependency graph and symlinks the whole library into selected harness profiles.
+timestamp: 2026-07-11
 ---
 
-# install.sh — library skill installer
+# install.sh — development-links install wizard
 
-The executable source of truth is `scripts/install.sh`; this concept states its
-contract at the explanatory level. It installs **this library's own skills into the
-user's agent harnesses** — a different thing from the
-[okf-docs-setup install contract](/okf-docs-setup/specs/install-contract.md), which
-describes what that *skill* installs into **target repositories** when it runs.
+This is the forward-looking PRD for the development-links installer — the rebuild of
+`scripts/install.sh` tracked in
+[issue #16](https://github.com/artemVeduta/skills/issues/16). It is governed by
+[Use three skill distribution channels](/decisions/skill-distribution-channels.md)
+(as amended 2026-07-10: whole-library development installs) and
+[Declare skill dependencies in SKILL.md](/decisions/skill-dependencies.md), and
+implements the "Distribution and installation" section of the
+[locked platform specification](/specs/skills-platform.md). Vocabulary:
+[skill](/glossary/skill.md), [harness](/glossary/harness.md) (including *harness
+profile*), [skill dependency](/glossary/skill-dependency.md).
 
-## Discovery
+## Problem Statement
 
-- A skill is a directory whose root holds a `SKILL.md`. The script discovers only
-  `<repo>/skills/<name>/SKILL.md` — at most three path levels below the repo root
-  (`find -maxdepth 3`), excluding `.git/` and `node_modules/`.
-- Nested `SKILL.md` files (e.g. inside a skill's `assets/`) are children of their
-  parent skill and are never installed standalone.
-- Discovering zero skills is a hard failure (exit 1).
+A library developer authors [skills](/glossary/skill.md) in a local checkout and wants
+every edit — and every `git pull` — to reach all the [harnesses](/glossary/harness.md)
+they use, immediately and without reinstalling. The current installer gets in the way:
 
-## Supported harnesses (default targets)
+- It forces **per-skill selection**, so a partial install can silently omit a
+  [skill dependency](/glossary/skill-dependency.md) and break a dependent skill at
+  runtime; it performs **no dependency-graph validation** at all.
+- Its target menu is a **hard-coded list of three directories** that predates the
+  harness-profile model — a developer with a work Claude Code profile, an isolated
+  `CODEX_HOME`, or any harness outside the list must type raw paths with no validation.
+- Supporting a **new harness means editing wizard code**, and the hand-written README
+  install section drifts from whatever the script actually does.
+- It changes the filesystem **without a plan preview or confirmation**, including
+  silently deleting non-symlink entries that collide with a skill name.
+- Its skill discovery is a depth-limited filesystem scan that predates the flat
+  `skills/<name>/` layout locked by the platform spec.
 
-The default target set — the harness skill directories the script offers — is the
-`DEFAULT_TARGETS` array in `scripts/install.sh`:
+## Solution
 
-| Target               | Harness                                        |
-| -------------------- | ---------------------------------------------- |
-| `~/.agents/skills`   | harness-neutral shared skills directory        |
-| `~/.claude/skills`   | Claude Code, personal profile                  |
-| `~/.claude-work/skills` | Claude Code, work profile (`~/.claude-work`) |
+Rebuild `scripts/install.sh` as the **development-only interactive wizard** of the
+development-links channel. The developer runs it from the checkout and steps through a
+modern terminal flow: choose harness types, choose or add one or more **harness
+profiles** per harness (unknown setups reachable through a validated custom
+configuration-directory option), review an explicit installation preview, and confirm.
+On confirmation the wizard first **validates the skill dependency graph** — a missing
+canonical dependency or a cycle rejects the whole install with a clear message before
+anything changes — and then **symlinks every library skill** into each selected
+profile's skill directory. There is no per-skill selection: because the whole canonical
+tree is linked, every dependency is present by construction and no closure computation
+is needed.
 
-Any other harness is reachable as a **custom path** — via `--target <path>` or the
-interactive `c` option (leading `~` is expanded). No other harness is a named
-default today; the set may grow as the multi-harness story (issue #4) settles.
+All harness knowledge lives in a **declarative harness registry** — the single source
+of truth shared by the wizard and the README install guidance. Adding an ordinary
+pure-skill harness is a registry-entry-plus-contract-tests change, never a new wizard
+branch. Update semantics stay trivial: edits to the working copy reach every linked
+profile live, and `git pull` is the only update command.
 
-## Modes
+## User Stories
 
-- **No flags** — interactive: pick skills by comma-separated indices or `a` (all),
-  then pick targets by indices, `a` (all defaults), or `c` (custom path).
-- **`--list`** — print discovered skills and exit 0. No installation.
-- **`--all`** — every discovered skill into every default target, no prompts.
-- **`--target <path>`** (repeatable) — every discovered skill into the given
-  path(s), no prompts.
-- **`--help`** — usage text.
+1. As a library developer, I want to run one installer command from my checkout, so
+   that the whole skill library becomes available in my harnesses without copying
+   anything.
+2. As a library developer, I want the installer to link **every** library skill rather
+   than a hand-picked subset, so that every declared skill dependency is guaranteed
+   present when a dependent skill runs.
+3. As a library developer, I want the dependency graph validated before any filesystem
+   change, so that a missing dependency or a cycle rejects the install instead of
+   producing a broken profile.
+4. As a library developer, I want a rejection message that names the offending skill
+   and the missing node or cycle, so that I can fix the `## Required skills`
+   declaration immediately.
+5. As a library developer, I want to choose harness types in a step-by-step flow, so
+   that I only answer questions relevant to the harnesses I actually use.
+6. As a library developer, I want to select multiple profiles of the same harness in
+   one run — personal `~/.claude` and work `~/.claude-work` — so that all my
+   independently configured instances stay in sync from one command.
+7. As a library developer with an isolated `CODEX_HOME`, I want profile paths resolved
+   through the harness's configuration-root environment variable or discovery rules, so
+   that the links land where that profile actually looks.
+8. As a library developer using a harness the registry does not know, I want a custom
+   configuration-directory option with validation, so that unknown profiles remain
+   reachable without waiting for a registry entry.
+9. As a library developer, I want an explicit installation preview — which profiles,
+   which skill directories, and what will be created or replaced — so that I can catch
+   a wrong plan before it executes.
+10. As a library developer, I want confirmation required before any change to my
+    profiles, so that nothing destructive ever happens by surprise.
+11. As a library developer, I want the preview to disclose when a real (non-symlink)
+    file or directory at a skill's link location would be replaced, so that I never
+    lose data I did not knowingly agree to lose.
+12. As a library developer, I want an edit in my working copy to reach every linked
+    profile instantly, so that I can iterate on a skill and test it live in the
+    harness.
+13. As a library developer, I want `git pull` to update every linked profile with no
+    separate reinstall step, so that development-channel updates are just repository
+    pulls.
+14. As a library developer, I want re-running the wizard with the same selections to be
+    idempotent, so that repeated runs converge on the same link state with no errors.
+15. As a library developer who just added a new skill to the library, I want a re-run
+    to pick it up and link it into every selected profile, so that profiles never
+    lag the checkout's skill set.
+16. As a library developer, I want the installer to refuse a target directory that is
+    itself a symlink resolving into the repository, so that per-skill links are never
+    written back into my working copy.
+17. As a library developer, I want the installer to call out (or refuse) linking into
+    `~/.agents/skills`, which is also the portable CLI's own storage, so that I never
+    mix the development and portable channels in one directory.
+18. As a library developer, I want to be steered away from installing development links
+    into a profile that already consumes the library through another channel, so that a
+    harness never exposes the same capability twice.
+19. As a library developer, I want a scriptable non-interactive invocation of the
+    installer, so that automation and tests can drive it without a TTY.
+20. As a library developer, I want an inspection mode that shows the discovered skills
+    and known harness registry entries without installing, so that I can audit what a
+    run would offer.
+21. As a library developer, I want distinct nonzero exit statuses for usage errors,
+    nothing-to-do outcomes, and dependency-graph rejection, so that scripts wrapping
+    the installer can react appropriately.
+22. As a contributor adding support for a new pure-skill harness, I want to add a
+    single registry entry plus contract tests — with no wizard code change — so that
+    harness support scales as data, not control flow.
+23. As a contributor, I want each registry entry covered by contract tests over its
+    paths and selection behavior, so that a wrong skill-directory template or discovery
+    rule fails tests instead of misplacing links on a user's machine.
+24. As a contributor, I want behavioral harness adapters permitted only where native
+    plugin operations need more than path metadata, so that the wizard core stays a
+    pure function of the registry.
+25. As a README reader, I want the install guidance derived from the same registry the
+    wizard uses, so that documentation and installer behavior cannot drift apart.
+26. As a skill author, I want any skill I invoke by canonical `/skill-name` guaranteed
+    resolvable in every linked profile, so that I never need (and am never tempted to
+    use) cross-skill filesystem paths.
+27. As a skill author, I want skill discovery defined as exactly the flat
+    `skills/<name>/` directories with a root `SKILL.md`, so that where I put a skill is
+    never ambiguous and nested `SKILL.md` files inside a skill are never installed
+    standalone.
+28. As a maintainer, I want the terminal presentation replaceable without touching
+    selection or path-resolution logic, so that improving the UI never risks the
+    install contract.
+29. As a maintainer, I want the installer to remain a repository-operator entry point
+    under `scripts/`, so that the `scripts/` vs `tools/` boundary from the platform
+    spec stays intact.
 
-## Install mechanics — symlink, not copy
+## Implementation Decisions
 
-- The target directory is created if missing (`mkdir -p`).
-- Each selected skill is installed as one symlink:
-  `<target>/<name>` → `<repo>/<skill-dir>` (`ln -sfn`). Installed skills therefore
-  **track the working copy live** — editing the repo updates every harness at once;
-  nothing is copied.
-- If `<target>/<name>` already exists and is *not* a symlink (a real directory or
-  file), it is deleted (`rm -rf`) before linking — destructive to anything
-  previously stored under that skill name.
-- **Self-symlink guard:** if the target directory itself is a symlink resolving
-  into this repo, the install refuses it with an error — otherwise per-skill links
-  would be written back into the working copy. Remediation is printed: remove the
-  symlink and re-run; the script recreates the target as a real directory.
+- **Module.** `scripts/install.sh` is rebuilt in place as the development-links wizard.
+  It remains a repository-operator entry point in `scripts/` per the
+  [library-structure Decision](/decisions/skill-library-structure.md). It serves the
+  development channel only.
+- **Skill discovery.** A skill is exactly a directory `skills/<name>/` with a root
+  `SKILL.md`, per the flat-layout rule of the
+  [platform spec](/specs/skills-platform.md). This replaces the current depth-limited
+  filesystem scan. Nested `SKILL.md` files are children of their parent skill and are
+  never installed standalone. Discovering zero skills is a hard failure.
+- **Declarative harness registry.** One registry is the single source of truth for the
+  wizard and the README install guidance. Each entry owns installation metadata only —
+  the trimmed shape (which encodes the Decision's contract):
 
-## Re-run safety
+  ```yaml
+  - id: <stable harness identifier>
+    name: <display name>
+    skill_dirs: # only where the harness supports them
+      project: <path template>
+      global: <path template relative to the configuration root>
+    config_root:
+      env: <configuration-root environment variable, if any>
+      discovery: <profile-discovery rule>
+    scopes: [project, global] # as actually supported
+    channels: [development, portable, native] # as actually supported
+    custom_profile_validation: <rule for a user-supplied profile directory>
+  ```
 
-Re-running is idempotent for the symlinked state: `ln -sfn` replaces an existing
-link in place, so repeated runs converge on the same result. The one destructive
-edge is a *non*-symlink entry at `<target>/<name>`, which is removed and replaced.
+  The wizard must not accumulate per-harness branches for anything expressible in the
+  registry. Behavioral adapters are permitted only where native plugin or marketplace
+  operations need behavior rather than path metadata (Codex, Claude Code) — and those
+  operations belong to the native channel, not this installer. The registry's file
+  format and location are implementer-owned.
+- **Wizard flow (interaction contract).** Step-by-step: choose harness types → choose
+  or add profiles/configuration roots per harness (multiple profiles per harness per
+  run; unknown profiles via a validated custom configuration-directory option) → review
+  an explicit installation summary → confirm → validate the dependency graph → link.
+  Presentation is replaceable; selection and path resolution are independent of the
+  terminal UI and depend only on the registry.
+- **Dependency-graph validation.** Before any filesystem change, the wizard validates
+  the library's dependency graph by reusing the shared graph module (issue #15): parse
+  each skill's `## Required skills` section (the only machine input), enforce canonical
+  names, and detect missing nodes and cycles. Any defect rejects the entire install
+  with a message naming the defect. Because the whole library is linked, no per-skill
+  closure expansion is needed — validation is of the graph itself.
+- **Linking mechanics (carried forward from the current script).** Each skill is
+  installed as one symlink `<profile skill dir>/<name>` → `<checkout>/skills/<name>`
+  via `ln -sfn`; target directories are created if missing; re-runs are idempotent
+  because `ln -sfn` replaces links in place. A non-symlink entry colliding with a skill
+  name is replaced — but only after the preview disclosed it and the user confirmed.
+  The **self-symlink guard** is kept: a target directory that is itself a symlink
+  resolving into this repository is refused with remediation guidance.
+- **Channel-mixing guard.** Linking into `~/.agents/skills` — also the portable CLI's
+  own storage — is called out or refused; and per the distribution-channels Decision, a
+  single harness profile must not consume the library through both the pure-skill and
+  native-plugin channels. Whether the `~/.agents/skills` guard warns or refuses is
+  implementer-owned (the platform spec's implementation notes leave it open).
+- **Non-interactive surface.** A flag-driven, TTY-free invocation exists for automation
+  and tests (in the spirit of the current `--list` / `--all` / `--target`), and exit
+  statuses distinguish usage errors, nothing-to-do outcomes, and validation rejection
+  (all nonzero). The exact flag names and exit-code assignments are implementer-owned.
+- **Update semantics.** None beyond git: edits and `git pull` reach every linked
+  profile live. The installer has no update, sync, or uninstall subcommand mandate;
+  pruning links for skills deleted from the library is implementer-owned (see Further
+  Notes).
+- **README install guidance** is derived from the same registry (regenerated or
+  validated against it), replacing the hand-written section; the generation mechanism
+  is implementer-owned.
 
-## Failure modes
+## Testing Decisions
 
-The script runs under `set -euo pipefail`; any unhandled command failure aborts it.
+- **Exactly one seam: the CLI invocation surface.** Tests execute the installer script
+  as a subprocess — with flags or simulated interactive input — inside a disposable
+  fixture (temporary HOME / configuration roots / target directories). Internal shell
+  functions are never unit-tested.
+- **Assert external behavior only:** exit codes, the stdout plan preview, and the
+  resulting symlink state on disk (which links exist, what they resolve to, and that a
+  re-run converges on the same state). This follows the deterministic-oracle principle
+  of the [skill-testing-architecture Decision](/decisions/skill-testing-architecture.md):
+  pass/fail derives from deterministic state assertions, no inference involved.
+- **What a good test covers** (mirroring the acceptance criteria of issue #16): the
+  preview appears and no filesystem change happens before confirmation; a confirmed run
+  links every library skill into each selected profile; a second run is idempotent; an
+  injected cycle or missing canonical dependency rejects the install with a clear
+  message and leaves the profile untouched; the self-symlink guard refuses a target
+  linking into the repo; the `~/.agents/skills` channel-mixing behavior fires; a
+  non-symlink collision is disclosed and only replaced after confirmation.
+- **Registry contract tests:** each registry entry's path resolution and selection
+  behavior is exercised through the same CLI seam against fixture configuration roots;
+  adding a toy harness entry must pass its contract tests with zero wizard code
+  changes.
+- **Prior art:** `scripts/validate-docs.test.mjs` — `node --test`-based testing of a
+  `scripts/` entry point in this repo — establishes the test-runner convention; the
+  installer's tests differ from it in staying strictly at the subprocess/CLI boundary
+  rather than importing internals.
 
-- **Exit 2** — usage errors: unknown flag, `--target` without a path, an invalid
-  skill/target menu selection, or an empty custom path.
-- **Exit 1** — nothing to do: no skills discovered, no skills selected, or no
-  targets selected.
-- **Self-symlink guard trip** — aborts the whole run at that target (`set -e`);
-  targets already processed keep their links, later targets are not attempted.
+## Out of Scope
+
+- **Portable pure-skill installs** (`npx skills add …`) — owned by the upstream CLI;
+  contract in the [platform spec](/specs/skills-platform.md) and the
+  [skill-dependencies Decision](/decisions/skill-dependencies.md).
+- **Native aggregate plugins** (Codex / Claude Code manifests, marketplaces, adapters'
+  plugin operations) — platform-spec territory.
+- **Per-skill selective installation** — removed from the development channel by the
+  2026-07-10 amendment to the
+  [distribution-channels Decision](/decisions/skill-distribution-channels.md);
+  selective installs live in the portable channel.
+- **The dependency-graph module's internals** — built and specified under issue #15;
+  this installer is a consumer.
+- **Per-skill closure expansion** — unnecessary here (whole-library linking) and a
+  portable-channel concern elsewhere.
+- **The skill linter, test/benchmark harness, release script, and CI wiring** — own
+  sections of the platform spec.
+- **The README install-guidance generator's mechanics** — only the registry contract it
+  consumes is specified here.
+
+## Further Notes
+
+- **Prior art / baseline.** The pre-rebuild `scripts/install.sh` and this concept's
+  previous revision (in git history) document the current contract: `find`-based
+  discovery, per-skill and per-target menus over a hard-coded `DEFAULT_TARGETS` list,
+  `--list` / `--all` / `--target` flags, `ln -sfn` linking, unconditional replacement
+  of non-symlink collisions, the self-symlink guard, and the exit-code split (2 usage,
+  1 nothing-to-do). The rebuild carries forward the linking mechanics, idempotence, and
+  self-symlink guard; it replaces per-skill selection, the hard-coded target list, and
+  undisclosed destructive replacement.
+- **Precedence.** The platform spec's precedence note said the old revision of this
+  concept described the *current* script and would be revised when the new installer
+  lands; this revision is that rewrite, done ahead of implementation as the PRD issue
+  #16 builds against. Until the rebuild ships, the script on disk still implements the
+  baseline contract above.
+- **Implementer-owned gaps** (consistent with the platform spec's implementation
+  notes; none reopens a Decision): the registry's file format and location; exact flag
+  names and exit-code assignments; warn-vs-refuse for `~/.agents/skills`; whether and
+  how stale links (skills removed from the library) are pruned on re-run; the README
+  guidance generation mechanism.
+- **Related but different:** the
+  [okf-docs-setup install contract](/okf-docs-setup/specs/install-contract.md)
+  describes what that *skill* installs into target repositories when it runs — not how
+  this library's skills reach harnesses.

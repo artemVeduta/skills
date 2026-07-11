@@ -2,6 +2,15 @@
 
 ## 2026-07-11
 
+- **Update** — rewrote [Skills library & building platform — PRD](/specs/skills-platform.md)
+  from the locked-spec format into the to-spec PRD template (problem/solution, user
+  stories, per-area implementation decisions, testing seams, out-of-scope,
+  implementer-owned notes); all normative Decision content preserved, no decisions
+  reopened.
+- **Update** — rewrote [install.sh — development-links install wizard](/specs/install-sh.md)
+  from the current-script contract into the forward-looking PRD for the issue #16
+  rebuild (registry-driven wizard, harness profiles, dependency-graph validation,
+  whole-library symlinking), resolving the platform spec's precedence note.
 - **Creation** of [Skills library & building platform — locked specification](/specs/skills-platform.md)
   — assembled the destination artifact of wayfinder map #1 from the eight governing
   Decisions: repository structure, three distribution channels, skill dependencies,
