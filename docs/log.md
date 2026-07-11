@@ -1,7 +1,69 @@
 # Bundle change log
 
+## 2026-07-11
+
+- **Creation** of [CI and automation wiring](/decisions/ci-and-automation-wiring.md)
+  — decided static-only push/PR CI red on linter ERRORs, keeping all inference-bearing
+  runs (skill cases, contract tests, benchmarks) local with no API keys or scheduled
+  workflows, and an advisory staleness warning in the release script (wayfinder
+  ticket #13).
+- **Creation** of [Benchmark metrics and comparison design](/decisions/benchmark-metrics-and-comparison-design.md)
+  — decided smoke/full trial presets, the advisory ≥2-of-5-trial regression flag,
+  committed summary JSON with git-ignored raw artifacts, release-promoted baselines,
+  the identity-set provenance schema, and per-case no-blend reporting (wayfinder
+  ticket #12).
+- **Creation** of [Skill testing and benchmark architecture](/decisions/skill-testing-architecture.md)
+  — decided the trimmed repo-owned test harness in tools/ (fixture builder + headless
+  harness CLIs, Promptfoo/Harbor deferred), deterministic-first grading with advisory
+  LLM judge, central tools/tests/<skill>/ case directories, and paired-trial benchmarks
+  across harnesses, snapshots, and models with provenance (wayfinder ticket #5).
+- **Creation** of [Snapshot releases with mirrored manifest versions](/decisions/versioning-and-release-policy.md)
+  — GitHub releases as semver-shaped snapshot tags with no compatibility contract,
+  plugin manifest versions mirroring the tag, and a scripts/ release script owning the
+  bump-commit-tag-release ritual; dev-symlink and npx channels keep tracking git.
+- **Creation** of [Skill authoring conventions and quality bar](/decisions/skill-authoring-conventions.md)
+  — layered trigger-only descriptions, a minimal section skeleton with canonical
+  optional headings, the invocation-axis frontmatter allowlist, role-named support
+  subdirs, soft-200/hard-500 disclosure, and an advisory two-tier linter on top of the
+  portable Agent Skills floor.
+- **Creation** of [obra/superpowers skill library](/references/obra-superpowers.md)
+  — recorded the example-reference project and the authoring/portability ideas this
+  library borrows from it (trigger-only descriptions, actions-not-tools, strength-marked
+  cross-references, baseline-fail testing).
+- **Creation** of [mattpocock/skills skill library](/references/mattpocock-skills.md)
+  — recorded the inspiration-baseline project and the ideas borrowed from it (minimal
+  frontmatter, invocation axis, sibling-file progressive disclosure, meta-skill quality
+  bar) plus the conscious divergences.
+
 ## 2026-07-10
 
+- **Creation** of [Agent skill testing and benchmarking landscape](/references/agent-skill-testing-landscape.md)
+  — surveyed deterministic validation, headless OpenCode/Codex/Claude runs, Promptfoo,
+  Harbor, Anthropic evaluation workflows, and skills.sh signals to inform the
+  testing-architecture decision.
+- **Creation** of [Organize the library around flat, skill-owned directories](/decisions/skill-library-structure.md)
+  — recorded the flat skill tree, tooling boundaries, skill-owned assets, README
+  synchronization rule, and amended home for skill-specific contracts.
+- **Creation** of [Declare skill dependencies in SKILL.md](/decisions/skill-dependencies.md)
+  — standardized cross-skill declarations, invocation, validation, and installation
+  behavior.
+- **Update** of [Skill dependency](/glossary/skill-dependency.md) — standardized separate
+  machine-readable `## Required skills` and explanatory `## Integration` sections.
+- **Update** of [Skill dependency](/glossary/skill-dependency.md) — separated plain
+  canonical names in `## Required skills` from slash-prefixed runtime invocation syntax.
+- **Update** of [Skill dependency](/glossary/skill-dependency.md) — replaced the proposed
+  metadata declaration with a mandatory `## Required skills` section and canonical
+  `/skill-name` entries.
+- **Update** of [Use three skill distribution channels](/decisions/skill-distribution-channels.md)
+  — amended development installation to link the whole library and recorded the portable
+  dependency-resolution constraint.
+- **Update** of [Skill dependency](/glossary/skill-dependency.md) — chose namespaced
+  `SKILL.md` metadata, canonical-name runtime references, safe default closure, and an
+  explicit bypass.
+- **Update** of [Skill dependency](/glossary/skill-dependency.md) — made transitive
+  dependency closure mandatory and missing dependencies or cycles installation errors.
+- **Creation** of [Skill dependency](/glossary/skill-dependency.md) — defined required
+  runtime relationships between skills.
 - **Update** of [/glossary/harness.md](/glossary/harness.md) — distinguished a harness
   product from independently configured harness profiles and recorded the
   `CLAUDE_CONFIG_DIR` and `CODEX_HOME` isolation boundaries.

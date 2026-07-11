@@ -123,7 +123,17 @@ resolution remain independent of the terminal UI and depend on the registry.
 
 ## Amendments
 
-<!-- Append dated entries; never rewrite the decision above.
-## YYYY-MM-DD — <short title>
-<what changed and why; link the driving work>
--->
+## 2026-07-10 — Link the whole library during development
+
+[The skill-dependency decision](https://github.com/artemVeduta/skills/issues/6) revises
+development installation from per-skill selection to whole-library installation. The
+development wizard selects harness profiles and symlinks every library skill into each
+selected profile, after validating the dependency graph. Because the whole canonical
+skill tree is present, development installation does not need to resolve a selected
+skill's closure.
+
+Portable installation remains selective. Its target contract expands required
+dependencies by default and permits bypass only through an explicit unsafe option. The
+current upstream `skills` CLI does not yet implement dependency metadata or closure, so
+safe selective portable installation of dependent skills remains contingent on upstream
+support; `--skill '*'` is the current whole-library fallback.
