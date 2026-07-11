@@ -2,6 +2,11 @@
 
 ## 2026-07-11
 
+- **Creation** of [Skills library & building platform — locked specification](/specs/skills-platform.md)
+  — assembled the destination artifact of wayfinder map #1 from the eight governing
+  Decisions: repository structure, three distribution channels, skill dependencies,
+  authoring conventions, versioning/releases, testing/benchmark harness, and CI wiring,
+  plus the implementer-owned gaps (wayfinder ticket #8; closes the map).
 - **Creation** of [CI and automation wiring](/decisions/ci-and-automation-wiring.md)
   — decided static-only push/PR CI red on linter ERRORs, keeping all inference-bearing
   runs (skill cases, contract tests, benchmarks) local with no API keys or scheduled
