@@ -150,55 +150,41 @@ function buildWarnings(targets) {
   return warnings;
 }
 
-// A shared readline interface answers two prompts (harness selection, then
-// confirm) across an async gap (dependency-graph + self-symlink-guard work
-// happens in between). `rl.question()`'s one-shot 'line' listener loses any
-// line that arrives in the same input chunk but after that gap, because
-// Node's readline parses a whole buffered chunk (and can emit 'close' on
-// stream EOF) synchronously, before a listener attached after an `await` is
-// back in place. A persistent 'line' listener queues lines as they arrive so
-// nothing is dropped, regardless of when the consumer asks for the next one.
-const lineQueues = new WeakMap();
-function nextLineFrom(rl) {
-  let q = lineQueues.get(rl);
-  if (!q) {
-    q = { queue: [], waiters: [] };
-    rl.on('line', (line) => {
-      if (q.waiters.length) q.waiters.shift()(line);
-      else q.queue.push(line);
-    });
-    lineQueues.set(rl, q);
-  }
-  if (q.queue.length) return Promise.resolve(q.queue.shift());
-  return new Promise((res) => q.waiters.push(res));
+// One lazy line reader over a single readline interface. readline's async
+// iterator keeps a persistent listener that buffers lines across the await gaps
+// between prompts (harness selection and confirm are separated by dependency-
+// graph and self-symlink-guard work), so no line is dropped. EOF surfaces as
+// `done` and reads as an empty line (a declined confirm). Opening lazily means
+// --yes/--dry-run never touch stdin.
+function openStdin() {
+  let iter = null;
+  let rl = null;
+  return {
+    async line() {
+      if (!iter) {
+        rl = createInterface({ input: process.stdin, output: process.stdout });
+        iter = rl[Symbol.asyncIterator]();
+      }
+      const { value, done } = await iter.next();
+      return done ? '' : value;
+    },
+    close() {
+      if (rl) rl.close();
+    },
+  };
 }
 
-async function promptSelections(registry, rl) {
+async function promptSelections(registry, stdin) {
   const ids = registry.map((e) => e.id).join(', ');
   process.stdout.write(`Select harnesses [${ids}] (comma-separated, blank = all): `);
-  const answer = await nextLineFrom(rl);
-  const trimmed = answer.trim();
-  if (!trimmed) return registry.map((e) => e.id);
-  return trimmed.split(',').map((s) => s.trim()).filter(Boolean);
+  const answer = (await stdin.line()).trim();
+  if (!answer) return registry.map((e) => e.id);
+  return answer.split(',').map((s) => s.trim()).filter(Boolean);
 }
 
-// Confirm using a shared interactive interface when provided; otherwise read one
-// line from a fresh interface (the non-interactive `input:`-piped test path).
-function confirm(rl) {
-  const q = 'Proceed? [y/N] ';
-  if (rl) {
-    process.stdout.write(q);
-    return nextLineFrom(rl).then((line) => /^(y|yes)$/i.test(line.trim()));
-  }
-  process.stdout.write(q);
-  const tmp = createInterface({ input: process.stdin });
-  return new Promise((res) => {
-    tmp.once('line', (line) => {
-      res(/^(y|yes)$/i.test(line.trim()));
-      tmp.close();
-    });
-    tmp.once('close', () => res(false));
-  });
+function confirm(stdin) {
+  process.stdout.write('Proceed? [y/N] ');
+  return stdin.line().then((line) => /^(y|yes)$/i.test(line.trim()));
 }
 
 async function main(argv) {
@@ -252,10 +238,9 @@ async function main(argv) {
 
   const interactive =
     o.interactive || (o.harness.length === 0 && o.profile.length === 0 && process.stdin.isTTY);
-  let rl = null;
+  const stdin = openStdin();
   if (interactive) {
-    rl = createInterface({ input: process.stdin, output: process.stdout });
-    o.harness.push(...(await promptSelections(registry, rl)));
+    o.harness.push(...(await promptSelections(registry, stdin)));
   }
 
   let selections;
@@ -269,7 +254,7 @@ async function main(argv) {
     throw err;
   }
   if (selections.length === 0) {
-    if (rl) rl.close();
+    stdin.close();
     process.stderr.write('nothing to do: select a harness profile (--harness/--profile) or use --inspect\n');
     return EXIT.NOTHING;
   }
@@ -278,7 +263,7 @@ async function main(argv) {
   for (const sel of selections) {
     const guard = await selfSymlinkGuard(sel.skillDir, checkout);
     if (guard) {
-      if (rl) rl.close();
+      stdin.close();
       process.stderr.write(`error: ${guard.message}\n`);
       return EXIT.HARD;
     }
@@ -287,12 +272,12 @@ async function main(argv) {
   const plan = { skills, targets, warnings: buildWarnings(targets) };
   process.stdout.write(renderPreview(plan) + '\n');
   if (o.dryRun) {
-    if (rl) rl.close();
+    stdin.close();
     return EXIT.OK;
   }
 
-  const ok = o.yes ? true : await confirm(rl);
-  if (rl) rl.close();
+  const ok = o.yes ? true : await confirm(stdin);
+  stdin.close();
   if (!ok) {
     process.stdout.write('Aborted; nothing changed.\n');
     return EXIT.OK;
