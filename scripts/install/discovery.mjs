@@ -16,7 +16,8 @@ export async function discoverSkills(skillsRoot) {
   let entries;
   try {
     entries = await readdir(skillsRoot, { withFileTypes: true });
-  } catch {
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err;
     return [];
   }
   const skills = [];
@@ -26,7 +27,8 @@ export async function discoverSkills(skillsRoot) {
     let text;
     try {
       text = await readFile(join(srcDir, 'SKILL.md'), 'utf8');
-    } catch {
+    } catch (err) {
+      if (err.code !== 'ENOENT') throw err;
       continue;
     }
     skills.push({ name: e.name, srcDir, text });

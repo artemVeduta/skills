@@ -6,7 +6,8 @@ async function linkAction(dest) {
   try {
     const st = await lstat(dest);
     return st.isSymbolicLink() ? 'replace-symlink' : 'replace-nonsymlink';
-  } catch {
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err;
     return 'create';
   }
 }
@@ -35,13 +36,15 @@ export async function selfSymlinkGuard(skillDir, checkout) {
   let realCheckout;
   try {
     realCheckout = await realpath(checkout);
-  } catch {
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err;
     return null;
   }
   let realTarget;
   try {
     realTarget = await realpath(skillDir);
-  } catch {
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err;
     return null; // does not exist yet → cannot resolve into the repo
   }
   if (realTarget === realCheckout || realTarget.startsWith(realCheckout + '/')) {

@@ -8,7 +8,8 @@ export async function linkSkill(src, dest) {
     const st = await lstat(dest);
     if (st.isSymbolicLink()) await unlink(dest); // replace the link in place
     else await rm(dest, { recursive: true, force: true }); // real (non-symlink) collision
-  } catch {
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err;
     /* nothing there yet */
   }
   await symlink(src, dest);
