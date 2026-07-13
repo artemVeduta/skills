@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { join, resolve } from 'node:path';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { REGISTRY } from './install/registry.mjs';
 import { discoverSkills } from './install/discovery.mjs';
 import { createInterface } from 'node:readline';
@@ -11,6 +11,7 @@ import { planTarget, selfSymlinkGuard } from './install/planner.mjs';
 import { renderPreview } from './install/preview.mjs';
 import { applyTarget } from './install/linker.mjs';
 import { buildGraph, validateGraph } from './install/graph.mjs';
+import { validateReadme, writeReadme } from './install/readme.mjs';
 
 const EXIT = { OK: 0, HARD: 1, USAGE: 2, NOTHING: 3, GRAPH: 4 };
 const REPO_DEFAULT = resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -37,6 +38,8 @@ function usage() {
     '  --profile <id[:sel]>  select a harness profile or custom dir (repeatable)',
     '  --scope <global|project>  install scope (default: global)',
     '  --registry <path>     use an alternate registry (.json or .mjs)',
+    '  --check-readme <path> verify the README dev-install block matches the registry',
+    '  --write-readme <path> rewrite the README dev-install block from the registry',
     '  --dry-run             show the preview; change nothing',
     '  --yes, -y             skip the confirmation prompt (non-interactive)',
     '  --help, -h            show this help',
@@ -81,6 +84,12 @@ function parseArgs(argv) {
         break;
       case '--registry':
         o.registryPath = value();
+        break;
+      case '--check-readme':
+        o.checkReadme = value();
+        break;
+      case '--write-readme':
+        o.writeReadme = value();
         break;
       default:
         o.error = `unknown option: ${a}`;
@@ -162,6 +171,22 @@ async function main(argv) {
 
   const checkout = resolve(o.checkout ?? REPO_DEFAULT);
   const registry = o.registryPath ? await loadRegistry(o.registryPath) : REGISTRY;
+
+  if (o.checkReadme) {
+    const res = validateReadme(registry, await readFile(o.checkReadme, 'utf8'));
+    if (!res.ok) {
+      process.stderr.write(`error: ${res.reason}\n`);
+      return EXIT.HARD;
+    }
+    process.stdout.write('README dev-install block matches the registry.\n');
+    return EXIT.OK;
+  }
+  if (o.writeReadme) {
+    const updated = writeReadme(registry, await readFile(o.writeReadme, 'utf8'));
+    await writeFile(o.writeReadme, updated);
+    process.stdout.write(`Wrote README dev-install block to ${o.writeReadme}.\n`);
+    return EXIT.OK;
+  }
 
   const skillsRoot = join(checkout, 'skills');
   const skills = await discoverSkills(skillsRoot);

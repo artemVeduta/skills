@@ -16,3 +16,5 @@ jobs:
         run: npm run lint:skills:strict
       - name: Docs validator (advisory — never fails the job)
         run: npm run docs:validate
+      - name: Installer + repo tests (deterministic)
+        run: npm test

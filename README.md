@@ -15,11 +15,12 @@ the capability.
 The library ships through three channels — alternative package shapes, not harness
 categories. Pick one shape per harness profile (see the warnings below).
 
+<!-- BEGIN dev-install (generated from registry) -->
 ### Development links
 
-For working on the library itself. Clone the repository and run the interactive
-installer; it symlinks library skills from the working checkout into the harness
-profiles you select, so edits and `git pull` reach every linked profile live:
+Clone the repository and run the interactive installer; it symlinks every
+library skill from the working checkout into the harness profiles you select,
+so edits and `git pull` reach every linked profile live:
 
 ```bash
 git clone https://github.com/artemVeduta/skills.git
@@ -27,7 +28,14 @@ cd skills
 ./scripts/install.sh
 ```
 
+Supported harnesses:
+
+- **Claude Code** (`claude-code`)
+- **Codex** (`codex`)
+- **Shared agents directory** (`agents`)
+
 Update path: `git pull` (no reinstall).
+<!-- END dev-install -->
 
 ### Portable pure skills
 

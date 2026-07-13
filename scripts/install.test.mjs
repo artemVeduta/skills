@@ -322,3 +322,9 @@ test('an unknown harness id is a usage error (exit 2)', async () => {
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('the committed README dev-install block matches the registry', () => {
+  const readme = fileURLToPath(new URL('../README.md', import.meta.url));
+  const r = run(['--check-readme', readme]);
+  assert.equal(r.status, 0);
+});
