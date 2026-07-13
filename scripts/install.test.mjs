@@ -214,3 +214,58 @@ test('a dependency cycle rejects the install (exit 4) and links nothing', async 
     await rm(home, { recursive: true, force: true });
   }
 });
+
+import { symlink } from 'node:fs/promises';
+
+test('a non-symlink collision is disclosed and only replaced after confirmation', async () => {
+  const root = await makeCheckout({ alpha: { 'SKILL.md': SKILL('alpha') } });
+  const home = await mkdtemp(join(tmpdir(), 'home-'));
+  const dest = join(home, '.agents', 'skills', 'alpha');
+  await mkdir(dest, { recursive: true }); // a real directory sitting where the link will go
+  await writeFile(join(dest, 'keep.txt'), 'real');
+  try {
+    // Declining must NOT replace the real directory.
+    const decline = run(['--checkout', root, '--harness', 'agents'], { input: 'n\n', env: { HOME: home } });
+    assert.match(decline.stdout, /REPLACE non-symlink/);
+    assert.match(decline.stdout, /alpha/);
+    assert.equal(lstatSync(dest).isSymbolicLink(), false);
+    assert.ok(existsSync(join(dest, 'keep.txt')));
+
+    // Confirming replaces it with a symlink.
+    const accept = run(['--checkout', root, '--harness', 'agents'], { input: 'y\n', env: { HOME: home } });
+    assert.equal(accept.status, 0);
+    assert.ok(lstatSync(dest).isSymbolicLink());
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test('the self-symlink guard refuses a target resolving into the checkout (exit 1)', async () => {
+  const root = await makeCheckout({ alpha: { 'SKILL.md': SKILL('alpha') } });
+  const home = await mkdtemp(join(tmpdir(), 'home-'));
+  // Make ~/.agents a symlink into the checkout, so ~/.agents/skills resolves inside it.
+  await symlink(root, join(home, '.agents'));
+  try {
+    const r = run(['--yes', '--checkout', root, '--harness', 'agents'], { env: { HOME: home } });
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /resolves into this repository/);
+    assert.match(r.stderr, /rm /); // remediation guidance
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test('linking into ~/.agents/skills fires the channel-mixing warning', async () => {
+  const root = await makeCheckout({ alpha: { 'SKILL.md': SKILL('alpha') } });
+  const home = await mkdtemp(join(tmpdir(), 'home-'));
+  try {
+    const r = run(['--dry-run', '--checkout', root, '--harness', 'agents'], { env: { HOME: home } });
+    assert.equal(r.status, 0);
+    assert.match(r.stdout, /doubles as the portable CLI/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true });
+  }
+});

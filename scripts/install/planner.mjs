@@ -1,4 +1,4 @@
-import { lstat } from 'node:fs/promises';
+import { lstat, realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 
 // Decide what will happen to one link destination.
@@ -27,4 +27,29 @@ export async function planTarget(entry, profile, scope, skills, skillDir) {
     custom: !!profile.custom,
     links,
   };
+}
+
+// Refuse a skill directory that resolves into the checkout — we would write the
+// per-skill links back into the working copy. Returns null when it is safe.
+export async function selfSymlinkGuard(skillDir, checkout) {
+  let realCheckout;
+  try {
+    realCheckout = await realpath(checkout);
+  } catch {
+    return null;
+  }
+  let realTarget;
+  try {
+    realTarget = await realpath(skillDir);
+  } catch {
+    return null; // does not exist yet → cannot resolve into the repo
+  }
+  if (realTarget === realCheckout || realTarget.startsWith(realCheckout + '/')) {
+    return {
+      skillDir,
+      resolved: realTarget,
+      message: `${skillDir} resolves into this repository (${realTarget}); refusing to write links into the working copy. Remove it (rm "${skillDir}") and re-run.`,
+    };
+  }
+  return null;
 }

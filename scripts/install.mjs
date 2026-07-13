@@ -6,7 +6,7 @@ import { discoverSkills } from './install/discovery.mjs';
 import { createInterface } from 'node:readline';
 import { findEntry } from './install/registry.mjs';
 import { resolveProfile, resolveSkillDir } from './install/profiles.mjs';
-import { planTarget } from './install/planner.mjs';
+import { planTarget, selfSymlinkGuard } from './install/planner.mjs';
 import { renderPreview } from './install/preview.mjs';
 import { applyTarget } from './install/linker.mjs';
 import { buildGraph, validateGraph } from './install/graph.mjs';
@@ -116,6 +116,16 @@ function resolveSelections(registry, o) {
   return out;
 }
 
+function buildWarnings(targets) {
+  const warnings = [];
+  for (const t of targets) {
+    if (t.sharedStorage) {
+      warnings.push(`${t.skillDir} doubles as the portable CLI's own storage; linking here mixes the development and portable channels.`);
+    }
+  }
+  return warnings;
+}
+
 function confirm(promptText = 'Proceed? [y/N] ') {
   process.stdout.write(promptText);
   const rl = createInterface({ input: process.stdin });
@@ -178,9 +188,14 @@ async function main(argv) {
 
   const targets = [];
   for (const sel of selections) {
+    const guard = await selfSymlinkGuard(sel.skillDir, checkout);
+    if (guard) {
+      process.stderr.write(`error: ${guard.message}\n`);
+      return EXIT.HARD;
+    }
     targets.push(await planTarget(sel.entry, sel.profile, sel.scope, skills, sel.skillDir));
   }
-  const plan = { skills, targets, warnings: [] };
+  const plan = { skills, targets, warnings: buildWarnings(targets) };
   process.stdout.write(renderPreview(plan) + '\n');
   if (o.dryRun) return EXIT.OK;
 
