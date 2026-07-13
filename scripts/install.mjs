@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { join, resolve } from 'node:path';
+import { readFile } from 'node:fs/promises';
 import { REGISTRY } from './install/registry.mjs';
 import { discoverSkills } from './install/discovery.mjs';
 import { createInterface } from 'node:readline';
@@ -16,6 +17,12 @@ const REPO_DEFAULT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 
 class UsageError extends Error {}
 
+async function loadRegistry(path) {
+  if (path.endsWith('.json')) return JSON.parse(await readFile(path, 'utf8'));
+  const mod = await import(pathToFileURL(resolve(path)).href);
+  return mod.REGISTRY ?? mod.default;
+}
+
 function usage() {
   return [
     'Usage: install.sh [options]',
@@ -29,6 +36,7 @@ function usage() {
     '  --harness <id>        select a harness by id (repeatable)',
     '  --profile <id[:sel]>  select a harness profile or custom dir (repeatable)',
     '  --scope <global|project>  install scope (default: global)',
+    '  --registry <path>     use an alternate registry (.json or .mjs)',
     '  --dry-run             show the preview; change nothing',
     '  --yes, -y             skip the confirmation prompt (non-interactive)',
     '  --help, -h            show this help',
@@ -70,6 +78,9 @@ function parseArgs(argv) {
         break;
       case '--checkout':
         o.checkout = value();
+        break;
+      case '--registry':
+        o.registryPath = value();
         break;
       default:
         o.error = `unknown option: ${a}`;
@@ -150,7 +161,7 @@ async function main(argv) {
   }
 
   const checkout = resolve(o.checkout ?? REPO_DEFAULT);
-  const registry = REGISTRY;
+  const registry = o.registryPath ? await loadRegistry(o.registryPath) : REGISTRY;
 
   const skillsRoot = join(checkout, 'skills');
   const skills = await discoverSkills(skillsRoot);

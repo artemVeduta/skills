@@ -269,3 +269,56 @@ test('linking into ~/.agents/skills fires the channel-mixing warning', async () 
     await rm(home, { recursive: true, force: true });
   }
 });
+
+// A toy harness registry, written to disk and loaded via --registry.
+async function writeRegistry(entries) {
+  const dir = await mkdtemp(join(tmpdir(), 'reg-'));
+  const path = join(dir, 'registry.json');
+  await writeFile(path, JSON.stringify(entries));
+  return { dir, path };
+}
+
+const TOY = [
+  {
+    id: 'toy',
+    displayName: 'Toy Harness',
+    skillDirs: { global: 'toy-skills' },
+    configRoot: { env: null, defaults: [{ id: 'main', dir: '.toy' }] },
+    scopes: ['global'],
+    channels: ['development'],
+    customProfileValidation: { allowHomeRelative: true },
+    sharedStorage: false,
+  },
+];
+
+test('a toy harness registry entry resolves its own paths with no wizard changes', async () => {
+  const root = await makeCheckout({ alpha: { 'SKILL.md': SKILL('alpha') } });
+  const home = await mkdtemp(join(tmpdir(), 'home-'));
+  const { dir: regDir, path: regPath } = await writeRegistry(TOY);
+  try {
+    // Inspect: the toy harness is listed.
+    const ins = run(['--inspect', '--checkout', root, '--registry', regPath], { env: { HOME: home } });
+    assert.equal(ins.status, 0);
+    assert.match(ins.stdout, /toy \(Toy Harness\)/);
+
+    // Install: links land in the toy harness's own skill directory template.
+    const r = await fullInstall(['--checkout', root, '--registry', regPath, '--harness', 'toy'], { HOME: home });
+    assert.equal(r.status, 0);
+    assert.ok(lstatSync(join(home, '.toy', 'toy-skills', 'alpha')).isSymbolicLink());
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true });
+    await rm(regDir, { recursive: true, force: true });
+  }
+});
+
+test('an unknown harness id is a usage error (exit 2)', async () => {
+  const root = await makeCheckout({ alpha: { 'SKILL.md': SKILL('alpha') } });
+  try {
+    const r = run(['--yes', '--checkout', root, '--harness', 'nope']);
+    assert.equal(r.status, 2);
+    assert.match(r.stderr, /unknown harness: nope/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
