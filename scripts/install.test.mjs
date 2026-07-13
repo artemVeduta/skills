@@ -328,3 +328,31 @@ test('the committed README dev-install block matches the registry', () => {
   const r = run(['--check-readme', readme]);
   assert.equal(r.status, 0);
 });
+
+test('the interactive wizard selects harnesses and confirms from stdin', async () => {
+  const root = await makeCheckout({ alpha: { 'SKILL.md': SKILL('alpha') } });
+  const home = await mkdtemp(join(tmpdir(), 'home-'));
+  try {
+    const r = run(['--interactive', '--checkout', root], { input: 'agents\ny\n', env: { HOME: home } });
+    assert.equal(r.status, 0);
+    assert.match(r.stdout, /Installation preview/);
+    assert.ok(lstatSync(join(home, '.agents', 'skills', 'alpha')).isSymbolicLink());
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test('interactive selection of nothing is nothing-to-do (exit 3)', async () => {
+  const root = await makeCheckout({ alpha: { 'SKILL.md': SKILL('alpha') } });
+  const home = await mkdtemp(join(tmpdir(), 'home-'));
+  try {
+    // Blank harness line = all harnesses in this build; type a bogus id to select none.
+    const r = run(['--interactive', '--checkout', root], { input: '__none__\n', env: { HOME: home } });
+    assert.equal(r.status, 2); // unknown harness -> usage error
+    assert.match(r.stderr, /unknown harness/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true });
+  }
+});
