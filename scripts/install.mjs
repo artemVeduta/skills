@@ -9,6 +9,7 @@ import { resolveProfile, resolveSkillDir } from './install/profiles.mjs';
 import { planTarget } from './install/planner.mjs';
 import { renderPreview } from './install/preview.mjs';
 import { applyTarget } from './install/linker.mjs';
+import { buildGraph, validateGraph } from './install/graph.mjs';
 
 const EXIT = { OK: 0, HARD: 1, USAGE: 2, NOTHING: 3, GRAPH: 4 };
 const REPO_DEFAULT = resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -153,7 +154,12 @@ async function main(argv) {
     return EXIT.OK;
   }
 
-  // --- Task 3 inserts dependency-graph validation here ---
+  const graph = buildGraph(skills);
+  const verdict = validateGraph(graph);
+  if (!verdict.ok) {
+    for (const d of verdict.defects) process.stderr.write(`error: ${d.message}\n`);
+    return EXIT.GRAPH;
+  }
 
   let selections;
   try {

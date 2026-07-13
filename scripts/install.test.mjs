@@ -178,3 +178,39 @@ test('the config-root env var resolves the profile path (Codex CODEX_HOME)', asy
     await rm(codexHome, { recursive: true, force: true });
   }
 });
+
+const SKILL_DEP = (name, requires) =>
+  `---\nname: ${name}\ndescription: d\n---\n## Overview\nx\n\n## Required skills\n${requires.map((r) => `- ${r}`).join('\n')}\n`;
+
+test('a missing canonical dependency rejects the install (exit 4) and links nothing', async () => {
+  const root = await makeCheckout({ alpha: { 'SKILL.md': SKILL_DEP('alpha', ['ghost']) } });
+  const home = await mkdtemp(join(tmpdir(), 'home-'));
+  try {
+    const r = run(['--yes', '--checkout', root, '--harness', 'agents'], { env: { HOME: home } });
+    assert.equal(r.status, 4);
+    assert.match(r.stderr, /alpha/);
+    assert.match(r.stderr, /ghost/);
+    assert.equal(existsSync(join(home, '.agents', 'skills', 'alpha')), false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test('a dependency cycle rejects the install (exit 4) and links nothing', async () => {
+  const root = await makeCheckout({
+    alpha: { 'SKILL.md': SKILL_DEP('alpha', ['beta']) },
+    beta: { 'SKILL.md': SKILL_DEP('beta', ['alpha']) },
+  });
+  const home = await mkdtemp(join(tmpdir(), 'home-'));
+  try {
+    const r = run(['--yes', '--checkout', root, '--harness', 'agents'], { env: { HOME: home } });
+    assert.equal(r.status, 4);
+    assert.match(r.stderr, /cycle/i);
+    assert.match(r.stderr, /alpha/);
+    assert.equal(existsSync(join(home, '.agents', 'skills', 'alpha')), false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true });
+  }
+});
