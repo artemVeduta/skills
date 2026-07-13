@@ -5,6 +5,7 @@ import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { lstatSync, readlinkSync, existsSync } from 'node:fs';
 
 const INSTALLER = fileURLToPath(new URL('./install.sh', import.meta.url));
 
@@ -70,5 +71,110 @@ test('zero skills discovered is a hard failure (exit 1)', async () => {
     assert.match(r.stderr, /no skills discovered/);
   } finally {
     await rm(root, { recursive: true, force: true });
+  }
+});
+
+// Link every discovered skill into a temp Claude Code "personal" profile.
+async function fullInstall(args, env) {
+  return run(['--yes', ...args], { env });
+}
+
+test('--dry-run shows a preview and changes nothing (exit 0)', async () => {
+  const root = await makeCheckout({ alpha: { 'SKILL.md': SKILL('alpha') } });
+  const home = await mkdtemp(join(tmpdir(), 'home-'));
+  try {
+    const r = run(['--dry-run', '--checkout', root, '--harness', 'agents'], { env: { HOME: home } });
+    assert.equal(r.status, 0);
+    assert.match(r.stdout, /Installation preview/);
+    assert.match(r.stdout, /alpha/);
+    assert.equal(existsSync(join(home, '.agents', 'skills', 'alpha')), false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test('no selection non-interactively is nothing-to-do (exit 3)', async () => {
+  const root = await makeCheckout({ alpha: { 'SKILL.md': SKILL('alpha') } });
+  try {
+    const r = run(['--checkout', root]);
+    assert.equal(r.status, 3);
+    assert.match(r.stderr, /nothing to do/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('a confirmed run links every skill into the selected profile', async () => {
+  const root = await makeCheckout({
+    alpha: { 'SKILL.md': SKILL('alpha') },
+    beta: { 'SKILL.md': SKILL('beta') },
+  });
+  const home = await mkdtemp(join(tmpdir(), 'home-'));
+  try {
+    const r = await fullInstall(['--checkout', root, '--harness', 'agents'], { HOME: home });
+    assert.equal(r.status, 0);
+    const dest = join(home, '.agents', 'skills', 'alpha');
+    assert.ok(lstatSync(dest).isSymbolicLink());
+    assert.equal(readlinkSync(dest), join(root, 'skills', 'alpha'));
+    assert.ok(lstatSync(join(home, '.agents', 'skills', 'beta')).isSymbolicLink());
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test('confirmation gates all changes: declining leaves the profile untouched', async () => {
+  const root = await makeCheckout({ alpha: { 'SKILL.md': SKILL('alpha') } });
+  const home = await mkdtemp(join(tmpdir(), 'home-'));
+  try {
+    const decline = run(['--checkout', root, '--harness', 'agents'], { input: 'n\n', env: { HOME: home } });
+    assert.equal(decline.status, 0);
+    assert.match(decline.stdout, /Installation preview/);
+    assert.equal(existsSync(join(home, '.agents', 'skills', 'alpha')), false);
+
+    const accept = run(['--checkout', root, '--harness', 'agents'], { input: 'y\n', env: { HOME: home } });
+    assert.equal(accept.status, 0);
+    assert.ok(lstatSync(join(home, '.agents', 'skills', 'alpha')).isSymbolicLink());
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test('re-runs are idempotent and pick up newly added skills', async () => {
+  const root = await makeCheckout({ alpha: { 'SKILL.md': SKILL('alpha') } });
+  const home = await mkdtemp(join(tmpdir(), 'home-'));
+  try {
+    const first = await fullInstall(['--checkout', root, '--harness', 'agents'], { HOME: home });
+    assert.equal(first.status, 0);
+    const second = await fullInstall(['--checkout', root, '--harness', 'agents'], { HOME: home });
+    assert.equal(second.status, 0);
+    assert.ok(lstatSync(join(home, '.agents', 'skills', 'alpha')).isSymbolicLink());
+
+    // Add a new skill to the checkout, then re-run.
+    await mkdir(join(root, 'skills', 'gamma'), { recursive: true });
+    await writeFile(join(root, 'skills', 'gamma', 'SKILL.md'), SKILL('gamma'));
+    const third = await fullInstall(['--checkout', root, '--harness', 'agents'], { HOME: home });
+    assert.equal(third.status, 0);
+    assert.ok(lstatSync(join(home, '.agents', 'skills', 'gamma')).isSymbolicLink());
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test('the config-root env var resolves the profile path (Codex CODEX_HOME)', async () => {
+  const root = await makeCheckout({ alpha: { 'SKILL.md': SKILL('alpha') } });
+  const home = await mkdtemp(join(tmpdir(), 'home-'));
+  const codexHome = await mkdtemp(join(tmpdir(), 'codex-'));
+  try {
+    const r = await fullInstall(['--checkout', root, '--harness', 'codex'], { HOME: home, CODEX_HOME: codexHome });
+    assert.equal(r.status, 0);
+    assert.ok(lstatSync(join(codexHome, 'skills', 'alpha')).isSymbolicLink());
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true });
+    await rm(codexHome, { recursive: true, force: true });
   }
 });
