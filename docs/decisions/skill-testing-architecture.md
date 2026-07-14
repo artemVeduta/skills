@@ -2,7 +2,7 @@
 type: Decision
 title: Skill testing and benchmark architecture
 description: Test skills with a repo-owned harness in tools/ driving headless harness CLIs, graded by deterministic state assertions, with central per-skill case dirs and paired with/without-skill benchmarks.
-timestamp: 2026-07-11
+timestamp: 2026-07-14
 ---
 
 # Skill testing and benchmark architecture
@@ -112,3 +112,21 @@ releases are no-contract snapshots
 ## YYYY-MM-DD — <short title>
 <what changed and why; link the driving work>
 -->
+
+## 2026-07-14 — Tracer-bullet reconciliation (#24)
+
+- Decision 2 (advisory recording) is DEFERRED in the #24 tracer bullet: only the
+  deterministic oracle is implemented; skill-selection evidence and LLM-judge
+  scores are not recorded, and the run result shape
+  (`HarnessResult` in `tools/test-runner/report.mjs`) reserves no slot for them.
+  The "never gate" constraint is honored; recording is future work and will
+  extend the report/exit union when added. Driven by #24.
+- Decision 1 (disposable fixture): the ADR left the fixture's physical location
+  open. Implementation builds the harness spawn `cwd` OUTSIDE the repo tree under
+  `os.tmpdir()` (see `runCase`/`runHarness` in `tools/test-runner.mjs`), because a
+  headless CLI walks up from `cwd` to discover project memory (`CLAUDE.md`/`AGENTS.md`)
+  and project skills (`.claude/skills`); an in-repo fixture would leak this repo's own
+  memory and skills into the skill under test. Raw artifacts still land in the
+  git-ignored `tools/runs/`. The immutability proof is also widened beyond
+  `skills/` to hash `docs/`, `scripts/`, `.claude/` (intent-aligned hardening,
+  not an AC change). Driven by #24.

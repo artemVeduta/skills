@@ -1,5 +1,13 @@
 # Bundle change log
 
+## 2026-07-14
+
+- **Update** — amended [Skill testing and benchmark architecture](/decisions/skill-testing-architecture.md):
+  reconciled the #24 test-runner tracer bullet — advisory-signal recording
+  (Decision 2) deferred, and the disposable fixture (Decision 1) built outside
+  the repo under `os.tmpdir()` for discovery isolation with the immutability
+  proof widened to `docs/`/`scripts/`/`.claude/`.
+
 ## 2026-07-11
 
 - **Creation** of [Native aggregate plugins & release script](/specs/native-plugins-and-release.md)
