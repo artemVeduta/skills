@@ -175,6 +175,20 @@ export function lintReadmeInventory(skillNames, readmeText) {
   return { errors: [], warnings };
 }
 
+// Advisory WARN: a skill with no central test-case directory under tools/tests/.
+// The sibling of lintReadmeInventory's drift check — cases are central, so this
+// is a repo-level check over directory names, not a per-skill subdir check.
+export function lintTestCases(skillNames, caseDirNames) {
+  const have = new Set(caseDirNames);
+  const warnings = [];
+  for (const name of skillNames) {
+    if (!have.has(name)) {
+      warnings.push(`${name}: skill has no central test-case directory (tools/tests/${name}/)`);
+    }
+  }
+  return { errors: [], warnings };
+}
+
 export async function collectSkills(skillsRoot) {
   const skills = new Map();
   let entries;
@@ -210,7 +224,7 @@ export async function collectSkills(skillsRoot) {
   return skills;
 }
 
-export async function lintSkillTree(skillsRoot, readmeText) {
+export async function lintSkillTree(skillsRoot, readmeText, caseDirNames = null) {
   const errors = [];
   const warnings = [];
   const skills = await collectSkills(skillsRoot);
@@ -252,6 +266,9 @@ export async function lintSkillTree(skillsRoot, readmeText) {
   }
 
   collect(lintReadmeInventory([...knownSkillNames], readmeText));
+  if (caseDirNames !== null) {
+    collect(lintTestCases([...knownSkillNames], caseDirNames));
+  }
   return { errors, warnings };
 }
 
@@ -285,7 +302,14 @@ async function main() {
     readmeText = await readFile(readmePath, 'utf8');
   } catch {
   }
-  const result = await lintSkillTree(skillsRoot, readmeText);
+  let caseDirNames = [];
+  try {
+    const entries = await readdir('tools/tests', { withFileTypes: true });
+    caseDirNames = entries.filter((e) => e.isDirectory()).map((e) => e.name);
+  } catch {
+    // No tools/tests/ yet — every skill will be flagged (advisory only).
+  }
+  const result = await lintSkillTree(skillsRoot, readmeText, caseDirNames);
   console.log(formatReport(result));
   process.exit(strict && result.errors.length > 0 ? 1 : 0);
 }
