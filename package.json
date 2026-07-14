@@ -8,6 +8,7 @@
     "lint:skills:strict": "node tools/lint-skills.mjs --strict",
     "lint:skills:test": "node --test tools/*.test.mjs",
     "readme:check": "node scripts/install.mjs --check-readme README.md",
+    "test:case": "node tools/test-runner.mjs",
     "release": "node scripts/release.mjs",
     "test": "node --test scripts/*.test.mjs tools/*.test.mjs tools/test-runner/*.test.mjs"
   }
