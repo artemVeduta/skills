@@ -182,7 +182,7 @@ git commit -m "docs: #24 record V1 claude profile auth-scoping outcome"
 
 **Interfaces:**
 - Consumes: nothing from other tasks.
-- Produces: **V2 outcome** (CONFIRMED expected — profile env confines opencode's fixed paths) and the **pinned opencode default model id** (a provider-prefixed string like `anthropic/claude-sonnet-5`) used by Task 5's `defaultModel`. Side effect: the opencode profile is provisioned (auth material in place), which Tasks 9/12 reuse.
+- Produces: **V2 outcome** (CONFIRMED expected — profile env confines opencode's fixed paths) and the **pinned opencode default model id** (a provider-prefixed string like `anthropic/claude-opus-4.8`) used by Task 5's `defaultModel`. Side effect: the opencode profile is provisioned (auth material in place), which Tasks 9/12 reuse.
 
 - [ ] **Step 1: Ensure no opencode daemon is running (it would invalidate the probe AND is unsafe)**
 
@@ -216,7 +216,7 @@ env HOME="$OC_PROFILE" XDG_CONFIG_HOME="$OC_PROFILE/xdg-config" XDG_DATA_HOME="$
     OPENCODE_DISABLE_AUTOUPDATE=1 \
     opencode models | head -30
 ```
-Expected: a model list including provider-prefixed Anthropic ids. Record the exact id you will pin as opencode's `defaultModel` (pick the current Sonnet, e.g. `anthropic/claude-sonnet-5` — record whatever the list actually prints).
+Expected: a model list including provider-prefixed Anthropic ids. Record the exact id you will pin as opencode's `defaultModel` (pick the current Sonnet, e.g. `anthropic/claude-opus-4.8` — record whatever the list actually prints).
 
 - [ ] **Step 5: Verify confinement**
 
@@ -247,7 +247,7 @@ git commit -m "docs: #24 record V2 opencode env-honoring outcome and pinned mode
 
 **Interfaces:**
 - Consumes: nothing from other tasks.
-- Produces: **V3 outcome** — `CWD` (codex discovers cwd-relative `.agents/skills`; Task 5 sets codex `discoverySubdir: '.agents/skills'`) or `PROFILE-STAGING` (Task 5 keeps a profile-staging path and Task 8 adds the stage/cleanup steps). Also records the **pinned codex default model id** (candidate: `gpt-5.2-codex`). Side effect: the codex profile is provisioned, reused by Tasks 9/12.
+- Produces: **V3 outcome** — `CWD` (codex discovers cwd-relative `.agents/skills`; Task 5 sets codex `discoverySubdir: '.agents/skills'`) or `PROFILE-STAGING` (Task 5 keeps a profile-staging path and Task 8 adds the stage/cleanup steps). Also records the **pinned codex default model id** (candidate: `gpt-5.6-sol`). Side effect: the codex profile is provisioned, reused by Tasks 9/12.
 
 - [ ] **Step 1: Provision the codex profile (login flow)**
 
@@ -262,7 +262,7 @@ ls -la "$CODEX_TEST_PROFILE/auth.json"          # expect: present, mode 600
 - [ ] **Step 2: Pin the codex default model id**
 
 Run: `codex exec --help 2>&1 | grep -iE '\-m|--model'` and check `"$CODEX_TEST_PROFILE/config.toml"` (if the login created one) for a `model` line.
-Expected: `-m, --model` exists. Record the model id to pin (candidate `gpt-5.2-codex`; if config.toml names the CLI's own default, record that exact string).
+Expected: `-m, --model` exists. Record the model id to pin (candidate `gpt-5.6-sol`; if config.toml names the CLI's own default, record that exact string).
 
 - [ ] **Step 3: Build the minimal discovery-probe fixture (cwd-relative `.agents/skills`)**
 
@@ -472,7 +472,7 @@ git commit -m "feat: #24 add profiles.mjs — per-harness test-profile paths, en
   - `DRIVERS: Array<Descriptor>` and `resolveDriver(id): Descriptor|null` (names unchanged).
   - `Descriptor = { id, command, discoverySubdir, defaultModel, probe: {args: string[]}, daemonBasename?, buildInvocation({fixtureRoot, prompt, model, profileDir}) => {command, args, env} }`.
   - `isolationEnv` is DELETED — nothing may import it afterwards.
-  - Pinned defaults (adjust ONLY to what Tasks 2–3 recorded / `--help` verification in Step 1): claude-code `claude-sonnet-5`, codex `gpt-5.2-codex`, opencode `anthropic/claude-sonnet-5`.
+  - Pinned defaults (adjust ONLY to what Tasks 2–3 recorded / `--help` verification in Step 1): claude-code `claude-opus-4.8`, codex `gpt-5.6-sol`, opencode `anthropic/claude-opus-4.8`.
 
 - [ ] **Step 1: Verify the pinned model ids and flags against the installed CLIs (no inference)**
 
@@ -508,9 +508,9 @@ test('resolveDriver returns null for an unknown id', () => {
 });
 
 test('each driver pins a default model and a driver-owned probe', () => {
-  assert.equal(resolveDriver('claude-code').defaultModel, 'claude-sonnet-5');
-  assert.equal(resolveDriver('codex').defaultModel, 'gpt-5.2-codex');
-  assert.equal(resolveDriver('opencode').defaultModel, 'anthropic/claude-sonnet-5');
+  assert.equal(resolveDriver('claude-code').defaultModel, 'claude-opus-4.8');
+  assert.equal(resolveDriver('codex').defaultModel, 'gpt-5.6-sol');
+  assert.equal(resolveDriver('opencode').defaultModel, 'anthropic/claude-opus-4.8');
   for (const d of DRIVERS) assert.deepEqual(d.probe, { args: ['--version'] });
 });
 
@@ -522,28 +522,28 @@ test('only opencode declares a daemon guard', () => {
 
 test('claude-code invocation threads the model and uses the profile config dir', () => {
   const inv = resolveDriver('claude-code').buildInvocation({
-    fixtureRoot: '/fx', prompt: 'hello', model: 'claude-sonnet-5', profileDir: '/prof/claude-code',
+    fixtureRoot: '/fx', prompt: 'hello', model: 'claude-opus-4.8', profileDir: '/prof/claude-code',
   });
   assert.equal(inv.command, 'claude');
-  assert.deepEqual(inv.args, ['-p', 'hello', '--permission-mode', 'bypassPermissions', '--model', 'claude-sonnet-5']);
+  assert.deepEqual(inv.args, ['-p', 'hello', '--permission-mode', 'bypassPermissions', '--model', 'claude-opus-4.8']);
   assert.deepEqual(inv.env, { CLAUDE_CONFIG_DIR: '/prof/claude-code' });
 });
 
 test('codex invocation keeps the workspace-write sandbox and threads -m', () => {
   const inv = resolveDriver('codex').buildInvocation({
-    fixtureRoot: '/fx', prompt: 'hi', model: 'gpt-5.2-codex', profileDir: '/prof/codex',
+    fixtureRoot: '/fx', prompt: 'hi', model: 'gpt-5.6-sol', profileDir: '/prof/codex',
   });
   assert.equal(inv.command, 'codex');
-  assert.deepEqual(inv.args, ['exec', '--sandbox', 'workspace-write', '-m', 'gpt-5.2-codex', 'hi']);
+  assert.deepEqual(inv.args, ['exec', '--sandbox', 'workspace-write', '-m', 'gpt-5.6-sol', 'hi']);
   assert.deepEqual(inv.env, { CODEX_HOME: '/prof/codex' });
 });
 
 test('opencode invocation threads the provider-prefixed model and the confining env', () => {
   const inv = resolveDriver('opencode').buildInvocation({
-    fixtureRoot: '/fx', prompt: 'yo', model: 'anthropic/claude-sonnet-5', profileDir: '/prof/opencode',
+    fixtureRoot: '/fx', prompt: 'yo', model: 'anthropic/claude-opus-4.8', profileDir: '/prof/opencode',
   });
   assert.equal(inv.command, 'opencode');
-  assert.deepEqual(inv.args, ['run', '--auto', '-m', 'anthropic/claude-sonnet-5', 'yo']);
+  assert.deepEqual(inv.args, ['run', '--auto', '-m', 'anthropic/claude-opus-4.8', 'yo']);
   assert.deepEqual(inv.env, {
     HOME: '/prof/opencode',
     XDG_CONFIG_HOME: '/prof/opencode/xdg-config',
@@ -615,7 +615,7 @@ export const DRIVERS = [
     id: 'claude-code',
     command: 'claude',
     discoverySubdir: '.claude/skills',
-    defaultModel: 'claude-sonnet-5',
+    defaultModel: 'claude-opus-4.8',
     probe: { args: ['--version'] },
     buildInvocation({ fixtureRoot, prompt, model, profileDir }) {
       return {
@@ -634,7 +634,7 @@ export const DRIVERS = [
     id: 'codex',
     command: 'codex',
     discoverySubdir: '.agents/skills', // cwd-relative discovery, pinned by verification V3
-    defaultModel: 'gpt-5.2-codex',
+    defaultModel: 'gpt-5.6-sol',
     probe: { args: ['--version'] },
     buildInvocation({ fixtureRoot, prompt, model, profileDir }) {
       return {
@@ -650,7 +650,7 @@ export const DRIVERS = [
     id: 'opencode',
     command: 'opencode',
     discoverySubdir: '.opencode/skills',
-    defaultModel: 'anthropic/claude-sonnet-5', // opencode takes provider-prefixed ids
+    defaultModel: 'anthropic/claude-opus-4.8', // opencode takes provider-prefixed ids
     probe: { args: ['--version'] },
     daemonBasename: 'opencode',
     buildInvocation({ fixtureRoot, prompt, model, profileDir }) {
@@ -1096,7 +1096,7 @@ test('runCase --dry-run --harness selects a single harness', async () => {
     });
     assert.equal(run.harnesses.length, 1);
     assert.equal(run.harnesses[0].id, 'claude-code');
-    assert.equal(run.harnesses[0].model, 'claude-sonnet-5'); // = the claude-code defaultModel pinned in drivers.mjs (Task 5) — keep in sync if that pin changed
+    assert.equal(run.harnesses[0].model, 'claude-opus-4.8'); // = the claude-code defaultModel pinned in drivers.mjs (Task 5) — keep in sync if that pin changed
     await rm(run.harnesses[0].fixtureRoot, { recursive: true, force: true });
   } finally {
     await rm(runsRoot, { recursive: true, force: true });
@@ -1108,12 +1108,12 @@ And update the existing fake-driver test (`runHarness runs a fake driver …`): 
 
 **(b) In `tools/test-runner/runner.test.mjs`:** delete the two `isHarnessAvailable` tests and drop it from the import (replaced by the `probeHarness` tests from Task 6).
 
-**(c) In `tools/test-runner/report.test.mjs`:** add `model: 'claude-sonnet-5', harnessVersion: '2.1.209 (Claude Code)',` to the harness objects in BOTH the `passing` and `failing` fixtures (and to the inline `timedOut`/`empty`/`mutated` executed fixtures derived from them). Change the dry fixture's invocation to `invocation: { command: 'codex', args: ['exec', 'x'], env: { CODEX_HOME: '/p/codex' } }`. Then append:
+**(c) In `tools/test-runner/report.test.mjs`:** add `model: 'claude-opus-4.8', harnessVersion: '2.1.209 (Claude Code)',` to the harness objects in BOTH the `passing` and `failing` fixtures (and to the inline `timedOut`/`empty`/`mutated` executed fixtures derived from them). Change the dry fixture's invocation to `invocation: { command: 'codex', args: ['exec', 'x'], env: { CODEX_HOME: '/p/codex' } }`. Then append:
 
 ```js
 test('formatRunReport prints a provenance line per executed harness', () => {
   const out = formatRunReport(passing);
-  assert.match(out, /provenance: model claude-sonnet-5, harness 2\.1\.209 \(Claude Code\)/);
+  assert.match(out, /provenance: model claude-opus-4.8, harness 2\.1\.209 \(Claude Code\)/);
 });
 
 test('formatRunReport shows the dry-run args and profile env', () => {
@@ -1121,7 +1121,7 @@ test('formatRunReport shows the dry-run args and profile env', () => {
     skill: 'x', runId: '1', dryRun: true,
     harnesses: [{
       id: 'codex', status: 'dry-run', closure: ['x'], sourcesUnmodified: true, fixtureRoot: '/tmp/fx',
-      invocation: { command: 'codex', args: ['exec', '-m', 'gpt-5.2-codex', 'p'.repeat(200)], env: { CODEX_HOME: '/p/codex' } },
+      invocation: { command: 'codex', args: ['exec', '-m', 'gpt-5.6-sol', 'p'.repeat(200)], env: { CODEX_HOME: '/p/codex' } },
     }],
   };
   const out = formatRunReport(dry);
@@ -1534,7 +1534,7 @@ test('a non-CLI-shaped driver fits the descriptor seam unchanged (pydantic-ai re
     id: 'pydantic-ai',
     command: process.execPath, // stands in for `uv`
     discoverySubdir: '.agents/skills',
-    defaultModel: 'anthropic:claude-sonnet-5',
+    defaultModel: 'anthropic:claude-opus-4.8',
     probe: { args: ['--version'] },
     buildInvocation({ fixtureRoot, prompt, model, profileDir }) {
       return {
@@ -1550,7 +1550,7 @@ test('a non-CLI-shaped driver fits the descriptor seam unchanged (pydantic-ai re
   const inv = shim.buildInvocation({
     fixtureRoot: '/fx', prompt: 'p', model: shim.defaultModel, profileDir: '/prof/pydantic-ai',
   });
-  assert.deepEqual(inv.args, ['run', 'shim.py', '--model', 'anthropic:claude-sonnet-5', 'p']);
+  assert.deepEqual(inv.args, ['run', 'shim.py', '--model', 'anthropic:claude-opus-4.8', 'p']);
   for (const v of Object.values(inv.env)) assert.ok(v.startsWith('/prof/pydantic-ai'));
 });
 ```
@@ -1724,7 +1724,7 @@ npm run test:case -- okf-docs-setup --harness claude-code=claude-haiku-4-5; echo
 RUN=$(ls -t tools/runs | head -1)
 cat "tools/runs/$RUN/claude-code/run.json"
 ```
-(`claude-haiku-4-5` must differ from the pinned default `claude-sonnet-5`; if the installed CLI rejects that id, pick any non-default id it accepts — check `claude --help` model examples — and use it consistently here.)
+(`claude-haiku-4-5` must differ from the pinned default `claude-opus-4.8`; if the installed CLI rejects that id, pick any non-default id it accepts — check `claude --help` model examples — and use it consistently here.)
 Expected: PASS 16/16, exit 0; `run.json` shows `"model": "claude-haiku-4-5"`, the `--model claude-haiku-4-5` args entry, a non-empty `"harnessVersion"`, and `"skipReason": null`. Paste both the report line and the `run.json` into AC-2.
 
 - [ ] **Step 4: AC-4 — the deterministic gate**
