@@ -2,6 +2,10 @@
 // is the ONLY inference boundary in the runner — it is never invoked by
 // `npm test`/CI, only by the local test-runner CLI's end-to-end path.
 import { spawnSync } from 'node:child_process';
+import { stat } from 'node:fs/promises';
+import { userInfo } from 'node:os';
+import { basename } from 'node:path';
+import { authMaterialPath } from './profiles.mjs';
 
 // True iff the harness binary responds to `<command> --version` with exit 0.
 export function isHarnessAvailable(command) {
@@ -57,4 +61,65 @@ export function runDriver(driver, { fixtureRoot, prompt, model, profileDir, time
     error: r.error ? r.error.message : null,
     timedOut,
   };
+}
+
+// --- Preflight ladder (spec §7): problems detectable BEFORE execution map to
+// an actionable skip, never a silent failure. Stops at the first failing rung.
+// Auth failures that only surface DURING execution (e.g. an expired token
+// behind an existing auth.json) are consciously NOT detected here — they
+// execute and are judged by the oracle like any run (spec D5).
+
+async function isDirectoryDefault(p) {
+  try { return (await stat(p)).isDirectory(); } catch { return false; }
+}
+
+async function fileExistsDefault(p) {
+  try { return (await stat(p)).isFile(); } catch { return false; }
+}
+
+// Basenames of every process owned by the current user. `ps -axo user=,comm=`
+// works on both macOS and Linux; comm is the executable path, so a daemon
+// started via any argv[0] alias is still seen.
+function listProcessesDefault() {
+  const me = userInfo().username;
+  const r = spawnSync('ps', ['-axo', 'user=,comm='], { encoding: 'utf8' });
+  if (r.status !== 0) return [];
+  return r.stdout
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const cut = line.indexOf(' ');
+      return [line.slice(0, cut), line.slice(cut + 1).trim()];
+    })
+    .filter(([user]) => user === me)
+    .map(([, comm]) => basename(comm));
+}
+
+// Rungs: 1 binary → 2 profile dir → 3 auth material → 4 daemon (only for
+// drivers that declare daemonBasename — a resident opencode server can serve
+// `run` in ITS project context, bypassing the client's cwd/env entirely).
+// `version` is threaded out so the caller records provenance even for skips.
+export async function preflightHarness(driver, profileDir, deps = {}) {
+  const {
+    probe = probeHarness,
+    isDirectory = isDirectoryDefault,
+    fileExists = fileExistsDefault,
+    listProcesses = listProcessesDefault,
+  } = deps;
+
+  const probed = probe(driver);
+  if (!probed.ok) {
+    return { skipReason: `harness binary \`${driver.command}\` not found — install \`${driver.id}\` or fix PATH`, version: null };
+  }
+  if (!(await isDirectory(profileDir))) {
+    return { skipReason: `no test profile — run \`npm run test:auth -- ${driver.id}\``, version: probed.version };
+  }
+  if (!(await fileExists(authMaterialPath(driver.id, profileDir)))) {
+    return { skipReason: `profile exists but is not authenticated — run \`npm run test:auth -- ${driver.id}\``, version: probed.version };
+  }
+  if (driver.daemonBasename && listProcesses().includes(driver.daemonBasename)) {
+    return { skipReason: 'kill the running opencode server first — `run` may attach to it and escape the fixture', version: probed.version };
+  }
+  return { skipReason: null, version: probed.version };
 }
