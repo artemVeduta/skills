@@ -24,8 +24,8 @@ export function isHarnessAvailable(command) {
 // explicit harness-level diagnostic instead of a bare content FAIL.
 const DEFAULT_TIMEOUT_MS = 600_000;
 
-export function runDriver(driver, { fixtureRoot, prompt, timeoutMs }) {
-  const { command, args, env } = driver.buildInvocation({ fixtureRoot, prompt });
+export function runDriver(driver, { fixtureRoot, prompt, model, profileDir, timeoutMs }) {
+  const { command, args, env } = driver.buildInvocation({ fixtureRoot, prompt, model, profileDir });
   const limit = timeoutMs ?? (Number(process.env.TEST_RUNNER_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS);
   const r = spawnSync(command, args, {
     cwd: fixtureRoot,

@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { DRIVERS, resolveDriver } from './test-runner/drivers.mjs';
+import { profileDirFor } from './test-runner/profiles.mjs';
 import { buildFixture, hashGuardedTrees } from './test-runner/fixture.mjs';
 import { loadCase } from './test-runner/case-loader.mjs';
 import { isHarnessAvailable, runDriver } from './test-runner/runner.mjs';
@@ -31,8 +32,10 @@ class UsageError extends Error {}
 // HarnessResult (see Task 7). Extracted from runCase so a fake driver can
 // exercise the executed branch in tests without inference, and so the tagged
 // union is built in ONE place (no producer/contract drift).
-export async function runHarness(driver, { skillName, skillsRoot, testCase, runsRoot, runId, beforeHash, dryRun }) {
+export async function runHarness(driver, { skillName, skillsRoot, testCase, runsRoot, runId, beforeHash, dryRun, model }) {
   const id = driver.id;
+  const resolvedModel = model ?? driver.defaultModel;
+  const profileDir = profileDirFor(id);
   // The harness spawn cwd MUST live OUTSIDE the repo tree: a headless CLI walks
   // up from cwd to discover project memory (CLAUDE.md/AGENTS.md) and project
   // skills (.claude/skills), so an in-repo fixture would leak this repo's own
@@ -46,7 +49,7 @@ export async function runHarness(driver, { skillName, skillsRoot, testCase, runs
   const sourcesUnmodified = (await hashGuardedTrees(REPO_ROOT, GUARDED_DIRS)) === beforeHash;
 
   if (dryRun) {
-    const invocation = driver.buildInvocation({ fixtureRoot, prompt: testCase.prompt });
+    const invocation = driver.buildInvocation({ fixtureRoot, prompt: testCase.prompt, model: resolvedModel, profileDir });
     return { id, status: 'dry-run', closure, invocation, sourcesUnmodified, fixtureRoot };
   }
   if (!isHarnessAvailable(driver.command)) {
@@ -54,7 +57,7 @@ export async function runHarness(driver, { skillName, skillsRoot, testCase, runs
     return { id, status: 'skipped', skipReason: `${driver.command} CLI not installed`, fixtureRoot };
   }
 
-  const proc = runDriver(driver, { fixtureRoot, prompt: testCase.prompt });
+  const proc = runDriver(driver, { fixtureRoot, prompt: testCase.prompt, model: resolvedModel, profileDir });
   const assertions = await evaluateAssertions(testCase.assertions, {
     workdir: fixtureRoot, repoRoot: REPO_ROOT, output: proc.stdout,
   });

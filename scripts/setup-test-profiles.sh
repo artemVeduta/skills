@@ -189,10 +189,13 @@ harness_model_hint() {
 
 # Sets the global _ENV_ASSIGNMENTS array to "KEY=VALUE" strings (Bash 3.2 has
 # no nameref/declare -n, so an out-param global is the portable way to
-# "return" an array). claude-code and codex intentionally OMIT HOME — the
-# real HOME must stay visible (macOS Keychain access for claude; on-disk
-# CODEX_HOME relocation is enough for codex). opencode confines HOME plus all
-# four XDG roots and disables autoupdate.
+# "return" an array). Only claude-code OMITS HOME — its OAuth token lives in
+# the macOS Keychain, reached via the real HOME. codex RELOCATES HOME into the
+# profile alongside CODEX_HOME: codex reads a HOME-derived global
+# ~/.agents/skills that CODEX_HOME does not cover, so relocating HOME confines
+# that leak (finding #4); codex auth stays file-based under CODEX_HOME
+# (auth.json, no Keychain), so relocating HOME is safe. opencode confines HOME
+# plus all four XDG roots and disables autoupdate.
 harness_env_assignments() {
   local id="$1" dir="$2"
   case "$id" in
@@ -200,7 +203,7 @@ harness_env_assignments() {
       _ENV_ASSIGNMENTS=("CLAUDE_CONFIG_DIR=$dir")
       ;;
     codex)
-      _ENV_ASSIGNMENTS=("CODEX_HOME=$dir")
+      _ENV_ASSIGNMENTS=("CODEX_HOME=$dir" "HOME=$dir")
       ;;
     opencode)
       _ENV_ASSIGNMENTS=(
