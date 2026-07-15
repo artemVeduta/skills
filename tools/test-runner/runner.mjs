@@ -7,16 +7,6 @@ import { userInfo } from 'node:os';
 import { basename } from 'node:path';
 import { authMaterialPath } from './profiles.mjs';
 
-// True iff the harness binary responds to `<command> --version` with exit 0.
-export function isHarnessAvailable(command) {
-  try {
-    const r = spawnSync(command, ['--version'], { encoding: 'utf8' });
-    return r.status === 0;
-  } catch {
-    return false;
-  }
-}
-
 // Driver-owned availability probe: `<command> <probe.args>` must exit 0. Its
 // trimmed stdout is captured as the harness VERSION STRING for provenance —
 // a verdict without model+version provenance is not attributable (spec goal 3;
