@@ -2,7 +2,7 @@
 type: Convention
 title: Test-profile provisioning
 description: How to provision the persistent, pre-authenticated per-harness test profiles the gating skill-test runner uses.
-timestamp: 2026-07-15
+timestamp: 2026-07-16
 ---
 
 # Test-profile provisioning
@@ -29,7 +29,8 @@ one-time, developer-run step per machine.
   | opencode | `opencode auth login` | `<profile>/xdg-data/opencode/auth.json` |
 
   Each harness's scope env — which vars are relocated into the profile, and why
-  claude/codex inherit the real HOME for macOS Keychain access — is encoded in
+  claude-code alone inherits the real HOME for macOS Keychain access while codex
+  relocates HOME into the profile (finding #4) — is encoded in
   `scripts/setup-test-profiles.sh` (the authoritative source; do not restate it here).
 - Profiles are mutable harness state, outside the runner's immutability guard; the runner
   reads them but never handles credentials itself.
@@ -38,8 +39,11 @@ one-time, developer-run step per machine.
 
 - `codex exec` refuses to run in a non-git directory unless given `--skip-git-repo-check`
   — required because fixtures are out-of-repo tmpdirs.
-- codex also reads a global, HOME-based `~/.agents/skills/` independent of `CODEX_HOME`,
-  so `CODEX_HOME` alone does not fully confine codex's skill discovery.
+- codex also reads a global, HOME-based `~/.agents/skills/` independent of `CODEX_HOME`;
+  `CODEX_HOME` + `HOME` together confine the HOME-derived `~/.agents/skills` leak
+  (finding #4), with the residual out-of-scope surfaces (the system/managed config layer
+  and any codex-relevant variables the developer has exported into the parent environment)
+  noted in [Skill testing and benchmark architecture](/decisions/skill-testing-architecture.md).
 
 ## Rationale
 

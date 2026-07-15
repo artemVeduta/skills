@@ -1,5 +1,19 @@
 # Bundle change log
 
+## 2026-07-16
+
+- **Update** — amended [Skill testing and benchmark architecture](/decisions/skill-testing-architecture.md):
+  live-run isolation moved to persistent pre-authenticated test profiles under
+  `~/.skills-test-profiles/`, resolved the codex HOME-derived skill-discovery
+  leak (finding #4, Option A: relocate `HOME` into the profile), added the
+  opencode daemon preflight and the four-rung actionable-skip ladder, and added
+  per-run model/harness-version provenance (`run.json`, `--harness <id>[=<model>]`).
+- **Update** — [Harness](/glossary/harness.md) gains the *test profile* usage of
+  harness profile.
+- **Update** — [Test-profile provisioning](/conventions/test-profile-provisioning.md):
+  reframed the codex caveat now that `CODEX_HOME` + `HOME` together confine the
+  HOME-derived `~/.agents/skills` leak (finding #4 resolved).
+
 ## 2026-07-15
 
 - **Creation** of [Test-profile provisioning](/conventions/test-profile-provisioning.md)

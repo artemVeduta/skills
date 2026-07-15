@@ -2,7 +2,7 @@
 type: Glossary
 title: Harness
 description: The agent runtime a skill is installed into — it discovers skills in its skill directory and loads their SKILL.md instructions.
-timestamp: 2026-07-10
+timestamp: 2026-07-16
 ---
 
 # Harness
@@ -19,6 +19,12 @@ Claude Code profile and `~/.claude-work` is the work profile when Claude Code is
 with the corresponding `CLAUDE_CONFIG_DIR`. Codex profiles that require isolated plugin
 state use separate `CODEX_HOME` roots. The profile is the install target; the harness is
 the product whose path rules the installer applies.
+
+The gating test runner applies the same concept as a **test profile**: a persistent,
+pre-authenticated harness profile at `~/.skills-test-profiles/<harness-id>/`, provisioned
+once via `npm run test:auth -- <harness-id>` and used as the only user-scope state a live
+skill-test run sees — never the developer's personal profiles above. See
+[Skill testing and benchmark architecture](/decisions/skill-testing-architecture.md).
 
 The harness targets supported by the installer today (the `DEFAULT_TARGETS` in
 `scripts/install.sh` — see [/specs/install-sh.md](/specs/install-sh.md)) are Claude

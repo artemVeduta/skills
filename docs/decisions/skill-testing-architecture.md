@@ -2,7 +2,7 @@
 type: Decision
 title: Skill testing and benchmark architecture
 description: Test skills with a repo-owned harness in tools/ driving headless harness CLIs, graded by deterministic state assertions, with central per-skill case dirs and paired with/without-skill benchmarks.
-timestamp: 2026-07-14
+timestamp: 2026-07-16
 ---
 
 # Skill testing and benchmark architecture
@@ -130,3 +130,47 @@ releases are no-contract snapshots
   git-ignored `tools/runs/`. The immutability proof is also widened beyond
   `skills/` to hash `docs/`, `scripts/`, `.claude/` (intent-aligned hardening,
   not an AC change). Driven by #24.
+
+## 2026-07-16 — Profile-based isolation, daemon preflight, and run provenance (#24)
+
+- **Isolation model.** Live runs now execute against persistent, pre-authenticated
+  **test profiles** at `~/.skills-test-profiles/<harness-id>/`, replacing the
+  fixture-scoped empty homes of the tracer bullet (which conflated isolation with
+  emptiness: emptied `HOME`/XDG hid OAuth credentials, so claude/codex could not
+  run at all). Project scope is unchanged — the spawn cwd stays an out-of-repo
+  `os.tmpdir()` fixture and the immutability guard still hashes
+  `skills/ docs/ scripts/ .claude/`. Profiles are mutable harness state by design
+  and sit outside the guard. Provisioning is developer-run
+  (`npm run test:auth -- <harness-id>`, OAuth/subscription flows); the runner
+  never handles credentials.
+- **codex skill-discovery leak, resolved (finding #4 — Option A).** codex also
+  reads a global, HOME-based `~/.agents/skills/` independent of `CODEX_HOME`, so
+  `CODEX_HOME` alone does not confine codex's skill discovery. For codex, HOME
+  is relocated into the profile so the HOME-derived `~/.agents/skills` (the
+  developer's real global skills — the actual leak) resolves to an empty
+  profile location. This confines the two HOME/CODEX_HOME-derived skill roots.
+  Residual surfaces that no env relocation can close, and which are out of
+  scope for this ticket: the system/managed config layer (`/etc/codex/*`, macOS
+  `com.openai.codex` MDM) and any codex-relevant variables the developer has
+  exported into the parent environment. codex auth survives the HOME
+  relocation because it is file-based under `CODEX_HOME` (or in the
+  HOME-independent Keychain). claude-code continues to omit `HOME` from its
+  env map — its OAuth token lives in the macOS Keychain, reached via the real
+  `HOME`.
+- **Preflight ladder.** Problems detectable before execution (missing binary,
+  missing profile, missing auth material) map to `skipped` with an actionable
+  reason. The opencode leg is additionally gated by a **daemon preflight** — any
+  user-owned running `opencode` process skips the leg, because a pre-existing
+  server can serve `run` in its own project context and bypass the client's
+  cwd/env (observed 2026-07-15: 8 committed files mutated, caught by the guard).
+  Verdicts still derive solely from deterministic assertions plus source
+  immutability; harness exit status stays informational.
+- **Provenance.** `--harness <id>[=<model>]` pins a model per harness (pinned
+  per-driver default otherwise) and every leg writes a structured `run.json`
+  (harness id, resolved model, harness version from the availability probe,
+  exact invocation, exit status, timeout/skip data) — a verdict without model
+  and version provenance is not attributable.
+- The pydantic-ai harness-set extension remains deferred to its follow-up
+  ticket's amendment. Design record:
+  `docs/superpowers/specs/2026-07-15-test-runner-profile-isolation-design.md`.
+  Driven by #24.
