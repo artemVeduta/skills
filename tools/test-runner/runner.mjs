@@ -13,6 +13,20 @@ export function isHarnessAvailable(command) {
   }
 }
 
+// Driver-owned availability probe: `<command> <probe.args>` must exit 0. Its
+// trimmed stdout is captured as the harness VERSION STRING for provenance —
+// a verdict without model+version provenance is not attributable (spec goal 3;
+// motivated by an observed mid-investigation opencode auto-update).
+export function probeHarness(driver) {
+  try {
+    const r = spawnSync(driver.command, driver.probe.args, { encoding: 'utf8' });
+    if (r.status !== 0) return { ok: false, version: null };
+    return { ok: true, version: (r.stdout ?? '').trim() };
+  } catch {
+    return { ok: false, version: null };
+  }
+}
+
 // Spawn the harness against its disposable fixture. cwd is the fixture root —
 // built under os.tmpdir(), OUTSIDE the repo (see runCase) — so project-scope
 // skill discovery (.claude/skills, .codex/skills, .opencode/skills) resolves to
