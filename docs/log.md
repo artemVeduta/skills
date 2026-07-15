@@ -1,5 +1,13 @@
 # Bundle change log
 
+## 2026-07-15
+
+- **Creation** of [Test-profile provisioning](/conventions/test-profile-provisioning.md)
+  — provisioning the per-harness test profiles via `scripts/setup-test-profiles.sh` (fixed
+  `~/.skills-test-profiles/<id>/` root, per-harness login/auth-marker, OAuth-pause flow,
+  cross-machine setup), plus the codex `--skip-git-repo-check` and global `~/.agents/skills/`
+  caveats.
+
 ## 2026-07-14
 
 - **Update** — amended [Skill testing and benchmark architecture](/decisions/skill-testing-architecture.md):

@@ -39,7 +39,7 @@
 - `npm run test:case -- okf-docs-setup [--harness <id>[=<model>]]... [--dry-run]` — the runner CLI. **⚠ Without `--dry-run` this spends real inference and requires provisioned profiles.**
 - `npm run lint:skills:strict`, `npm run docs:validate` — advisory gates that must exit 0 at the end.
 
-**Execution ordering note.** Tasks 1–3 are **interactive verification probes** (spec §9 V1–V3): they need a human at the terminal (OAuth login flows in a browser) and the installed CLIs (`claude` 2.1.209, `codex` 0.139.0, `opencode` 1.18.0). If you are a subagent that cannot run interactive login flows, STOP and hand these tasks to the human, then resume at Task 4. Tasks 4–11 are fully deterministic. Task 12 (live ACs) again spends inference. Tasks 1–3 record their outcomes in a committed notes file that later tasks read; where a later task branches on an outcome, both branches are fully specified inline.
+**Execution ordering note.** Tasks 1–3 (the interactive V1–V3 verification probes) were completed on 2026-07-15 via `scripts/setup-test-profiles.sh` and removed from this plan; their outcomes (V1 = LOGIN, V2 = CONFIRMED, V3 = CWD) and the corrections they surfaced are recorded in the **Live-run findings (2026-07-15)** section below. Tasks 4–11 are fully deterministic (no inference, no network). Task 12 (live ACs) again spends inference.
 
 ## File structure
 
@@ -66,245 +66,50 @@ package.json                MODIFY  add "test:auth" script
 docs/decisions/skill-testing-architecture.md   MODIFY  dated amendment + timestamp bump
 docs/glossary/harness.md                       MODIFY  test-profile paragraph + timestamp bump
 docs/log.md                                    MODIFY  newest-first 2026-07-15 entry
-docs/superpowers/plans/2026-07-15-profile-isolation-verification-notes.md  CREATE  V1–V3 + AC evidence
+docs/superpowers/plans/2026-07-15-profile-isolation-verification-notes.md  CREATE  AC-1…AC-4 live evidence (Task 12; V1–V3 now in "Live-run findings")
 ```
 
 Dependency direction: `profiles.mjs` (pure, no imports beyond node) ← `drivers.mjs` (pure) ← `runner.mjs` (impure spawn) ← `test-runner.mjs` (CLI). `test-auth.mjs` imports only `drivers.mjs` + `profiles.mjs`.
 
 ---
 
-### Task 1: V1 — claude profile auth scoping probe (interactive, no inference)
+## Live-run findings (2026-07-15)
 
-**Files:**
-- Create: `docs/superpowers/plans/2026-07-15-profile-isolation-verification-notes.md`
+> Captured from the first real provisioning + capability probes on this machine
+> (claude 2.1.210, codex-cli 0.139.0, opencode 1.18.0) via
+> `scripts/setup-test-profiles.sh` — which now bootstraps profile provisioning (a superset
+> of Task 9's `test:auth`; reconcile the two when Task 9 lands). Tasks 1–3 (the V1–V3
+> interactive verification) were executed here and removed from this plan; outcomes:
+> **V1 = LOGIN**, **V2 = CONFIRMED**, **V3 = CWD**. Apply each fix below when implementing
+> the named task.
 
-**Interfaces:**
-- Consumes: nothing (first task).
-- Produces: the recorded **V1 outcome** — either `LOGIN` (profile-scoped `claude login` works and lands `.claude.json` in the profile) or `SEED` (test-auth must copy `~/.claude.json` into the profile). Task 9 branches on this. In **both** outcomes `authMaterialPath('claude-code', profileDir)` is `<profileDir>/.claude.json` (Task 4 hardcodes that unconditionally).
+1. **claude login is `claude auth login`, not `claude login`.** `claude --help` exposes no
+   top-level `login` — only `auth` (with a nested `login`) and `setup-token`.
+   - **Task 9:** `LOGIN_ARGS['claude-code']` must be `['auth', 'login']` (the draft shows `['login']`).
 
-- [ ] **Step 1: Create the notes file with the outcome template**
+2. **codex `exec` needs `--skip-git-repo-check`.** Fixtures are non-git `os.tmpdir()` dirs;
+   without the flag `codex exec` refuses to run and every live codex leg fails before doing
+   anything.
+   - **Task 5:** codex `buildInvocation` args must include `--skip-git-repo-check`
+     (e.g. `['exec', '--sandbox', 'workspace-write', '--skip-git-repo-check', '-m', model, prompt]`).
 
-Write `docs/superpowers/plans/2026-07-15-profile-isolation-verification-notes.md`:
+3. **V3 resolved to CWD** — codex discovers cwd-relative `.agents/skills`.
+   - **Task 5:** keep `discoverySubdir: '.agents/skills'` and **delete the now-dead
+     `V3 = PROFILE-STAGING` branch** (Step 4) — there is no profile-staging leg.
+   - **Task 8:** **remove the `V3 = PROFILE-STAGING`-only staging block** (it is unreachable).
 
-```markdown
-# Profile-isolation pre-wiring verification notes (#24)
+4. **codex skill-discovery leak — design decision needed in Task 5.** codex also reads a
+   global, HOME-based `~/.agents/skills/` independent of `CODEX_HOME`, so "codex env =
+   `CODEX_HOME` only, no HOME" does NOT confine skill discovery: the developer's real
+   `~/.agents/skills` would leak into a codex live run. Decide in **Task 5** — also relocate
+   `HOME` for codex, or otherwise neutralize `~/.agents/skills` — and update the §5 env-map
+   rationale and `profileEnvFor('codex', …)` accordingly.
 
-> Evidence log for spec §9 (V1–V3) and §11 (AC-1…AC-4) of
-> `docs/superpowers/specs/2026-07-15-test-runner-profile-isolation-design.md`.
-> Appended as each verification runs; command output pasted verbatim.
-
-## V1 — claude profile auth scoping
-
-- Date/CLI version:
-- Login subcommand found in `claude --help`:
-- Where the OAuth pointer landed:
-- Keychain entry observed:
-- Main install auth intact afterwards (pointer + keychain checks):
-- **Outcome: LOGIN | SEED** (circle one)
-
-## V2 — opencode env honoring
-
-- Date/CLI version:
-- Real `~/.config/opencode` + `~/.local/share/opencode` mtimes unchanged: YES/NO
-- Auth material created at `<profile>/xdg-data/opencode/auth.json`: YES/NO
-- Pinned opencode default model id (from `opencode models`):
-- **Outcome: CONFIRMED | BLOCKED**
-
-## V3 — codex skill discovery under profile CODEX_HOME
-
-- Date/CLI version:
-- cwd-relative `.agents/skills` discovered: YES/NO
-- `$CODEX_HOME/skills` discovered (only tested if the above was NO): YES/NO
-- **Outcome: CWD (`discoverySubdir: '.agents/skills'`) | PROFILE-STAGING fallback**
-
-## AC evidence (filled by Task 12)
-
-### AC-1 — all three live green
-### AC-2 — model pinning live
-### AC-3 — preflight SKIPs live (rungs 2–4)
-### AC-4 — deterministic gate
-```
-
-- [ ] **Step 2: Find the claude login subcommand (do not guess)**
-
-Run: `claude --help 2>&1 | grep -iE 'login|auth|setup-token'`
-Expected: a line naming the login entry point (candidates in 2.1.209: a `login` subcommand, or interactive-only `/login`). Record the exact form in the notes.
-
-- [ ] **Step 3: Snapshot the main install's auth state (for the after-check)**
-
-```bash
-CLAUDE_TEST_PROFILE="$HOME/.skills-test-profiles/claude-code"
-mkdir -p "$CLAUDE_TEST_PROFILE"
-cp ~/.claude.json /tmp/claude-json-before.bak
-security find-generic-password -s "Claude Code-credentials" >/dev/null 2>&1; echo "keychain-before rc=$?"
-# If rc!=0, discover the real service name and use it in all later checks:
-security dump-keychain 2>/dev/null | grep -i claude
-```
-
-- [ ] **Step 4: Run the login flow against the profile**
-
-```bash
-CLAUDE_CONFIG_DIR="$CLAUDE_TEST_PROFILE" claude login
-```
-If Step 2 showed no `login` subcommand: run `CLAUDE_CONFIG_DIR="$CLAUDE_TEST_PROFILE" claude`, type `/login`, complete the browser OAuth flow, then `/exit`. (Suggest the user runs this as `! CLAUDE_CONFIG_DIR=... claude login` if you cannot attach a TTY.)
-
-- [ ] **Step 5: Check where the OAuth pointer landed and that the main install is untouched**
-
-```bash
-ls -la "$CLAUDE_TEST_PROFILE"
-grep -c oauthAccount "$CLAUDE_TEST_PROFILE/.claude.json" 2>/dev/null   # expect: 1
-cmp -s ~/.claude.json /tmp/claude-json-before.bak && echo "main pointer untouched"
-security find-generic-password -s "Claude Code-credentials" >/dev/null 2>&1 && echo "keychain entry still present"
-```
-Expected (spec's expected outcome → **LOGIN**): `.claude.json` containing `oauthAccount` exists inside the profile; the main `~/.claude.json` is byte-identical to the snapshot; the Keychain entry still resolves. (Keychain-entry presence + intact pointer is the no-inference proxy for "main install still works" — V1 forbids spending inference.)
-
-If instead login refused to run profile-scoped, or wrote the pointer to the real `~/.claude.json` only → **SEED**: verify the seed works by `cp ~/.claude.json "$CLAUDE_TEST_PROFILE/.claude.json"` — Task 9's claude branch then ships this copy step instead of a login spawn.
-
-- [ ] **Step 6: Record the outcome in the notes file (fill every V1 line), then clean up**
-
-```bash
-rm /tmp/claude-json-before.bak
-```
-
-- [ ] **Step 7: Commit**
-
-```bash
-git add docs/superpowers/plans/2026-07-15-profile-isolation-verification-notes.md
-git commit -m "docs: #24 record V1 claude profile auth-scoping outcome"
-```
-
----
-
-### Task 2: V2 — opencode env honoring probe (interactive, no inference)
-
-**Files:**
-- Modify: `docs/superpowers/plans/2026-07-15-profile-isolation-verification-notes.md` (V2 section)
-
-**Interfaces:**
-- Consumes: nothing from other tasks.
-- Produces: **V2 outcome** (CONFIRMED expected — profile env confines opencode's fixed paths) and the **pinned opencode default model id** (a provider-prefixed string like `anthropic/claude-opus-4.8`) used by Task 5's `defaultModel`. Side effect: the opencode profile is provisioned (auth material in place), which Tasks 9/12 reuse.
-
-- [ ] **Step 1: Ensure no opencode daemon is running (it would invalidate the probe AND is unsafe)**
-
-Run: `pgrep -u "$USER" -x opencode; echo "rc=$?"`
-Expected: no PIDs, `rc=1`. If any PID appears: `pkill -u "$USER" -x opencode` and re-check.
-
-- [ ] **Step 2: Create the profile skeleton and snapshot real-home mtimes**
-
-```bash
-OC_PROFILE="$HOME/.skills-test-profiles/opencode"
-mkdir -p "$OC_PROFILE"/{xdg-config,xdg-data,xdg-cache,xdg-state}
-stat -f '%m %N' ~/.config/opencode ~/.local/share/opencode 2>/dev/null | tee /tmp/oc-mtimes-before.txt
-```
-
-- [ ] **Step 3: Run the login flow under the full profile env**
-
-```bash
-env HOME="$OC_PROFILE" \
-    XDG_CONFIG_HOME="$OC_PROFILE/xdg-config" XDG_DATA_HOME="$OC_PROFILE/xdg-data" \
-    XDG_CACHE_HOME="$OC_PROFILE/xdg-cache"  XDG_STATE_HOME="$OC_PROFILE/xdg-state" \
-    OPENCODE_DISABLE_AUTOUPDATE=1 \
-    opencode auth login
-```
-Complete the interactive provider auth (this is `opencode auth` per the spec; confirm the exact subcommand with `opencode --help` if it errors, and record it — Task 9's `LOGIN_ARGS` must match).
-
-- [ ] **Step 4: Run a non-inference read command under the same env and pin the default model**
-
-```bash
-env HOME="$OC_PROFILE" XDG_CONFIG_HOME="$OC_PROFILE/xdg-config" XDG_DATA_HOME="$OC_PROFILE/xdg-data" \
-    XDG_CACHE_HOME="$OC_PROFILE/xdg-cache" XDG_STATE_HOME="$OC_PROFILE/xdg-state" \
-    OPENCODE_DISABLE_AUTOUPDATE=1 \
-    opencode models | head -30
-```
-Expected: a model list including provider-prefixed Anthropic ids. Record the exact id you will pin as opencode's `defaultModel` (pick the current Sonnet, e.g. `anthropic/claude-opus-4.8` — record whatever the list actually prints).
-
-- [ ] **Step 5: Verify confinement**
-
-```bash
-stat -f '%m %N' ~/.config/opencode ~/.local/share/opencode 2>/dev/null | tee /tmp/oc-mtimes-after.txt
-diff /tmp/oc-mtimes-before.txt /tmp/oc-mtimes-after.txt && echo "real homes untouched"
-ls -la "$OC_PROFILE/xdg-data/opencode/auth.json" && echo "auth material in profile"
-```
-Expected: `diff` silent (mtimes unchanged) and `auth.json` present under the profile's `xdg-data`. → **CONFIRMED**.
-
-If the real dirs changed or auth landed outside the profile → **BLOCKED**: opencode ignores the env on this version. STOP — this invalidates spec §5's capability-probe result; record everything observed in the notes, commit, and escalate to the user before continuing (the spec has no in-scope fallback; D2's alternative is dropping the leg, a user decision).
-
-- [ ] **Step 6: Fill the V2 section of the notes file; clean up `/tmp/oc-mtimes-*.txt`**
-
-- [ ] **Step 7: Commit**
-
-```bash
-git add docs/superpowers/plans/2026-07-15-profile-isolation-verification-notes.md
-git commit -m "docs: #24 record V2 opencode env-honoring outcome and pinned model"
-```
-
----
-
-### Task 3: V3 — codex skill discovery probe (interactive, ~one minimal inference probe)
-
-**Files:**
-- Modify: `docs/superpowers/plans/2026-07-15-profile-isolation-verification-notes.md` (V3 section)
-
-**Interfaces:**
-- Consumes: nothing from other tasks.
-- Produces: **V3 outcome** — `CWD` (codex discovers cwd-relative `.agents/skills`; Task 5 sets codex `discoverySubdir: '.agents/skills'`) or `PROFILE-STAGING` (Task 5 keeps a profile-staging path and Task 8 adds the stage/cleanup steps). Also records the **pinned codex default model id** (candidate: `gpt-5.6-sol`). Side effect: the codex profile is provisioned, reused by Tasks 9/12.
-
-- [ ] **Step 1: Provision the codex profile (login flow)**
-
-```bash
-CODEX_TEST_PROFILE="$HOME/.skills-test-profiles/codex"
-mkdir -p "$CODEX_TEST_PROFILE"
-codex --help 2>&1 | grep -iE 'login|auth'      # confirm the subcommand; record it for Task 9
-CODEX_HOME="$CODEX_TEST_PROFILE" codex login
-ls -la "$CODEX_TEST_PROFILE/auth.json"          # expect: present, mode 600
-```
-
-- [ ] **Step 2: Pin the codex default model id**
-
-Run: `codex exec --help 2>&1 | grep -iE '\-m|--model'` and check `"$CODEX_TEST_PROFILE/config.toml"` (if the login created one) for a `model` line.
-Expected: `-m, --model` exists. Record the model id to pin (candidate `gpt-5.6-sol`; if config.toml names the CLI's own default, record that exact string).
-
-- [ ] **Step 3: Build the minimal discovery-probe fixture (cwd-relative `.agents/skills`)**
-
-```bash
-PROBE=$(mktemp -d)
-mkdir -p "$PROBE/.agents/skills/probe-skill"
-cat > "$PROBE/.agents/skills/probe-skill/SKILL.md" <<'EOF'
----
-name: probe-skill
-description: Discovery-path probe. Use when asked which skills are available.
----
-When asked which skills are available, reply with exactly: PROBE-SKILL-DISCOVERED
-EOF
-```
-
-- [ ] **Step 4: Run the one minimal live probe (⚠ spends a small amount of inference)**
-
-```bash
-cd "$PROBE" && CODEX_HOME="$CODEX_TEST_PROFILE" codex exec --sandbox workspace-write \
-  "Which skills are available to you? If one is named probe-skill, follow its instruction exactly."
-```
-Expected (**CWD** outcome): output contains `PROBE-SKILL-DISCOVERED` (or lists `probe-skill`).
-
-- [ ] **Step 5: Only if Step 4 did NOT discover it — test the profile-staging fallback**
-
-```bash
-mkdir -p "$CODEX_TEST_PROFILE/skills"
-cp -R "$PROBE/.agents/skills/probe-skill" "$CODEX_TEST_PROFILE/skills/probe-skill"
-cd "$PROBE" && CODEX_HOME="$CODEX_TEST_PROFILE" codex exec --sandbox workspace-write \
-  "Which skills are available to you? If one is named probe-skill, follow its instruction exactly."
-rm -rf "$CODEX_TEST_PROFILE/skills/probe-skill"
-```
-Expected: `PROBE-SKILL-DISCOVERED` → **PROFILE-STAGING** outcome. If neither location is discovered, record that and escalate (codex leg cannot see skills; AC-1's codex leg is blocked — a user decision, not an implementation choice).
-
-- [ ] **Step 6: Clean up (`rm -rf "$PROBE"`), fill the V3 section of the notes file**
-
-- [ ] **Step 7: Commit**
-
-```bash
-git add docs/superpowers/plans/2026-07-15-profile-isolation-verification-notes.md
-git commit -m "docs: #24 record V3 codex discovery-path outcome and pinned model"
-```
+5. **opencode provider/model mismatch.** The provisioned profile authed the "OpenCode Go"
+   provider (API key), but the pinned opencode `defaultModel` is `anthropic/claude-sonnet-5`.
+   **Task 5's** opencode `defaultModel` must be reconciled with the actually-authed provider
+   (run `opencode models` under the profile to pin a valid id) before the opencode leg can
+   run green.
 
 ---
 ### Task 4: `profiles.mjs` — the profile single source of truth (pure, TDD)
