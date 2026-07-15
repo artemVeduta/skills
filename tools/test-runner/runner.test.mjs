@@ -91,3 +91,30 @@ test('preflight passes all rungs and hands back the probe version for provenance
   const r = await preflightHarness(d, '/prof/opencode', LADDER_DEPS_ALL_GREEN);
   assert.deepEqual(r, { skipReason: null, version: '9.9.9' });
 });
+
+test('a non-CLI-shaped driver fits the descriptor seam unchanged (pydantic-ai readiness)', () => {
+  // Stands in for a future `uv run shim.py` harness with API-key env auth:
+  // custom probe, pinned defaultModel, profile-scoped env — no seam changes.
+  const shim = {
+    id: 'pydantic-ai',
+    command: process.execPath, // stands in for `uv`
+    discoverySubdir: '.agents/skills',
+    defaultModel: 'anthropic:claude-opus-4.8',
+    probe: { args: ['--version'] },
+    buildInvocation({ fixtureRoot, prompt, model, profileDir }) {
+      return {
+        command: this.command,
+        args: ['run', 'shim.py', '--model', model, prompt],
+        env: { PYDANTIC_AI_PROFILE: profileDir, ANTHROPIC_API_KEY_FILE: `${profileDir}/api-key` },
+      };
+    },
+  };
+  const probed = probeHarness(shim);
+  assert.equal(probed.ok, true);
+  assert.match(probed.version, /^v\d+\./);
+  const inv = shim.buildInvocation({
+    fixtureRoot: '/fx', prompt: 'p', model: shim.defaultModel, profileDir: '/prof/pydantic-ai',
+  });
+  assert.deepEqual(inv.args, ['run', 'shim.py', '--model', 'anthropic:claude-opus-4.8', 'p']);
+  for (const v of Object.values(inv.env)) assert.ok(v.startsWith('/prof/pydantic-ai'));
+});
