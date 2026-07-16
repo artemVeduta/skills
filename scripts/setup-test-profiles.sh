@@ -47,6 +47,11 @@ SCRIPT_NAME="$(basename "$0")"
 CURRENT_USER="${USER:-$(id -un)}"
 OS_NAME="$(uname -s)"
 PROFILES_ROOT="$HOME/.skills-test-profiles"   # spec D1 — fixed, no override
+# Repo root this script lives in (scripts/..), derived from the script's own
+# location rather than the operator's cwd or a hardcoded path — the stale-
+# state guard below (check_opencode_no_repo_project) needs this to work the
+# same on any machine/account this script runs under.
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)"
 
 FORCE=0
 PROBE_DISCOVERY=0
@@ -310,6 +315,26 @@ run_login() {
 
   print_login_banner "$id" "$cmd"
 
+  # Run the login flow from a NEUTRAL throwaway directory, never the
+  # operator's cwd (typically this repo's root). Some harnesses (opencode)
+  # silently register whatever directory they are invoked from as a "known
+  # project" in their own on-disk state — logging in from inside this repo
+  # seeds a stale project row pointing at the real repo worktree straight
+  # into the profile's registry (a fixture escape: the "isolated" test
+  # profile ends up holding a live reference to the actual codebase). A
+  # fresh mktemp -d guarantees there is nothing there to register but
+  # scratch space. Plain `cd` (not a `(cd dir && cmd)` subshell): wrapping in
+  # a subshell would put the login command right after the subshell's final
+  # `&&`, which is NOT an exempted position under `set -E` — the ERR trap
+  # would then fire from inside the subshell for an expected nonzero/
+  # cancelled login, reintroducing the exact spurious-"ERROR:" problem the
+  # `cmd || rc=$?` construct below exists to avoid.
+  local login_cwd op_cwd
+  login_cwd="$(mktemp -d "${TMPDIR:-/tmp}/skills-test-profile-login.XXXXXX")"
+  register_cleanup "$login_cwd"
+  op_cwd="$(pwd)"
+  cd "$login_cwd"
+
   # `cmd || rc=$?` (not `set +e`/`set -e`) is deliberate: the ERR trap fires
   # based on a command's structural position in a &&/|| list, not on whether
   # errexit happens to be toggled off around it — a bare `set +e` still lets
@@ -319,6 +344,8 @@ run_login() {
   # `cmd || true`.
   local rc=0
   env "${_ENV_ASSIGNMENTS[@]}" "$cmd" "${_LOGIN_ARGV[@]}" || rc=$?
+
+  cd "$op_cwd"
 
   if [ "$rc" -ne 0 ]; then
     echo "$id: login command exited $rc (nonzero/cancelled) — verifying auth material anyway" >&2
@@ -399,6 +426,66 @@ SKILL_EOF
     PROBE_OUTCOME="NOT-DISCOVERED"
   fi
   rm -rf "$probe_dir"
+}
+
+# Fails loudly if the opencode profile's own known-projects registry (its
+# sqlite opencode.db under the profile's XDG_DATA_HOME) holds a project
+# whose worktree sits inside this repo (REPO_ROOT). This is the STALE-STATE
+# analogue of the live-daemon preflight in provision_opencode: that gate
+# catches a RUNNING process that could escape the profile right now; this
+# one catches PERSISTED state — a project row left over from some past run
+# that already escaped it (e.g. a login invoked with the real repo as cwd
+# before run_login's neutral-cwd fix existed). Runs regardless of whether
+# login ran THIS invocation, since the registry can carry rows from any
+# prior run. Missing sqlite3 is treated the same as the pgrep-missing case
+# above: fail loudly rather than silently skip a safety check we cannot
+# actually perform.
+check_opencode_no_repo_project() {
+  local dir="$1"
+  local db="$dir/xdg-data/opencode/opencode.db"
+
+  [ -e "$db" ] || return 0   # nothing provisioned yet — nothing to check
+
+  if ! command -v sqlite3 >/dev/null 2>&1; then
+    echo "opencode: REFUSED — sqlite3 not found; cannot verify the known-projects registry is free of this repo" >&2
+    return 1
+  fi
+
+  # Query output goes to a real file, not a "$(...)" command substitution:
+  # `set -E` propagates the ERR trap into command-substitution subshells,
+  # and a plain query command inside one has no exempted &&/|| position to
+  # hide a failure behind (the same concern run_login's `cmd || rc=$?`
+  # comment above walks through). Writing to a file and checking `$?` at the
+  # top level — a plain command directly before `||`, exempted the same way
+  # — keeps the query's own exit status honestly out of the trap's way.
+  local out_file rc=0
+  out_file="$(mktemp "${TMPDIR:-/tmp}/opencode-project-check.XXXXXX")"
+  register_cleanup "$out_file"
+  sqlite3 "$db" \
+    "SELECT worktree FROM project WHERE worktree = '$REPO_ROOT' OR worktree LIKE '$REPO_ROOT/%';" \
+    >"$out_file" 2>&1 || rc=$?
+
+  if [ "$rc" -ne 0 ]; then
+    echo "opencode: REFUSED — could not query $db to verify the known-projects registry" >&2
+    echo "  sqlite3 output: $(cat "$out_file")" >&2
+    return 1
+  fi
+
+  local hits
+  hits="$(cat "$out_file")"
+
+  if [ -n "$hits" ]; then
+    echo "opencode: BLOCKED — the profile's known-projects registry ($db) still holds a" >&2
+    echo "  project rooted inside this repo ($REPO_ROOT):" >&2
+    printf '    %s\n' "$hits" >&2
+    echo "  This is stale state from a login that ran with the real repo as cwd, not" >&2
+    echo "  something this run just created. Purge the offending project/" >&2
+    echo "  project_directory/session rows from $db and any matching" >&2
+    echo "  <project-id> dir under $dir/xdg-data/opencode/snapshot/, then re-run." >&2
+    return 1
+  fi
+
+  return 0
 }
 
 # ---------------------------------------------------------------------------
@@ -574,6 +661,11 @@ provision_opencode() {
   local authed="no"
   if [ "$confinement" = "CONFIRMED" ] && [ -e "$auth_path" ]; then
     authed="yes"
+  fi
+
+  if ! check_opencode_no_repo_project "$dir"; then
+    authed="no"
+    confinement="BLOCKED (stale repo-rooted project in known-projects registry)"
   fi
 
   local material_state="absent"
