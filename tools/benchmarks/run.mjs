@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 import { runCase } from '../test-runner.mjs';
 import { resolvePreset } from './presets.mjs';
+import { modelFor } from './models.mjs';
 import { gitProvenance } from './provenance.mjs';
 import { aggregate } from './summary.mjs';
 import { renderReport } from './report.mjs';
@@ -47,11 +48,12 @@ export async function runBench(skillName, {
   presetName, trials, runsRoot = join(REPO_ROOT, 'tools/runs'),
   summariesDir = SUMMARIES_DIR, reportsDir = REPORTS_DIR,
   runCase: runCaseFn = runCase, gitProvenance: gitProvenanceFn = gitProvenance,
+  modelFor: modelForFn = modelFor,
   now = () => new Date(), baseRunId = String(Date.now()),
 }) {
   const preset = resolvePreset(presetName);
   const trialCount = trials ?? preset.trials;
-  const harnessSelections = preset.harnesses.map((id) => ({ id, model: null }));
+  const harnessSelections = preset.harnesses.map((id) => ({ id, model: modelForFn(id) }));
 
   const legs = [];
   for (let t = 1; t <= trialCount; t++) {
