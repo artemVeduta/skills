@@ -2,7 +2,7 @@
 type: Decision
 title: Benchmark metrics and comparison design
 description: Tiered smoke/full trial presets, an advisory two-of-five-trial regression flag, committed summary JSON with local raw artifacts, release-promoted baselines, an identity-set provenance schema, and per-case reports with no cross-case blend.
-timestamp: 2026-07-11
+timestamp: 2026-07-16
 ---
 
 # Benchmark metrics and comparison design
@@ -107,3 +107,29 @@ comparable. Cost anchors the design: one paired trial is two full agent sessions
 ## YYYY-MM-DD — <short title>
 <what changed and why; link the driving work>
 -->
+
+## 2026-07-16 — #25 rescoped to a single-arm run + report flow
+
+Rescoped per `docs/superpowers/specs/2026-07-16-benchmark-test-report-flow-design.md`
+(§3), shipped on `feat/24-test-runner` with #24. Deferred, not removed from the
+decision text above:
+
+- The paired **with/without-skill comparison arm** (the paired-trial shape fixed by
+  the [testing and benchmark architecture](/decisions/skill-testing-architecture.md)
+  and carried into decision 1's presets) and its with/without **delta** (the
+  paired-delta half of decision 6) — every run is single-arm, skill-installed only.
+- The **advisory ≥2-of-5-trial regression flag** (decision 2) — inert without a
+  comparison arm and at a trial count of 1.
+- **Baseline promotion at release** (decision 4) and the release-script staleness
+  guard — a baseline needs a delta and trials ≥ 2 to mean anything;
+  `scripts/release.mjs`'s `checkBenchmarkStaleness` stub is left untouched.
+- **`full`'s trial count is 1, not 5** (decision 1), in this iteration; harness
+  breadth (not trial count) distinguishes `smoke` from `full` for now. Trial count
+  remains an adjustable per-preset knob.
+
+Carried over unchanged: the **provenance identity set** (decision 5), the
+**commit-summary / keep-raw-artifacts-local** retention split (decision 3), and the
+**deterministic per-case report generator with no cross-case blend** (the kept half
+of decision 6) — now sourced from #24's `run.json` (`writeRunJson` in
+`tools/test-runner.mjs`) plus a run-level git identity, and written to
+`tools/benchmarks/summaries/` + `tools/benchmarks/reports/`.

@@ -2,6 +2,12 @@
 
 ## 2026-07-16
 
+- **Update** — amended [Benchmark metrics and comparison design](/decisions/benchmark-metrics-and-comparison-design.md):
+  recorded the #25 rescope to a single-arm run+report flow — with/without
+  comparison arm, advisory regression flag, and baseline promotion deferred;
+  `full` trial count 1 not 5; provenance identity set, commit-summary/local-raw
+  retention split, and the deterministic no-cross-case-blend report principle
+  carried over unchanged.
 - **Update** — amended [Skill testing and benchmark architecture](/decisions/skill-testing-architecture.md):
   live-run isolation moved to persistent pre-authenticated test profiles under
   `~/.skills-test-profiles/`, resolved the codex HOME-derived skill-discovery
