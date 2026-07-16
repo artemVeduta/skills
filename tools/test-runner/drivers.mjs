@@ -76,7 +76,14 @@ export const DRIVERS = [
         command: 'opencode',
         // `opencode run` does not auto-approve permissions by default; --auto
         // auto-approves permissions not explicitly denied.
-        args: ['run', '--auto', '-m', model, prompt],
+        // `opencode run` does NOT confine to the process cwd: it walks up from
+        // cwd looking for a `.git` dir and resolves a project via its own
+        // registry, so a non-git fixture cwd can resolve to an unrelated
+        // project and escape the fixture (root cause of the opencode
+        // fixture-escape bug). --dir pins the run to the fixture root
+        // explicitly; fixture.mjs also git-inits the fixture so the walk-up
+        // binds there too even if --dir's confinement is ever incomplete.
+        args: ['run', '--auto', '--dir', fixtureRoot, '-m', model, prompt],
         env: profileEnvFor('opencode', profileDir),
       };
     },

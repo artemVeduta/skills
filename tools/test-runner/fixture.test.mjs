@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { buildFixture, hashTree, hashGuardedTrees } from './fixture.mjs';
 
 // Build a temp skills/ tree: a -> b -> c (a requires b, b requires c).
@@ -67,6 +68,35 @@ test('buildFixture seeds case inputs into the fixture working dir', async () => 
       inputs: [{ path: 'package.json', content: '{"name":"x"}\n' }],
     });
     assert.equal(await readFile(join(fixtureRoot, 'package.json'), 'utf8'), '{"name":"x"}\n');
+  } finally {
+    await rm(skillsRoot, { recursive: true, force: true });
+    await rm(fixtureRoot, { recursive: true, force: true });
+  }
+});
+
+// Positive confinement proof (opencode fixture-escape fix): `opencode run`
+// walks up from cwd for a `.git` dir and resolves a project via its own
+// registry, so a fixture must be a real, committed git repo for the walk-up
+// to bind there instead of escaping upward. Harness-agnostic — every fixture
+// gets this, regardless of which driver built it.
+test('buildFixture leaves the fixture as a git repo with a clean, committed baseline', async () => {
+  const skillsRoot = await mkdtemp(join(tmpdir(), 'tr-src-'));
+  const fixtureRoot = await mkdtemp(join(tmpdir(), 'tr-fx-'));
+  try {
+    await makeSkills(skillsRoot);
+    await buildFixture({
+      skillName: 'a',
+      skillsRoot,
+      driver: { discoverySubdir: '.opencode/skills' },
+      fixtureRoot,
+      inputs: [{ path: 'package.json', content: '{"name":"x"}\n' }],
+    });
+    const git = (args) => spawnSync('git', args, { cwd: fixtureRoot, encoding: 'utf8' });
+    assert.equal(git(['rev-parse', '--is-inside-work-tree']).stdout.trim(), 'true');
+    // Working tree is clean: everything (skills + seeded inputs) is committed.
+    assert.equal(git(['status', '--porcelain']).stdout, '');
+    // Exactly one baseline commit, so the walk-up finds real history here.
+    assert.equal(git(['rev-list', '--count', 'HEAD']).stdout.trim(), '1');
   } finally {
     await rm(skillsRoot, { recursive: true, force: true });
     await rm(fixtureRoot, { recursive: true, force: true });

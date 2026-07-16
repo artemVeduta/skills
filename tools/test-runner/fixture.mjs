@@ -7,6 +7,7 @@
 import { cp, mkdir, writeFile, readdir, readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { discoverSkills, stripFrontmatter } from '../../scripts/install/discovery.mjs';
 import { parseRequiredSkills, transitiveClosure } from '../skill-graph.mjs';
 
@@ -35,7 +36,38 @@ export async function buildFixture({ skillName, skillsRoot, driver, fixtureRoot,
     await mkdir(dirname(dest), { recursive: true });
     await writeFile(dest, input.content);
   }
+
+  gitInitFixture(fixtureRoot);
   return closure;
+}
+
+// opencode's `run` does not confine to the process cwd: it walks up from cwd
+// looking for a `.git` dir and resolves a project via its own registry, so a
+// non-git fixture cwd can resolve to an unrelated project and escape the
+// fixture entirely (root cause of the opencode fixture-escape bug). Making
+// every fixture a real, pinned git repo — committed once fully populated, so
+// nothing case-specific is left uncommitted — gives the walk-up something to
+// bind to right there. Harness-agnostic (applies regardless of which driver
+// built this fixture): codex already tolerates a git fixture via
+// --skip-git-repo-check, and claude-code confines to cwd regardless of git.
+function gitInitFixture(fixtureRoot) {
+  const runGit = (args) => {
+    const r = spawnSync('git', args, { cwd: fixtureRoot, encoding: 'utf8' });
+    if (r.status !== 0) {
+      throw new Error(`git ${args.join(' ')} failed in fixture ${fixtureRoot}: ${r.stderr || r.error?.message}`);
+    }
+    return r;
+  };
+  runGit(['init', '-q']);
+  // Local, fixture-scoped identity — never touches the developer's real git
+  // config (no --global), so commits succeed even with no user-level identity.
+  runGit(['config', 'user.email', 'test-runner@fixture.invalid']);
+  runGit(['config', 'user.name', 'test-runner fixture']);
+  runGit(['add', '-A']);
+  // -c commit.gpgsign=false: this is a disposable, synthetic baseline commit
+  // inside a throwaway tmpdir fixture (not a real project commit), so it must
+  // not hang or fail in dev environments with global commit signing enabled.
+  runGit(['-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'fixture baseline']);
 }
 
 // Stable content hash of a directory tree: for each file (sorted by rel path)

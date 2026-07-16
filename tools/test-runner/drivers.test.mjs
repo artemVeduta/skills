@@ -59,7 +59,10 @@ test('opencode invocation threads the provider-prefixed model and the confining 
     fixtureRoot: '/fx', prompt: 'yo', model: 'opencode-go/qwen3.7-max', profileDir: '/prof/opencode',
   });
   assert.equal(inv.command, 'opencode');
-  assert.deepEqual(inv.args, ['run', '--auto', '-m', 'opencode-go/qwen3.7-max', 'yo']);
+  // --dir pins the run to the fixture root: `opencode run` walks up from cwd
+  // for a `.git` dir and resolves a project via its own registry, so without
+  // --dir a non-git fixture cwd can escape to an unrelated project.
+  assert.deepEqual(inv.args, ['run', '--auto', '--dir', '/fx', '-m', 'opencode-go/qwen3.7-max', 'yo']);
   assert.deepEqual(inv.env, {
     HOME: '/prof/opencode',
     XDG_CONFIG_HOME: '/prof/opencode/xdg-config',
