@@ -2,6 +2,17 @@
 
 ## 2026-07-17
 
+- **Update** — amended [Skill testing and benchmark architecture](/decisions/skill-testing-architecture.md):
+  recorded the opencode fixture-escape fix — `run` resolves its project by a
+  `.git` walk-up plus a persistent per-profile known-projects registry
+  (`opencode.db`), not process cwd, so a non-git tmpdir fixture fell back to a
+  stale real-repo project (seeded by a repo-root `opencode auth login`) and wrote
+  into the real repo trees, undetectable by the live-daemon preflight since it is
+  stale state, not a live process. Fixed with `run --dir <fixtureRoot>`
+  (`tools/test-runner/drivers.mjs`), `git init`+baseline-committed fixtures
+  (`tools/test-runner/fixture.mjs`), a throwaway-cwd login, and a new
+  `check_opencode_no_repo_project` stale-state guard in
+  `scripts/setup-test-profiles.sh` (#24, fixed during #25).
 - **Creation** of [Benchmark run artifacts](/references/benchmark-run-artifacts.md)
   — the OKF Reference pointing at the committed `tools/benchmarks/summaries/` and
   `tools/benchmarks/reports/` artifacts produced by `npm run bench` (#25).

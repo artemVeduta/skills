@@ -2,7 +2,7 @@
 type: Decision
 title: Skill testing and benchmark architecture
 description: Test skills with a repo-owned harness in tools/ driving headless harness CLIs, graded by deterministic state assertions, with central per-skill case dirs and paired with/without-skill benchmarks.
-timestamp: 2026-07-16
+timestamp: 2026-07-17
 ---
 
 # Skill testing and benchmark architecture
@@ -174,3 +174,29 @@ releases are no-contract snapshots
   ticket's amendment. Design record:
   `docs/superpowers/specs/2026-07-15-test-runner-profile-isolation-design.md`.
   Driven by #24.
+
+## 2026-07-17 — opencode fixture-escape fix
+
+- **Root cause.** opencode `run` resolves its project not by process `cwd` but by
+  (a) walking up from `cwd` looking for a `.git` directory, and (b) a persistent
+  per-profile known-projects registry (`opencode.db`). A non-git tmpdir fixture
+  fails the walk-up, so opencode falls back to a stale registry entry for the
+  real repo — seeded when `opencode auth login` was previously run with
+  `cwd` = repo root — and binds the run to that real-repo project, WRITING INTO
+  THE REAL REPO TREES. This is the 2026-07-14 fixture-escape class recorded in the
+  prior amendment, but its actual mechanism: stale per-profile STATE, not a live
+  process, so it is undetectable by the live-daemon preflight (rung 4), which only
+  catches a resident `opencode` server.
+- **Fix (a deliberate, justified change to the otherwise wrap-frozen #24 harness,
+  made during #25 go-green because it is a genuine correctness/safety bug, not a
+  scope change).** The opencode driver now invokes `run --dir <fixtureRoot>`
+  (`tools/test-runner/drivers.mjs`), pinning the run to the fixture regardless of
+  the walk-up/registry fallback. Every fixture is `git init`-ed and
+  baseline-committed (`tools/test-runner/fixture.mjs`) so opencode's walk-up finds
+  a real, pinned git repo at the fixture root and has no reason to fall back.
+  `scripts/setup-test-profiles.sh` now runs `opencode auth login` from a
+  throwaway, non-repo cwd (so login never seeds a real-repo project into the
+  registry) and adds a `check_opencode_no_repo_project` guard — the state-level
+  analogue of the live-daemon preflight, checking the profile's `opencode.db` for
+  a stale real-repo project entry rather than a live process. Driven by #24, fixed
+  during #25.
