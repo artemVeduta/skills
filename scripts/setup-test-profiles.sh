@@ -405,90 +405,63 @@ SKILL_EOF
 # Per-harness provisioning
 # ---------------------------------------------------------------------------
 
-# V1 — claude-code. Outcome is LOGIN (profile-scoped `claude auth login`
-# landed oauthAccount inside the profile) or SEED (it didn't, but the real
-# install IS authed, so we copy ~/.claude.json -> profile). Either way the
-# real ~/.claude.json must stay byte-identical to its pre-login snapshot,
-# and on macOS the Keychain entry must still resolve.
+# V1 — claude-code. Auth is a MANUAL, one-time human step: this branch NEVER
+# launches an interactive login (contrast the run_login used by codex/
+# opencode). It only VERIFIES, and the verdict is honest — the CLI's own
+# headless self-report read UNDER the profile config dir:
+#   CLAUDE_CONFIG_DIR=<profile> claude auth status --json
+# reports "loggedIn": true only when the PROFILE itself carries working auth.
+# This replaces the previous global macOS-Keychain existence check, which was
+# a per-USER global that resolved from the developer's REAL login and so gave
+# a FALSE-POSITIVE PASS while a headless `CLAUDE_CONFIG_DIR=<profile> claude`
+# was actually "Not logged in". `auth status` is non-interactive, spends no
+# inference (~0.3s, no live model call), and honors CLAUDE_CONFIG_DIR, so it
+# reflects the profile's real state. Mirrors the file-based auth check the
+# codex/opencode branches do, upgraded from mere file existence to the CLI's
+# own loggedIn verdict. FORCE is moot here: there is no auto-login to
+# re-trigger and the (cheap) verification always runs, so nothing needs
+# forcing past.
 provision_claude() {
   local id="claude-code"
-  local dir auth_path model_hint
+  local dir auth_path model_hint cmd
   dir="$(harness_profile_dir "$id")"
   auth_path="$(harness_auth_path "$id" "$dir")"
   model_hint="$(harness_model_hint "$id")"
+  cmd="$(harness_command "$id")"
 
   echo
   echo "=== Provisioning: $id ==="
   mkdir -p "$dir"
 
-  # Gate the "already authenticated" fast-path skip on the SAME predicate
-  # used for LOGIN-outcome detection below (existence AND oauthAccount) —
-  # not existence alone. Otherwise a stale/partial profile file (exists but
-  # lacks oauthAccount) would be reported "already authenticated" here and
-  # then silently overwritten by the SEED branch a few lines later: a
-  # confusing contradiction that also hides the fact the file wasn't valid.
-  local already_authed=0
-  if [ -f "$auth_path" ] && grep -q oauthAccount "$auth_path" 2>/dev/null && [ "$FORCE" -eq 0 ]; then
-    already_authed=1
+  # Ask the CLI itself, under the profile env (harness_env_assignments is the
+  # single source of the per-harness env mapping, same as run_login uses).
+  # The `2>&1 || true` lives INSIDE the command substitution so an
+  # unauthenticated profile's nonzero exit is handled within the subshell and
+  # does NOT trip `set -e` + the ERR trap. (The outer `$(...) || true` form
+  # does NOT suppress it: `set -E` propagates the ERR trap into the
+  # command-substitution subshell, so the failing command must be exempted
+  # in-subshell.) The "loggedIn" field, not the exit code, is the verdict.
+  harness_env_assignments "$id" "$dir"
+  local status_json authed="no" outcome="UNAUTHENTICATED"
+  status_json="$(env "${_ENV_ASSIGNMENTS[@]}" "$cmd" auth status --json 2>&1 || true)"
+  if printf '%s' "$status_json" | grep -Eq '"loggedIn"[[:space:]]*:[[:space:]]*true'; then
+    authed="yes"
+    outcome="AUTHENTICATED"
   fi
 
-  # Track real-file existence regardless of content, and regardless of
-  # whether we end up taking a snapshot — a fresh machine with no prior
-  # `~/.claude.json` has nothing to snapshot, but if login then CREATES one
-  # on the real HOME, that is still a real-file mutation that must be
-  # flagged, not silently treated as an expected SEED source.
-  local snapshot="" pre_existed="no" ran_login=0
-  [ -f "$HOME/.claude.json" ] && pre_existed="yes"
-
-  if [ "$already_authed" -eq 1 ]; then
-    echo "$id: already authenticated — auth material at $auth_path"
+  if [ "$authed" = "yes" ]; then
+    echo "$id: profile is logged in (auth status: loggedIn=true) — auth material at $auth_path"
   else
-    if [ "$pre_existed" = "yes" ]; then
-      snapshot="$(mktemp "${TMPDIR:-/tmp}/claude-json-before.XXXXXX")"
-      register_cleanup "$snapshot"
-      cp "$HOME/.claude.json" "$snapshot"
-    fi
-    run_login "$id" "$dir"
-    ran_login=1
+    # No auto-login: tell the user exactly how to authenticate THIS profile by
+    # hand, then re-run to verify. Signing in under CLAUDE_CONFIG_DIR writes
+    # the credential into the profile config dir, not the real ~/.claude.json.
+    echo "$id: NEEDS-AUTH — profile at $dir is NOT logged in." >&2
+    echo "  Sign in MANUALLY (one-time, interactive browser flow), then re-run to verify:" >&2
+    echo "    CLAUDE_CONFIG_DIR=\"$dir\" $cmd auth login" >&2
+    echo "    $SCRIPT_NAME --only $id" >&2
+    echo "  Auth is stored inside the profile config dir ($auth_path)." >&2
+    [ -n "$status_json" ] && echo "  (auth status: $(printf '%s' "$status_json" | tr '\n' ' '))" >&2
   fi
-
-  local outcome="UNAUTHENTICATED"
-  if [ -f "$auth_path" ] && grep -q oauthAccount "$auth_path" 2>/dev/null; then
-    outcome="LOGIN"
-  elif [ -f "$HOME/.claude.json" ] && grep -q oauthAccount "$HOME/.claude.json" 2>/dev/null; then
-    # SEED: profile-scoped login didn't land the pointer, but the real
-    # install IS authed (content-checked, not just present). Copy FROM the
-    # real file INTO the profile only — never the reverse.
-    cp "$HOME/.claude.json" "$auth_path"
-    outcome="SEED"
-  fi
-
-  if [ "$ran_login" -eq 1 ]; then
-    if [ "$pre_existed" = "no" ]; then
-      if [ -f "$HOME/.claude.json" ]; then
-        echo "$id: WARNING — real ~/.claude.json CHANGED during the login run (it did not exist before)" >&2
-      else
-        echo "$id: real ~/.claude.json still absent (untouched) after the login run"
-      fi
-    elif [ -n "$snapshot" ]; then
-      if cmp -s "$HOME/.claude.json" "$snapshot"; then
-        echo "$id: real ~/.claude.json untouched (byte-identical to pre-login snapshot)"
-      else
-        echo "$id: WARNING — real ~/.claude.json CHANGED during the login run" >&2
-      fi
-    fi
-  fi
-
-  if [ "$OS_NAME" = "Darwin" ]; then
-    if security find-generic-password -s "Claude Code-credentials" >/dev/null 2>&1; then
-      echo "$id: Keychain entry \"Claude Code-credentials\" resolves"
-    else
-      echo "$id: Keychain entry \"Claude Code-credentials\" NOT found" >&2
-    fi
-  fi
-
-  local authed="no"
-  [ -e "$auth_path" ] && authed="yes"
 
   echo "$id: $([ "$authed" = yes ] && echo PASS || echo FAIL) — outcome=$outcome"
   record_result "$id" "$authed" "$auth_path" "$outcome" "$model_hint"
