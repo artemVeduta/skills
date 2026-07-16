@@ -2,7 +2,7 @@
 type: Decision
 title: Benchmark metrics and comparison design
 description: Tiered smoke/full trial presets, an advisory two-of-five-trial regression flag, committed summary JSON with local raw artifacts, release-promoted baselines, an identity-set provenance schema, and per-case reports with no cross-case blend.
-timestamp: 2026-07-16
+timestamp: 2026-07-17
 ---
 
 # Benchmark metrics and comparison design
@@ -133,3 +133,25 @@ Carried over unchanged: the **provenance identity set** (decision 5), the
 of decision 6) — now sourced from #24's `run.json` (`writeRunJson` in
 `tools/test-runner.mjs`) plus a run-level git identity, and written to
 `tools/benchmarks/summaries/` + `tools/benchmarks/reports/`.
+
+## 2026-07-17 — per-harness model knob + honest claude-code auth
+
+- **Per-harness model knob.** Live runs now pin a model per harness from a single
+  map, `tools/benchmarks/models.mjs` (`MODELS`/`modelFor`): `claude-code` →
+  `claude-opus-4-8`, `codex` → `gpt-5.6-sol`, `opencode` →
+  `opencode-go/deepseek-v4-pro`. These ids are threaded into `runCase` via
+  `harnessSelections {id, model}` (the override channel #24 already supports:
+  `runHarness` resolves `model ?? driver.defaultModel`). This OVERRODE the plan's
+  original `model: null` for every selection (Task 5), which would have fallen
+  back to each driver's baked-in default — including claude-code's malformed
+  dotted default id `claude-opus-4.8` (`tools/test-runner/drivers.mjs`). Models
+  are an easily-editable knob, expected to be edited before a run rather than
+  hard-coded per call site; kept in its own file, separate from
+  `tools/benchmarks/presets.mjs`, because model choice is a per-harness axis
+  shared across presets, not a per-preset dimension.
+- **Honest claude-code auth verification.** The claude-code test-profile auth
+  check in `scripts/setup-test-profiles.sh` switched from a global
+  macOS-Keychain existence check — a false positive, since Keychain material can
+  exist while the profile itself is logged out — to the CLI's own verdict:
+  `claude auth status --json` against the profile's `CLAUDE_CONFIG_DIR`, gated
+  on its `loggedIn` field rather than its exit code.

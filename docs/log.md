@@ -2,6 +2,15 @@
 
 ## 2026-07-17
 
+- **Update** — amended [Benchmark metrics and comparison design](/decisions/benchmark-metrics-and-comparison-design.md):
+  recorded the per-harness model knob — `tools/benchmarks/models.mjs` maps
+  claude-code/codex/opencode to pinned model ids, threaded into `runCase` via
+  `harnessSelections {id, model}`, overriding the plan's original `model: null`
+  (which fell back to each driver's baked default, including claude-code's
+  malformed dotted `claude-opus-4.8`) — and the claude-code test-profile auth
+  check switching from a global macOS-Keychain existence check (false-positive)
+  to the CLI's own `claude auth status --json` `loggedIn` verdict in
+  `scripts/setup-test-profiles.sh` (#25).
 - **Update** — amended [Skill testing and benchmark architecture](/decisions/skill-testing-architecture.md):
   recorded the opencode fixture-escape fix — `run` resolves its project by a
   `.git` walk-up plus a persistent per-profile known-projects registry
