@@ -1,5 +1,11 @@
 # Bundle change log
 
+## 2026-07-17
+
+- **Creation** of [Benchmark run artifacts](/references/benchmark-run-artifacts.md)
+  — the OKF Reference pointing at the committed `tools/benchmarks/summaries/` and
+  `tools/benchmarks/reports/` artifacts produced by `npm run bench` (#25).
+
 ## 2026-07-16
 
 - **Update** — amended [Benchmark metrics and comparison design](/decisions/benchmark-metrics-and-comparison-design.md):
