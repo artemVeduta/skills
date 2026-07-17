@@ -1,9 +1,0 @@
-{
-  "name": "artemveduta",
-  "plugins": [
-    {
-      "name": "skills",
-      "source": { "source": "local", "path": "./" }
-    }
-  ]
-}
