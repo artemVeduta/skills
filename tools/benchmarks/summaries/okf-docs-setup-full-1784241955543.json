@@ -1,0 +1,56 @@
+{
+  "case": {
+    "skill": "okf-docs-setup",
+    "name": "okf-docs-setup"
+  },
+  "preset": "full",
+  "trials": 1,
+  "timestamp": "2026-07-16T22:49:06.916Z",
+  "commit": "a0c83b0f8a8e72d748428a3782b8f8afe7e5a26d",
+  "dirty": true,
+  "harnesses": [
+    {
+      "id": "claude-code",
+      "model": "claude-opus-4-8",
+      "version": "2.1.211 (Claude Code)",
+      "trials": [
+        {
+          "trial": 1,
+          "status": "executed",
+          "pass": true,
+          "sourcesUnmodified": true
+        }
+      ],
+      "passRate": 1
+    },
+    {
+      "id": "codex",
+      "model": "gpt-5.6-sol",
+      "version": "codex-cli 0.144.5",
+      "trials": [
+        {
+          "trial": 1,
+          "status": "executed",
+          "pass": true,
+          "sourcesUnmodified": true
+        }
+      ],
+      "passRate": 1
+    },
+    {
+      "id": "opencode",
+      "model": "opencode-go/deepseek-v4-pro",
+      "version": "1.18.0",
+      "trials": [
+        {
+          "trial": 1,
+          "status": "executed",
+          "pass": true,
+          "sourcesUnmodified": true
+        }
+      ],
+      "passRate": 1
+    }
+  ],
+  "overallPassRate": 1
+}

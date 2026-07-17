@@ -1,0 +1,28 @@
+{
+  "case": {
+    "skill": "okf-docs-setup",
+    "name": "okf-docs-setup"
+  },
+  "preset": "smoke",
+  "trials": 1,
+  "timestamp": "2026-07-16T22:05:42.918Z",
+  "commit": "a007fed9f3f8125b25ce83c914a06016f95668c0",
+  "dirty": true,
+  "harnesses": [
+    {
+      "id": "claude-code",
+      "model": "claude-opus-4-8",
+      "version": "2.1.211 (Claude Code)",
+      "trials": [
+        {
+          "trial": 1,
+          "status": "executed",
+          "pass": true,
+          "sourcesUnmodified": true
+        }
+      ],
+      "passRate": 1
+    }
+  ],
+  "overallPassRate": 1
+}

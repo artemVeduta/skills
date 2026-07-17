@@ -1,0 +1,13 @@
+{
+  "name": "skills",
+  "version": "0.0.0",
+  "description": "Artem Veduta's personal library of agent skills, packaged as one aggregate plugin.",
+  "author": { "name": "Artem Veduta" },
+  "repository": "https://github.com/artemVeduta/skills",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Artem Veduta's Skills",
+    "shortDescription": "Personal library of agent skills",
+    "category": "Productivity"
+  }
+}

@@ -17,10 +17,12 @@ policy, the OKF reference, the helper skills and their templates are fixed artif
 copy them byte-for-byte. Only the project-specific content (subsystem index nodes,
 converted concepts) is authored, and only that authoring is fanned out to parallel agents.
 
-**REQUIRED SUB-SKILL:** Use superpowers:dispatching-parallel-agents for the fan-out in
-Phase 2.
+## Integration
 
-## When to use
+- **Required sub-skill:** Invoke `/superpowers:dispatching-parallel-agents` for the Phase 2
+  fan-out — the parallel authoring of subsystem index nodes and existing-doc conversions.
+
+## When to Use
 
 - "Set up OKF docs in this project", "bootstrap the docs bundle", "port the liveteach
   docs setup here", "standardize our docs into OKF format".
@@ -79,10 +81,10 @@ Ask in one message and wait for answers:
 Then present the plan — the manifest, the source edit paths, the subsystem list, the
 conversion sources — and ask **"Ready to apply this? (yes / no)"**. Wait for an explicit yes.
 
-### Phase 1 — Install the machinery (orchestrator, via the shell — NOT agents, NOT the Edit tool)
+### Phase 1 — Install the machinery (orchestrator, via the shell — NOT agents, NOT in-place edits)
 
 Copy with the shell and substitute in place with `sed`/a script. Copying a file and then
-`Edit`-ing it trips the harness read-gate (the copy was never Read at its new path); `cp`
+editing it in place trips the harness read-gate (the copy was never read at its new path); `cp`
 
 - `sed` sidesteps that and keeps verbatim files byte-exact. Run from the target repo root:
 
@@ -174,7 +176,7 @@ swapping `<pm>` for the chosen package-manager command:
 | Authoring subsystem index nodes                       | Parallel agent (one per subsystem) |
 | Converting existing docs into concepts                | Parallel agent (one per source)    |
 
-## Common mistakes
+## Common Mistakes
 
 - **Regenerating the validator/policy from memory** instead of copying `assets/`. This is
   the #1 source of drift — the whole point of the bundled assets is byte-for-byte fidelity.
