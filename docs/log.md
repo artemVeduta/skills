@@ -1,5 +1,31 @@
 # Bundle change log
 
+## 2026-07-24
+
+- **Creation** of [OKF documentation skill-suite v2](/specs/okf-docs-skill-suite-v2.md)
+  — assembled the implementation-ready destination contract for setup, authoring,
+  validation, synchronization, autoresearch, migration, distribution, and parity.
+- **Creation** of
+  [Separate OKF documentation skills by lifecycle responsibility](/decisions/okf-docs-skill-boundaries.md)
+  — assigned the five portable skills distinct responsibilities and one canonical
+  library home.
+- **Creation** of
+  [Deliver one portable OKF skill pack through deletion-safe adapters](/decisions/okf-docs-portability-and-distribution.md)
+  — fixed the shared semantic core, adapter boundary, and supported distribution
+  matrix across Claude Code, Codex, and OpenCode.
+- **Creation** of
+  [Reconcile OKF knowledge by accepted state, not editing residue](/decisions/okf-docs-knowledge-lifecycle.md)
+  — made executable sources authoritative for current behavior and defined
+  synchronization and accepted-state compaction.
+- **Creation** of
+  [Enforce minimal OKF errors through one strict validator contract](/decisions/okf-docs-strict-validation.md)
+  — fixed strict process exits, the blocking error floor, warning boundaries, portable
+  enforcement, and raw-byte mirror checks.
+- **Creation** of
+  [Keep a tool-neutral docs bundle with specs as the canonical section](/decisions/okf-docs-bundle-shape.md)
+  — retained the established bundle and section names while removing tool-specific and
+  configurable validation exclusions.
+
 ## 2026-07-17
 
 - **Update** — amended [Benchmark metrics and comparison design](/decisions/benchmark-metrics-and-comparison-design.md):
