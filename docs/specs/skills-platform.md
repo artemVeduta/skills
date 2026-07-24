@@ -95,7 +95,7 @@ that can check them deterministically.
    glossary, references) to live only in the docs bundle and never be copied into
    distributed skill payloads, so that installed skills stay lean and knowledge keeps a
    single source of truth.
-7. As a library maintainer, I want the okf-docs-setup byte-exact asset payload treated
+7. As a library maintainer, I want the docs-setup byte-exact asset payload treated
    as untouchable contract material, so that no platform restructuring can break its
    copy-verbatim install contract.
 
@@ -287,9 +287,9 @@ Governed by [Organize the library around flat, skill-owned directories](/decisio
 - **Knowledge home.** Explanatory truth (Decisions, conventions, glossary, references)
   lives in the `docs/` OKF bundle and is never copied into distributed skill payloads;
   executable truth outside `docs/` is referenced, not pasted.
-- **Byte-exact contract material.** The okf-docs-setup asset payload is byte-exact
+- **Byte-exact contract material.** The docs-setup asset payload is byte-exact
   contract material per the
-  [byte-exact assets Convention](/okf-docs-setup/conventions/byte-exact-assets.md):
+  [byte-exact assets Convention](/docs-setup/conventions/byte-exact-assets.md):
   copied verbatim into target repos, never regenerated or summarized, placeholders left
   unfilled in this repo, edited only to intentionally change the contract (keeping the
   validator test and the skill's manifest in sync). No platform work touches it.
@@ -549,7 +549,7 @@ tests follow that pattern.
   `## Required skills` is out of this repo's hands; until it lands, `--skill '*'` is the
   documented whole-library fallback and selective portable installs cannot claim
   enforced closure.
-- **Restructuring the okf-docs-setup byte-exact asset payload** or shipping any test
+- **Restructuring the docs-setup byte-exact asset payload** or shipping any test
   material inside skill directories.
 - **A blended cross-case benchmark score** or any gating use of LLM-judge output.
 - **Per-harness wizard code branches** for harnesses expressible as registry data.

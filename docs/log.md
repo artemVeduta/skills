@@ -2,17 +2,29 @@
 
 ## 2026-07-24
 
+- **Update** — completed the `docs-setup` identity migration (#60): retired the obsolete
+  `okf-docs-setup` skill identity and renamed the subsystem to
+  [docs-setup](/docs-setup/index.md). The skill now lives only at `skills/docs-setup/`,
+  the subsystem bundle moved to `/docs-setup/`, and the
+  [Install contract](/docs-setup/specs/install-contract.md),
+  [Byte-exact assets contract](/docs-setup/conventions/byte-exact-assets.md), and
+  [OKF validator behaviour and invocation](/docs-setup/specs/validator.md) were
+  reconciled to the canonical five-skill suite (`docs-setup`, `docs-add`,
+  `docs-validate`, `docs-sync`, `docs-autoresearch`). The legacy skill tree, its central
+  test fixture, project-local nested helper-skill copies, and stale benchmark artifacts
+  were removed, and the tests, README inventory, and cross-references now use the
+  canonical identities.
 - **Update** of
-  [OKF validator behaviour and invocation](/okf-docs-setup/specs/validator.md) and
+  [OKF validator behaviour and invocation](/docs-setup/specs/validator.md) and
   [Documentation lifecycle policy](/conventions/documentation.md) —
   documented the frontmatter oracle's YAML 1.2 subset (multi-line plain-scalar
   folding accepted; anchors, aliases, tags, multi-line quoted scalars, and
   multi-line flow collections unparseable; `__proto__` an ordinary key) and
   extended code stripping to amendment scanning, per the #49 review pass.
 - **Update** of
-  [OKF validator behaviour and invocation](/okf-docs-setup/specs/validator.md),
-  [Install contract](/okf-docs-setup/specs/install-contract.md),
-  [Byte-exact assets contract](/okf-docs-setup/conventions/byte-exact-assets.md),
+  [OKF validator behaviour and invocation](/docs-setup/specs/validator.md),
+  [Install contract](/docs-setup/specs/install-contract.md),
+  [Byte-exact assets contract](/docs-setup/conventions/byte-exact-assets.md),
   [Documentation lifecycle policy](/conventions/documentation.md), and
   [OKF v0.1 reference](/references/okf.md) — implemented the strict validator
   contract (#49): 0/1/2 exits, YAML 1.2 frontmatter oracle, exact-path index
@@ -222,17 +234,17 @@
   mismatch, pending issue #4), the default harness targets (`~/.agents/skills`,
   `~/.claude/skills`, `~/.claude-work/skills`), symlink-not-copy mechanics, re-run
   safety, and exit semantics. Adds the reserved `/specs/index.md`.
-- **Creation** of [/okf-docs-setup/specs/install-contract.md](/okf-docs-setup/specs/install-contract.md)
+- **Creation** of [/docs-setup/specs/install-contract.md](/docs-setup/specs/install-contract.md)
   — the okf-docs-setup install contract: what an install delivers (docs bundle, validator
   scripts, `.claude` rules and helper skills, package.json scripts), the per-install
   substitutions, the `claude/` → `.claude/` rename, the machinery-vs-content phase
   structure, and the zero-hard-errors done criteria.
-- **Creation** Added the `okf-docs-setup` subsystem index node (`/okf-docs-setup/index.md`)
+- **Creation** Added the `okf-docs-setup` subsystem index node (`/docs-setup/index.md`)
   covering the skill that bootstraps OKF v0.1 docs bundles in target repos.
-- **Creation** of [/okf-docs-setup/conventions/byte-exact-assets.md](/okf-docs-setup/conventions/byte-exact-assets.md)
+- **Creation** of [/docs-setup/conventions/byte-exact-assets.md](/docs-setup/conventions/byte-exact-assets.md)
   — byte-exact assets contract, intentional placeholders, the `pnpm docs:validate`
   substitution target, and the `claude/` → `.claude/` install rename, converted from `AGENTS.md`.
-- **Creation** of [/okf-docs-setup/specs/validator.md](/okf-docs-setup/specs/validator.md)
+- **Creation** of [/docs-setup/specs/validator.md](/docs-setup/specs/validator.md)
   — validator behaviour (advisory exit 0, hard errors vs soft warnings, `excludedTopLevelDirs`,
   the one benign policy-link warning) and repo invocation via `npm run docs:validate`,
   converted from `AGENTS.md`.

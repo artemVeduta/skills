@@ -1,5 +1,5 @@
 // Repository-only enforcement of the validator mirror pairs: the authoritative
-// assets under skills/okf-docs-setup/assets/scripts/ and their installed
+// assets under skills/docs-setup/assets/scripts/ and their installed
 // copies under scripts/ must stay byte-identical. Compared as raw buffers, so
 // even a newline-only difference fails. This test reports; it never repairs —
 // fix by copying the authoritative asset over the install (or, when the
@@ -13,19 +13,10 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 
-// [authoritative asset, installed copy]. During the v2 EXPAND phase the legacy
-// okf-docs-setup and the new docs-setup ship parallel asset trees; both must
-// mirror the one authoritative installed validator under scripts/, so both
-// pairs are enforced until the legacy identity is removed (#60).
+// [authoritative asset, installed copy]. The canonical `docs-setup` skill ships
+// the authoritative validator asset tree; its installed copy under scripts/ must
+// stay byte-identical. The legacy `okf-docs-setup` identity was retired in #60.
 const MIRROR_PAIRS = [
-  [
-    'skills/okf-docs-setup/assets/scripts/validate-docs.mjs',
-    'scripts/validate-docs.mjs',
-  ],
-  [
-    'skills/okf-docs-setup/assets/scripts/validate-docs.test.mjs',
-    'scripts/validate-docs.test.mjs',
-  ],
   [
     'skills/docs-setup/assets/scripts/validate-docs.mjs',
     'scripts/validate-docs.mjs',

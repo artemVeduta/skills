@@ -260,7 +260,7 @@ test('CLI exits 0 by default even with errors, and 1 under --strict', async () =
 });
 
 test('lintTestCases warns for a skill with no central case directory', () => {
-  const { errors, warnings } = lintTestCases(['okf-docs-setup', 'other'], ['okf-docs-setup']);
+  const { errors, warnings } = lintTestCases(['docs-setup', 'other'], ['docs-setup']);
   assert.equal(errors.length, 0);
   assert.equal(warnings.length, 1);
   assert.match(warnings[0], /other: skill has no central test-case directory \(tools\/tests\/other\/\)/);

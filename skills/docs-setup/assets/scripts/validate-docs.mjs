@@ -30,7 +30,7 @@ const amendmentHeadingRe = /^## (\d{4}-\d{2}-\d{2})(?: — \S.*)?$/;
 // flow collections) is rejected as unparseable — deliberately, so the oracle
 // stays dependency-free while still rejecting invalid YAML, duplicate keys,
 // and non-mapping documents. The subset is documented in
-// docs/okf-docs-setup/specs/validator.md.
+// docs/docs-setup/specs/validator.md.
 // ---------------------------------------------------------------------------
 
 class YamlError extends Error {}

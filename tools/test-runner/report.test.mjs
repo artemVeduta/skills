@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { formatRunReport, exitCodeFor } from './report.mjs';
 
 const passing = {
-  skill: 'okf-docs-setup',
+  skill: 'docs-setup',
   runId: '1',
   harnesses: [{
     id: 'claude-code', status: 'executed', sourcesUnmodified: true, exitStatus: 0, harnessError: null, timedOut: false,
@@ -12,7 +12,7 @@ const passing = {
   }],
 };
 const failing = {
-  skill: 'okf-docs-setup',
+  skill: 'docs-setup',
   runId: '1',
   harnesses: [{
     id: 'claude-code', status: 'executed', sourcesUnmodified: true, exitStatus: 0, harnessError: null, timedOut: false,

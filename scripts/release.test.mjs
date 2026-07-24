@@ -63,7 +63,7 @@ test('checkBenchmarkStaleness warns when the summaries dir is absent or empty', 
 
 test('checkBenchmarkStaleness returns null when a summary exists', () => {
   const dir = mkdtempSync(join(tmpdir(), 'sum-'));
-  writeFileSync(join(dir, 'okf-docs-setup.full.json'), '{}');
+  writeFileSync(join(dir, 'docs-setup.full.json'), '{}');
   assert.equal(checkBenchmarkStaleness(dir), null);
   rmSync(dir, { recursive: true, force: true });
 });

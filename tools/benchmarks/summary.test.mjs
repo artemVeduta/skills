@@ -17,8 +17,8 @@ test('aggregate builds a single-arm summary with per-harness and overall pass ra
   const summary = aggregate({
     presetName: 'smoke',
     harnessIds: ['claude-code'],
-    skillName: 'okf-docs-setup',
-    caseName: 'okf-docs-setup',
+    skillName: 'docs-setup',
+    caseName: 'docs-setup',
     trialCount: 1,
     provenance: { timestamp: '2026-07-16T00:00:00.000Z', commit: 'abc123', dirty: false },
     legs: [{
@@ -27,7 +27,7 @@ test('aggregate builds a single-arm summary with per-harness and overall pass ra
       sourcesUnmodified: true, assertions: okAssertions,
     }],
   });
-  assert.deepEqual(summary.case, { skill: 'okf-docs-setup', name: 'okf-docs-setup' });
+  assert.deepEqual(summary.case, { skill: 'docs-setup', name: 'docs-setup' });
   assert.equal(summary.preset, 'smoke');
   assert.equal(summary.trials, 1);
   assert.equal(summary.commit, 'abc123');
@@ -44,7 +44,7 @@ test('aggregate marks a skipped leg not-passing, keeps its model/version, has no
   const summary = aggregate({
     presetName: 'full',
     harnessIds: ['claude-code', 'codex'],
-    skillName: 'okf-docs-setup', caseName: 'okf-docs-setup', trialCount: 1,
+    skillName: 'docs-setup', caseName: 'docs-setup', trialCount: 1,
     provenance: { timestamp: 'T', commit: 'c', dirty: true },
     legs: [
       { trial: 1, id: 'claude-code', status: 'executed', model: 'm1', version: 'v1', sourcesUnmodified: true, assertions: okAssertions },

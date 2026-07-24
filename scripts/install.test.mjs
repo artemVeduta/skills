@@ -5,7 +5,7 @@ import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { lstatSync, readlinkSync, existsSync } from 'node:fs';
+import { lstatSync, readlinkSync, existsSync, readFileSync } from 'node:fs';
 
 const INSTALLER = fileURLToPath(new URL('./install.sh', import.meta.url));
 
@@ -158,6 +158,52 @@ test('re-runs are idempotent and pick up newly added skills', async () => {
     const third = await fullInstall(['--checkout', root, '--harness', 'agents'], { HOME: home });
     assert.equal(third.status, 0);
     assert.ok(lstatSync(join(home, '.agents', 'skills', 'gamma')).isSymbolicLink());
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test('reconciliation converges pack membership without deleting unrelated user content', async () => {
+  // The repository pack changes over time (e.g. #60 retired a skill); re-running the
+  // installer must reconcile the installed checkout toward the CURRENT pack membership
+  // — every present member linked — while leaving user-owned content the installer does
+  // not own completely untouched. This is the repository-and-installed-checkout
+  // reconciliation guarantee: converge membership, never delete unrelated entries.
+  const root = await makeCheckout({
+    alpha: { 'SKILL.md': SKILL('alpha') },
+    beta: { 'SKILL.md': SKILL('beta') },
+  });
+  const home = await mkdtemp(join(tmpdir(), 'home-'));
+  try {
+    const first = await fullInstall(['--checkout', root, '--harness', 'agents'], { HOME: home });
+    assert.equal(first.status, 0);
+
+    // A user-owned entry the installer did not create and does not own: a real
+    // directory (not a symlink into the checkout) carrying the user's own content.
+    const userOwned = join(home, '.agents', 'skills', 'user-own');
+    await mkdir(userOwned, { recursive: true });
+    await writeFile(join(userOwned, 'notes.md'), 'my own content');
+
+    // Pack membership changes in the repository checkout: a member is added.
+    await mkdir(join(root, 'skills', 'gamma'), { recursive: true });
+    await writeFile(join(root, 'skills', 'gamma', 'SKILL.md'), SKILL('gamma'));
+
+    const second = await fullInstall(['--checkout', root, '--harness', 'agents'], { HOME: home });
+    assert.equal(second.status, 0);
+
+    // Convergence: every current pack member is linked into the profile.
+    for (const name of ['alpha', 'beta', 'gamma']) {
+      const dest = join(home, '.agents', 'skills', name);
+      assert.ok(lstatSync(dest).isSymbolicLink(), `${name} must be linked`);
+      assert.equal(readlinkSync(dest), join(root, 'skills', name));
+    }
+
+    // Safety: the user-owned directory and its content survive untouched —
+    // reconciliation never removes an entry it does not own.
+    assert.ok(existsSync(userOwned), 'unrelated user content must survive reconciliation');
+    assert.equal(lstatSync(userOwned).isSymbolicLink(), false, 'user dir stays a real directory');
+    assert.equal(readFileSync(join(userOwned, 'notes.md'), 'utf8'), 'my own content');
   } finally {
     await rm(root, { recursive: true, force: true });
     await rm(home, { recursive: true, force: true });

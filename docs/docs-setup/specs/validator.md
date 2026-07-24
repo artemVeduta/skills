@@ -8,7 +8,7 @@ timestamp: 2026-07-24
 # OKF validator behaviour and invocation
 
 The validator's source of truth is
-`skills/okf-docs-setup/assets/scripts/validate-docs.mjs` (standalone Node ESM,
+`skills/docs-setup/assets/scripts/validate-docs.mjs` (standalone Node ESM,
 no dependencies). A copy is installed at `scripts/validate-docs.mjs` for this
 repo's own bundle. Governing decision:
 [Enforce minimal OKF errors through one strict validator contract](/decisions/okf-docs-strict-validation.md).
@@ -81,7 +81,7 @@ code do not warn.
   (runs `node --test scripts/validate-docs.test.mjs`).
 - Run the source-of-truth validator directly against any bundle (docs root
   defaults to `docs`):
-  `node skills/okf-docs-setup/assets/scripts/validate-docs.mjs <docs-root>`
+  `node skills/docs-setup/assets/scripts/validate-docs.mjs <docs-root>`
 
 ## Enforcement wiring
 
@@ -92,7 +92,7 @@ code do not warn.
   husky v8/v9 in the `docs-validate` skill. Setup never installs husky or adds
   package lifecycle (`prepare`) scripts.
 - An optional minimal GitHub Actions asset
-  (`skills/okf-docs-setup/assets/github/workflows/docs-validate.yml`) runs the
+  (`skills/docs-setup/assets/github/workflows/docs-validate.yml`) runs the
   same command on pull requests; exit `1` fails the job.
 
 ## Mirror enforcement
@@ -100,13 +100,13 @@ code do not warn.
 A repository-only Node test reached by `npm test`
 (`scripts/validate-docs-mirror.test.mjs`) compares these pairs as raw buffers:
 
-- `skills/okf-docs-setup/assets/scripts/validate-docs.mjs` ↔
+- `skills/docs-setup/assets/scripts/validate-docs.mjs` ↔
   `scripts/validate-docs.mjs`
-- `skills/okf-docs-setup/assets/scripts/validate-docs.test.mjs` ↔
+- `skills/docs-setup/assets/scripts/validate-docs.test.mjs` ↔
   `scripts/validate-docs.test.mjs`
 
 It fails on missing files and any byte difference (including newline-only
 differences), names the authoritative asset, and never repairs. Editing rules
 for the validator source live in
-[/okf-docs-setup/conventions/byte-exact-assets.md](/okf-docs-setup/conventions/byte-exact-assets.md) —
+[/docs-setup/conventions/byte-exact-assets.md](/docs-setup/conventions/byte-exact-assets.md) —
 the asset copy is the contract; the `scripts/` copy is an install.

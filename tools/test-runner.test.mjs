@@ -13,11 +13,11 @@ const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url));
 test('runCase --dry-run builds an out-of-repo fixture per harness and leaves sources unmodified', async () => {
   const runsRoot = await mkdtemp(join(tmpdir(), 'tr-runs-'));
   try {
-    const run = await runCase('okf-docs-setup', { dryRun: true, runsRoot });
+    const run = await runCase('docs-setup', { dryRun: true, runsRoot });
     assert.equal(run.harnesses.length, 3);
     for (const h of run.harnesses) {
       assert.equal(h.status, 'dry-run');
-      assert.ok(h.closure.includes('okf-docs-setup')); // closure includes the skill itself
+      assert.ok(h.closure.includes('docs-setup')); // closure includes the skill itself
       assert.equal(h.sourcesUnmodified, true);
       const s = await stat(h.fixtureRoot);
       assert.ok(s.isDirectory());
@@ -32,7 +32,7 @@ test('runCase --dry-run builds an out-of-repo fixture per harness and leaves sou
 test('the harness fixture lives outside the repo tree (no ancestor memory/skills leak)', async () => {
   const runsRoot = await mkdtemp(join(tmpdir(), 'tr-runs-'));
   try {
-    const run = await runCase('okf-docs-setup', { dryRun: true, runsRoot });
+    const run = await runCase('docs-setup', { dryRun: true, runsRoot });
     for (const h of run.harnesses) {
       // cwd is not under the repo, so the cwd-upward walk can never reach this
       // repo's CLAUDE.md / AGENTS.md / .claude/skills (docs-add, docs-validate).
@@ -47,7 +47,7 @@ test('the harness fixture lives outside the repo tree (no ancestor memory/skills
 test('runCase --dry-run --harness selects a single harness', async () => {
   const runsRoot = await mkdtemp(join(tmpdir(), 'tr-runs-'));
   try {
-    const run = await runCase('okf-docs-setup', {
+    const run = await runCase('docs-setup', {
       dryRun: true, runsRoot, harnessSelections: [{ id: 'claude-code', model: null }],
     });
     assert.equal(run.harnesses.length, 1);
@@ -69,7 +69,7 @@ test('runHarness runs a fake driver (no inference) and returns an executed, out-
       buildInvocation: () => ({ command: process.execPath, args: ['-e', 'process.stdout.write("HELLO")'], env: {} }),
     };
     const r = await runHarness(fake, {
-      skillName: 'okf-docs-setup', skillsRoot: join(REPO_ROOT, 'skills'),
+      skillName: 'docs-setup', skillsRoot: join(REPO_ROOT, 'skills'),
       testCase, runsRoot, runId: 't', beforeHash: '', dryRun: false,
       preflight: async () => ({ skipReason: null, version: 'fake 9.9' }),
     });
@@ -85,9 +85,9 @@ test('runHarness runs a fake driver (no inference) and returns an executed, out-
 test('CLI dry-run exits 0 and prints a report', async () => {
   const runsRoot = await mkdtemp(join(tmpdir(), 'tr-runs-'));
   try {
-    const r = spawnSync(process.execPath, [CLI, 'okf-docs-setup', '--dry-run', '--runs', runsRoot], { encoding: 'utf8' });
+    const r = spawnSync(process.execPath, [CLI, 'docs-setup', '--dry-run', '--runs', runsRoot], { encoding: 'utf8' });
     assert.equal(r.status, 0);
-    assert.match(r.stdout, /test-runner — case: okf-docs-setup \(dry run\)/);
+    assert.match(r.stdout, /test-runner — case: docs-setup \(dry run\)/);
     assert.match(r.stdout, /claude-code/);
     assert.match(r.stdout, /codex/);
     assert.match(r.stdout, /opencode/);
@@ -103,13 +103,13 @@ test('CLI exits 2 with usage when no skill is given', () => {
 });
 
 test('CLI exits 2 when --harness has no value', () => {
-  const r = spawnSync(process.execPath, [CLI, 'okf-docs-setup', '--harness'], { encoding: 'utf8' });
+  const r = spawnSync(process.execPath, [CLI, 'docs-setup', '--harness'], { encoding: 'utf8' });
   assert.equal(r.status, 2);
   assert.match(r.stderr, /usage:/);
 });
 
 test('parseArgs accepts repeatable --harness with optional =model', () => {
-  const { opts } = parseArgs(['okf-docs-setup', '--harness', 'claude-code=claude-haiku-4-5', '--harness', 'codex']);
+  const { opts } = parseArgs(['docs-setup', '--harness', 'claude-code=claude-haiku-4-5', '--harness', 'codex']);
   assert.deepEqual(opts.harnessSelections, [
     { id: 'claude-code', model: 'claude-haiku-4-5' },
     { id: 'codex', model: null },
@@ -117,7 +117,7 @@ test('parseArgs accepts repeatable --harness with optional =model', () => {
 });
 
 test('parseArgs leaves harnessSelections undefined when --harness is absent (default = all)', () => {
-  const { opts } = parseArgs(['okf-docs-setup']);
+  const { opts } = parseArgs(['docs-setup']);
   assert.equal(opts.harnessSelections, undefined);
 });
 
@@ -133,7 +133,7 @@ test('parseArgs rejects an empty model after =', () => {
 });
 
 test('CLI exits 2 on duplicate --harness ids', () => {
-  const r = spawnSync(process.execPath, [CLI, 'okf-docs-setup', '--harness', 'codex', '--harness', 'codex'], { encoding: 'utf8' });
+  const r = spawnSync(process.execPath, [CLI, 'docs-setup', '--harness', 'codex', '--harness', 'codex'], { encoding: 'utf8' });
   assert.equal(r.status, 2);
   assert.match(r.stderr, /duplicate --harness codex/);
 });
@@ -174,7 +174,7 @@ test('runHarness pauses after the plan turn and resumes with the follow-up promp
       ],
     };
     const r = await runHarness(gatedFakeDriver({ applyOnResume: true }), {
-      skillName: 'okf-docs-setup', skillsRoot: join(REPO_ROOT, 'skills'),
+      skillName: 'docs-setup', skillsRoot: join(REPO_ROOT, 'skills'),
       testCase, runsRoot, runId: 'turns', beforeHash: '', dryRun: false,
       preflight: async () => ({ skipReason: null, version: 'fake 9.9' }),
     });
@@ -207,7 +207,7 @@ test('a denied approval leaves the fixture working tree and Git state at the bas
       ],
     };
     const r = await runHarness(gatedFakeDriver({ applyOnResume: false }), {
-      skillName: 'okf-docs-setup', skillsRoot: join(REPO_ROOT, 'skills'),
+      skillName: 'docs-setup', skillsRoot: join(REPO_ROOT, 'skills'),
       testCase, runsRoot, runId: 'deny', beforeHash: '', dryRun: false,
       preflight: async () => ({ skipReason: null, version: 'fake 9.9' }),
     });
@@ -230,7 +230,7 @@ test('git-unchanged catches a harness that mutates the fixture despite a denial'
     };
     // Misbehaving harness: applies the plan anyway.
     const r = await runHarness(gatedFakeDriver({ applyOnResume: true }), {
-      skillName: 'okf-docs-setup', skillsRoot: join(REPO_ROOT, 'skills'),
+      skillName: 'docs-setup', skillsRoot: join(REPO_ROOT, 'skills'),
       testCase, runsRoot, runId: 'deny-bad', beforeHash: '', dryRun: false,
       preflight: async () => ({ skipReason: null, version: 'fake 9.9' }),
     });
@@ -251,7 +251,7 @@ test('follow-up turns against a driver without buildResumeInvocation are a confi
       buildInvocation: () => ({ command: process.execPath, args: ['-e', ''], env: {} }),
     };
     const args = (dryRun, runId) => ({
-      skillName: 'okf-docs-setup', skillsRoot: join(REPO_ROOT, 'skills'),
+      skillName: 'docs-setup', skillsRoot: join(REPO_ROOT, 'skills'),
       testCase: { inputs: [], prompt: 'x', followUpPrompts: ['approve'], assertions: [] },
       runsRoot, runId, beforeHash: '', dryRun,
       preflight: async () => ({ skipReason: null, version: 'fake 9.9' }),
@@ -269,7 +269,7 @@ test('a dry run of a gated case records the resume invocation for every follow-u
   const runsRoot = await mkdtemp(join(tmpdir(), 'tr-runs-'));
   try {
     const r = await runHarness(gatedFakeDriver({ applyOnResume: false }), {
-      skillName: 'okf-docs-setup', skillsRoot: join(REPO_ROOT, 'skills'),
+      skillName: 'docs-setup', skillsRoot: join(REPO_ROOT, 'skills'),
       testCase: {
         inputs: [], prompt: 'propose a plan and wait',
         followUpPrompts: ['approved — apply the plan', 'and confirm'],
@@ -303,7 +303,7 @@ test('a timed-out turn stops the sequence — later turns never run', async () =
       buildResumeInvocation: () => { resumed = true; return { command: process.execPath, args: ['-e', ''], env: {} }; },
     };
     const r = await runHarness(hanging, {
-      skillName: 'okf-docs-setup', skillsRoot: join(REPO_ROOT, 'skills'),
+      skillName: 'docs-setup', skillsRoot: join(REPO_ROOT, 'skills'),
       testCase: { inputs: [], prompt: 'x', followUpPrompts: ['approve'], assertions: [] },
       runsRoot, runId: 'hang', beforeHash: '', dryRun: false,
       preflight: async () => ({ skipReason: null, version: 'fake 9.9' }),
@@ -336,7 +336,7 @@ test('runCase compares declared outcome paths across executed harnesses', async 
   const runsRoot = await mkdtemp(join(tmpdir(), 'tr-runs-'));
   const casesRoot = await mkdtemp(join(tmpdir(), 'tr-cases-'));
   try {
-    const caseDir = join(casesRoot, 'okf-docs-setup');
+    const caseDir = join(casesRoot, 'docs-setup');
     await mkdir(caseDir, { recursive: true });
     await writeFile(join(caseDir, 'case.mjs'),
       'export default { assertions: [{ type: "file-exists", path: "docs-out.md" }], compare: { paths: ["docs-out.md"] } };\n');
@@ -346,7 +346,7 @@ test('runCase compares declared outcome paths across executed harnesses', async 
       ['fake-a', writerFakeDriver('fake-a', 'same\n')],
       ['fake-b', writerFakeDriver('fake-b', 'same\n')],
     ]);
-    const equalRun = await runCase('okf-docs-setup', {
+    const equalRun = await runCase('docs-setup', {
       runsRoot, casesRoot, runId: 'cmp-equal',
       harnessSelections: [{ id: 'fake-a', model: null }, { id: 'fake-b', model: null }],
       resolveDriverFn: (id) => equalDrivers.get(id) ?? null,
@@ -362,7 +362,7 @@ test('runCase compares declared outcome paths across executed harnesses', async 
       ['fake-a', writerFakeDriver('fake-a', 'one\n')],
       ['fake-b', writerFakeDriver('fake-b', 'two\n')],
     ]);
-    const divergentRun = await runCase('okf-docs-setup', {
+    const divergentRun = await runCase('docs-setup', {
       runsRoot, casesRoot, runId: 'cmp-div',
       harnessSelections: [{ id: 'fake-a', model: null }, { id: 'fake-b', model: null }],
       resolveDriverFn: (id) => divergentDrivers.get(id) ?? null,
@@ -387,7 +387,7 @@ test('runCase compares declared outcome paths across executed harnesses', async 
 test('a case without a compare declaration produces no comparisons (v1 behavior intact)', async () => {
   const runsRoot = await mkdtemp(join(tmpdir(), 'tr-runs-'));
   try {
-    const run = await runCase('okf-docs-setup', { dryRun: true, runsRoot });
+    const run = await runCase('docs-setup', { dryRun: true, runsRoot });
     assert.deepEqual(run.comparisons, []);
     for (const h of run.harnesses) await rm(h.fixtureRoot, { recursive: true, force: true });
   } finally {
@@ -404,14 +404,14 @@ test('a case projects the skill its manifest declares, not the case-directory na
   try {
     const caseDir = join(casesRoot, 'alias-dir');
     await mkdir(caseDir, { recursive: true });
-    await writeFile(join(caseDir, 'case.mjs'), 'export default { skill: "okf-docs-setup", assertions: [] };\n');
+    await writeFile(join(caseDir, 'case.mjs'), 'export default { skill: "docs-setup", assertions: [] };\n');
     await writeFile(join(caseDir, 'prompt.md'), 'do a thing\n');
     const run = await runCase('alias-dir', {
       dryRun: true, runsRoot, casesRoot,
       harnessSelections: [{ id: 'claude-code', model: null }],
     });
     assert.equal(run.skill, 'alias-dir'); // label stays the case-directory name
-    assert.ok(run.harnesses[0].closure.includes('okf-docs-setup'), 'projected the manifest-declared skill');
+    assert.ok(run.harnesses[0].closure.includes('docs-setup'), 'projected the manifest-declared skill');
     for (const h of run.harnesses) await rm(h.fixtureRoot, { recursive: true, force: true });
   } finally {
     await rm(runsRoot, { recursive: true, force: true });
@@ -429,7 +429,7 @@ test('runHarness resolves the model, threads preflight version, and writes run.j
       buildInvocation: () => ({ command: process.execPath, args: ['-e', 'process.stdout.write("HELLO")'], env: {} }),
     };
     const r = await runHarness(fake, {
-      skillName: 'okf-docs-setup', skillsRoot: join(REPO_ROOT, 'skills'),
+      skillName: 'docs-setup', skillsRoot: join(REPO_ROOT, 'skills'),
       testCase, runsRoot, runId: 't', beforeHash: '', dryRun: false,
       preflight: async () => ({ skipReason: null, version: 'fake 9.9' }),
     });
@@ -460,7 +460,7 @@ test('a failing preflight yields a skipped leg whose run.json carries the reason
       buildInvocation: () => ({ command: process.execPath, args: [], env: {} }),
     };
     const r = await runHarness(fake, {
-      skillName: 'okf-docs-setup', skillsRoot: join(REPO_ROOT, 'skills'),
+      skillName: 'docs-setup', skillsRoot: join(REPO_ROOT, 'skills'),
       testCase, runsRoot, runId: 't2', beforeHash: '', dryRun: false,
       preflight: async () => ({ skipReason: 'no test profile — run `npm run test:auth -- fake`', version: '9.9' }),
     });

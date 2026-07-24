@@ -59,9 +59,6 @@ the capability.
   Collision, cap exhaustion, failed fetch, unsafe URL, concept ceiling, denied
   approval, mid-write failure, and insufficient fanout each follow a distinct
   stop contract. Declares `docs-add` and `docs-validate` as required skills.
-- [`okf-docs-setup`](skills/okf-docs-setup/SKILL.md) — set up or standardize a
-  repository's documentation as an OKF (Open Knowledge Format) v0.1 bundle:
-  validator, docs-add/docs-validate skills, rules, frontmatter taxonomy.
 
 ## Install
 
@@ -118,7 +115,7 @@ claude plugin marketplace add artemVeduta/skills
 claude plugin install skills@artemveduta
 ```
 
-Skills install namespaced (e.g. `/skills:okf-docs-setup`). Update path:
+Skills install namespaced (e.g. `/skills:docs-setup`). Update path:
 `claude plugin marketplace update artemveduta` (the harness plugin updater).
 
 **Codex:**

@@ -7,17 +7,18 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runBench, parseBenchArgs } from './run.mjs';
+// Canonical suite identity: the setup skill is `docs-setup` (issue #60).
 
 const CLI = fileURLToPath(new URL('./run.mjs', import.meta.url));
 
 test('parseBenchArgs reads skill, preset, and an optional --trials override', () => {
-  assert.deepEqual(parseBenchArgs(['okf-docs-setup', '--preset', 'full', '--trials', '3']),
-    { skill: 'okf-docs-setup', preset: 'full', trials: 3 });
+  assert.deepEqual(parseBenchArgs(['docs-setup', '--preset', 'full', '--trials', '3']),
+    { skill: 'docs-setup', preset: 'full', trials: 3 });
 });
 
 test('parseBenchArgs leaves trials undefined when --trials is absent', () => {
-  assert.deepEqual(parseBenchArgs(['okf-docs-setup', '--preset', 'smoke']),
-    { skill: 'okf-docs-setup', preset: 'smoke', trials: undefined });
+  assert.deepEqual(parseBenchArgs(['docs-setup', '--preset', 'smoke']),
+    { skill: 'docs-setup', preset: 'smoke', trials: undefined });
 });
 
 test('parseBenchArgs rejects a repeated --preset', () => {
@@ -56,7 +57,7 @@ test('runBench writes a committed summary JSON + report and cleans up fixtures (
       }
       return { skill: skillName, runId, dryRun: false, harnesses };
     };
-    const res = await runBench('okf-docs-setup', {
+    const res = await runBench('docs-setup', {
       presetName: 'smoke', runsRoot, summariesDir, reportsDir,
       runCase: fakeRunCase,
       gitProvenance: () => ({ timestamp: '2026-07-16T00:00:00.000Z', commit: 'abc', dirty: false }),
@@ -65,11 +66,11 @@ test('runBench writes a committed summary JSON + report and cleans up fixtures (
     assert.equal(res.summary.overallPassRate, 1);
     assert.equal(res.summary.harnesses[0].id, 'claude-code');
     assert.equal(res.summary.harnesses[0].model, 'm-claude-code');
-    assert.equal(res.summaryPath, join(summariesDir, 'okf-docs-setup-smoke-RID.json'));
+    assert.equal(res.summaryPath, join(summariesDir, 'docs-setup-smoke-RID.json'));
     const onDisk = JSON.parse(await readFile(res.summaryPath, 'utf8'));
     assert.equal(onDisk.commit, 'abc');
     const md = await readFile(res.reportPath, 'utf8');
-    assert.match(md, /# Benchmark report — okf-docs-setup \(smoke\)/);
+    assert.match(md, /# Benchmark report — docs-setup \(smoke\)/);
     for (const fx of fixtures) {
       await assert.rejects(stat(fx), 'fixture must be cleaned up by runBench');
     }
@@ -86,7 +87,7 @@ test('CLI exits 2 when no skill is given', () => {
 });
 
 test('CLI exits 2 when --preset is missing', () => {
-  const r = spawnSync(process.execPath, [CLI, 'okf-docs-setup'], { encoding: 'utf8' });
+  const r = spawnSync(process.execPath, [CLI, 'docs-setup'], { encoding: 'utf8' });
   assert.equal(r.status, 2);
   assert.match(r.stderr, /--preset/);
 });

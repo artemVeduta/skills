@@ -79,7 +79,7 @@ the repository structure.
 
 After the OKF bundle's installation model was reviewed, the detailed
 `okf-docs-setup` contract moved from root `AGENTS.md` to
-[Byte-exact assets contract](/okf-docs-setup/conventions/byte-exact-assets.md). Root
+[Byte-exact assets contract](/docs-setup/conventions/byte-exact-assets.md). Root
 `AGENTS.md` instead carries the standing requirement to consult the relevant bundle
 concepts. This changes the explanatory home of the contract, not the skill-owned
 location of its executable assets. The other repository-structure choices remain

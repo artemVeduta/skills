@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { renderReport } from './report.mjs';
 
 const summary = {
-  case: { skill: 'okf-docs-setup', name: 'okf-docs-setup' },
+  case: { skill: 'docs-setup', name: 'docs-setup' },
   preset: 'smoke', trials: 1,
   timestamp: '2026-07-16T00:00:00.000Z', commit: 'abc123', dirty: false,
   harnesses: [{
@@ -25,8 +25,8 @@ test('renderReport is byte-identical across two runs from identical input (AC-3)
 
 test('renderReport renders the case header, provenance, and per-harness table', () => {
   const md = renderReport(summary);
-  assert.match(md, /^# Benchmark report — okf-docs-setup \(smoke\)$/m);
-  assert.match(md, /^- Case: okf-docs-setup \/ okf-docs-setup$/m);
+  assert.match(md, /^# Benchmark report — docs-setup \(smoke\)$/m);
+  assert.match(md, /^- Case: docs-setup \/ docs-setup$/m);
   assert.match(md, /^- Preset: smoke \(1 trial\)$/m);
   assert.match(md, /^- Commit: abc123 \(clean\)$/m);
   assert.match(md, /^- Overall pass rate: 100% \(1\/1\)$/m);

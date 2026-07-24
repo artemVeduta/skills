@@ -281,6 +281,6 @@ profile live, and `git pull` is the only update command.
   how stale links (skills removed from the library) are pruned on re-run; the README
   guidance generation mechanism.
 - **Related but different:** the
-  [okf-docs-setup install contract](/okf-docs-setup/specs/install-contract.md)
+  [docs-setup install contract](/docs-setup/specs/install-contract.md)
   describes what that *skill* installs into target repositories when it runs — not how
   this library's skills reach harnesses.

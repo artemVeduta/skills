@@ -1,6 +1,6 @@
 ---
 name: docs-add
-description: Use when adding ONE concept to an OKF docs/ bundle — a Decision/ADR, Specification, Convention, Glossary term, Reference, or a new subsystem index node — from either a prepared complete concept or content to scaffold from a template, and when a filing must produce its frontmatter, body, path, parent index.md entry, and log.md lifecycle entry together under a single approval. Also when invoked as /docs-add. Not for validating a bundle (that is docs-validate) or bootstrapping/repairing one (that is okf-docs-setup).
+description: Use when adding ONE concept to an OKF docs/ bundle — a Decision/ADR, Specification, Convention, Glossary term, Reference, or a new subsystem index node — from either a prepared complete concept or content to scaffold from a template, and when a filing must produce its frontmatter, body, path, parent index.md entry, and log.md lifecycle entry together under a single approval. Also when invoked as /docs-add. Not for validating a bundle (that is docs-validate) or bootstrapping/repairing one (that is docs-setup).
 ---
 
 # docs-add

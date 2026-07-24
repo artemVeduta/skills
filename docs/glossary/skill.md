@@ -17,10 +17,10 @@ its own.
 The skill is this repository's unit of storage and distribution: skills live at
 `skills/<name>/` (flat, no buckets) and are delivered to harnesses either by
 symlinking the skill directory into a harness skill directory (see
-[/specs/install-sh.md](/specs/install-sh.md)) or, for `okf-docs-setup`, by the skill
+[/specs/install-sh.md](/specs/install-sh.md)) or, for `docs-setup`, by the skill
 itself copying its assets into a target repository (see
-[/okf-docs-setup/specs/install-contract.md](/okf-docs-setup/specs/install-contract.md)).
+[/docs-setup/specs/install-contract.md](/docs-setup/specs/install-contract.md)).
 
 Used in: [/specs/install-sh.md](/specs/install-sh.md),
-[/okf-docs-setup/index.md](/okf-docs-setup/index.md),
-[/okf-docs-setup/specs/install-contract.md](/okf-docs-setup/specs/install-contract.md).
+[/docs-setup/index.md](/docs-setup/index.md),
+[/docs-setup/specs/install-contract.md](/docs-setup/specs/install-contract.md).
