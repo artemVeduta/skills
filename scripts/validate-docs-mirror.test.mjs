@@ -13,7 +13,10 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 
-// [authoritative asset, installed copy]
+// [authoritative asset, installed copy]. During the v2 EXPAND phase the legacy
+// okf-docs-setup and the new docs-setup ship parallel asset trees; both must
+// mirror the one authoritative installed validator under scripts/, so both
+// pairs are enforced until the legacy identity is removed (#60).
 const MIRROR_PAIRS = [
   [
     'skills/okf-docs-setup/assets/scripts/validate-docs.mjs',
@@ -21,6 +24,14 @@ const MIRROR_PAIRS = [
   ],
   [
     'skills/okf-docs-setup/assets/scripts/validate-docs.test.mjs',
+    'scripts/validate-docs.test.mjs',
+  ],
+  [
+    'skills/docs-setup/assets/scripts/validate-docs.mjs',
+    'scripts/validate-docs.mjs',
+  ],
+  [
+    'skills/docs-setup/assets/scripts/validate-docs.test.mjs',
     'scripts/validate-docs.test.mjs',
   ],
 ];
