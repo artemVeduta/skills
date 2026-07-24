@@ -105,6 +105,46 @@ test('parseFrontmatter rejects duplicate top-level keys', () => {
   assert.match(r.reason, /duplicate/i);
 });
 
+test('parseFrontmatter treats __proto__ as an ordinary key, so duplicates are caught', () => {
+  const dup = parseFrontmatter('---\n__proto__: a\n__proto__: b\ntype: Decision\n---\nx');
+  assert.equal(dup.ok, false);
+  assert.match(dup.reason, /duplicate/i);
+  const single = parseFrontmatter('---\n__proto__: a\ntype: Decision\n---\nx');
+  assert.equal(single.ok, true);
+  assert.equal(Object.getOwnPropertyDescriptor(single.data, '__proto__')?.value, 'a');
+  assert.equal({}.a, undefined); // no prototype pollution
+});
+
+test('parseFrontmatter folds a multi-line plain scalar with single spaces', () => {
+  const text = [
+    '---',
+    'type: Decision',
+    'description: a long value',
+    '  wrapped onto the next line',
+    '  and a third',
+    'title: X',
+    '---',
+    'body',
+  ].join('\n');
+  const r = parseFrontmatter(text);
+  assert.equal(r.ok, true);
+  assert.equal(r.data.description, 'a long value wrapped onto the next line and a third');
+  assert.equal(r.data.title, 'X');
+});
+
+test('parseFrontmatter rejects forms outside the documented YAML subset', () => {
+  const anchor = parseFrontmatter('---\ntype: Decision\ntitle: &a X\n---\nx');
+  assert.equal(anchor.ok, false);
+  assert.match(anchor.reason, /outside the supported YAML subset/);
+  const tag = parseFrontmatter('---\ntype: Decision\ntitle: !!str X\n---\nx');
+  assert.equal(tag.ok, false);
+  const multiFlow = parseFrontmatter('---\ntype: Decision\ntags: [a,\n  b]\n---\nx');
+  assert.equal(multiFlow.ok, false);
+  assert.match(multiFlow.reason, /close on the same line/);
+  const multiQuoted = parseFrontmatter('---\ntype: Decision\ntitle: "a\n  b"\n---\nx');
+  assert.equal(multiQuoted.ok, false);
+});
+
 test('parseFrontmatter rejects a non-mapping document', () => {
   assert.equal(parseFrontmatter('---\n- a\n- b\n---\nx').ok, false);
   assert.equal(parseFrontmatter('---\njust a scalar\n---\nx').ok, false);
@@ -246,6 +286,26 @@ test('amendment scan ignores lookalike headings outside the # Amendments region'
   assert.equal(validateConcept('a.md', doc).warnings.length, 0);
 });
 
+test('amendment scan ignores amendment-lookalike headings inside a code fence', () => {
+  const doc = [
+    '---',
+    'type: Decision',
+    'title: X',
+    'description: d',
+    'timestamp: 2026-07-01',
+    '---',
+    'An illustrative amendment grammar example:',
+    '',
+    '```md',
+    '# Amendments',
+    '## 2026-07-20',
+    'entry',
+    '```',
+    '',
+  ].join('\n');
+  assert.equal(validateConcept('a.md', doc).warnings.length, 0);
+});
+
 test('amendment scan rejects non-exact heading forms', () => {
   const doc = [
     '---',
@@ -328,6 +388,18 @@ test('checkLinks ignores a link inside a fenced code block', () => {
   assert.equal(warnings.length, 0);
 });
 
+test('a closing fence longer than the opener still closes the block (CommonMark)', () => {
+  const text = '```\nsee [x](/missing/x.md)\n````\nand real [ok](/b.md)\n';
+  const warnings = checkLinks('a.md', text, new Set(['a.md', 'b.md']));
+  assert.equal(warnings.length, 0);
+});
+
+test('an unclosed fence strips to EOF', () => {
+  const text = 'real [ok](/b.md)\n```\nsee [x](/missing/x.md)\n';
+  const warnings = checkLinks('a.md', text, new Set(['a.md', 'b.md']));
+  assert.equal(warnings.length, 0);
+});
+
 // ---------------------------------------------------------------------------
 // Local-index coverage — exact bundle-relative paths, aggregated per directory
 // ---------------------------------------------------------------------------
@@ -406,8 +478,9 @@ test('a directory with concepts but no local index.md warns', async (t) => {
 // Negative fixture: constructs that other validators warn about — duplicate
 // basenames across directories, absent log.md, debt markers, a large amendment
 // history, copied config values, generated-looking duplicates, non-Markdown
-// sidecars — none of which is a warning class here. A fully-covered bundle
-// containing all of them must validate with zero warnings.
+// sidecars, and a retained superseded concept (retention) — none of which is a
+// warning class here. A fully-covered bundle containing all of them must
+// validate with zero warnings.
 test('explicitly rejected warning classes stay absent', async (t) => {
   const amendments = ['# Amendments'];
   for (let i = 1; i <= 12; i += 1) {
@@ -425,10 +498,25 @@ test('explicitly rejected warning classes stay absent', async (t) => {
       ...amendments,
       '',
     ].join('\n');
+  // Retention: a superseded concept kept in the bundle (still indexed, with a
+  // valid superseded_by) is the documented deprecation flow, never a warning.
+  const retained = [
+    '---',
+    'type: Decision',
+    'title: Retired',
+    'description: superseded but retained',
+    'timestamp: 2026-07-24',
+    'status: superseded',
+    'superseded_by: /one/focus.md',
+    '---',
+    'body',
+    '',
+  ].join('\n');
   const root = await makeBundle(t, {
     'index.md': '- [One](/one/focus.md)\n- [Two](/two/focus.md)',
-    'one/index.md': '- [Focus](/one/focus.md)',
+    'one/index.md': '- [Focus](/one/focus.md)\n- [Retired](/one/retired.md)',
     'one/focus.md': concept('One'), // duplicate basename with two/focus.md
+    'one/retired.md': retained,
     'two/index.md': '- [Focus](/two/focus.md)\n- [Focus copy](/two/focus-generated.md)',
     'two/focus.md': concept('Two'),
     'two/focus-generated.md': concept('Two generated'),

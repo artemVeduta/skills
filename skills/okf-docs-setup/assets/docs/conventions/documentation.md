@@ -41,7 +41,10 @@ superseded_by: /path/to/replacement.md
 - Frontmatter must be a parseable YAML mapping between standalone `---` delimiters
   (opening delimiter on the first line); duplicate keys, invalid YAML, missing or
   unterminated delimiters, and non-mapping documents are hard errors, as is a missing,
-  empty, or non-scalar `type` (OKF §9). `title`, `description`, `timestamp` are
+  empty, or non-scalar `type` (OKF §9). The validator's dependency-free oracle accepts
+  a documented YAML subset: anchors, aliases, tags, multi-line quoted scalars, and
+  multi-line flow collections are rejected as unparseable; a plain scalar may wrap onto
+  more-deeply-indented continuation lines. `title`, `description`, `timestamp` are
   recommended — `pnpm docs:validate` warns (never blocks) when they are missing.
 - `status` / `superseded_by` are our extension keys for the deprecation flow; OKF
   requires consumers to tolerate unknown keys, so they are spec-safe.

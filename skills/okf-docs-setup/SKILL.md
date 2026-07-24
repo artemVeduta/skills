@@ -62,7 +62,9 @@ husky or add package lifecycle (`prepare`) scripts — pre-push enforcement is d
 as recipes in the `docs-validate` skill instead.
 
 Plus: add `"docs:validate": "node scripts/validate-docs.mjs"` and
-`"docs:validate:test": "node --test scripts/*.test.mjs"` to the target's `package.json`.
+`"docs:validate:test": "node --test scripts/validate-docs.test.mjs"` to the target's
+`package.json` (the focused single-file form — a glob would sweep the target's own
+`scripts/*.test.mjs` into the docs test command).
 
 ## Procedure
 

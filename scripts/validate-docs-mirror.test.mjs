@@ -8,6 +8,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
@@ -26,7 +27,7 @@ const MIRROR_PAIRS = [
 
 function readRaw(rel) {
   try {
-    return readFileSync(new URL(rel, `file://${repoRoot}`));
+    return readFileSync(join(repoRoot, rel));
   } catch (err) {
     assert.fail(`mirror file missing or unreadable: ${rel} (${err.code ?? err.message})`);
   }

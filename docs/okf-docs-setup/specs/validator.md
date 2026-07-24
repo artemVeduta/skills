@@ -27,11 +27,17 @@ strict entrypoint:
 
 Exactly unparseable frontmatter and a missing/empty/non-scalar `type`. The
 frontmatter oracle is a YAML 1.2 mapping delimited by standalone `---` lines
-with the opening delimiter on the first line. Duplicate top-level keys, invalid
-YAML, missing delimiters, a non-mapping document, or an unterminated block are
-unparseable. Values may use YAML scalar, sequence, or mapping shapes; `type`
-itself must be a non-empty scalar string. Reserved `index.md` and `log.md`
-files follow their separate soft checks.
+with the opening delimiter on the first line. Duplicate top-level keys
+(`__proto__` included — keys are ordinary data, never prototype plumbing),
+invalid YAML, missing delimiters, a non-mapping document, or an unterminated
+block are unparseable. The oracle is dependency-free and accepts a documented
+YAML 1.2 subset: block mappings and sequences, single-line flow collections,
+plain scalars — a plain scalar may continue onto following more-deeply-indented
+lines, folded with single spaces — and quoted and block scalars, with comments.
+Outside the subset, and therefore also unparseable: anchors, aliases, tags,
+multi-line quoted scalars, and multi-line flow collections. `type` itself must
+be a non-empty scalar string. Reserved `index.md` and `log.md` files follow
+their separate soft checks.
 
 ## Warnings (never block; no suppression grammar)
 
@@ -61,9 +67,11 @@ sidecars.
 
 Every `.md` file under the bundle root is validated uniformly — there is no
 excluded-directory set and no per-project exclusion or suppression
-configuration. Non-Markdown files are ignored. Fenced code blocks and inline
-code spans are stripped before link and index-coverage scanning, so
-illustrative example links do not warn.
+configuration. Non-Markdown files are ignored. Fenced code blocks (a closing
+fence may be longer than its opener; an unclosed fence runs to end of file) and
+inline code spans are stripped before link, index-coverage, and amendment
+scanning, so illustrative example links and amendment-grammar examples inside
+code do not warn.
 
 ## Invocation
 

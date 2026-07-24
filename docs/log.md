@@ -3,6 +3,13 @@
 ## 2026-07-24
 
 - **Update** of
+  [OKF validator behaviour and invocation](/okf-docs-setup/specs/validator.md) and
+  [Documentation lifecycle policy](/conventions/documentation.md) —
+  documented the frontmatter oracle's YAML 1.2 subset (multi-line plain-scalar
+  folding accepted; anchors, aliases, tags, multi-line quoted scalars, and
+  multi-line flow collections unparseable; `__proto__` an ordinary key) and
+  extended code stripping to amendment scanning, per the #49 review pass.
+- **Update** of
   [OKF validator behaviour and invocation](/okf-docs-setup/specs/validator.md),
   [Install contract](/okf-docs-setup/specs/install-contract.md),
   [Byte-exact assets contract](/okf-docs-setup/conventions/byte-exact-assets.md),
