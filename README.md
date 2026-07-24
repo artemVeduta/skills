@@ -13,14 +13,19 @@ the capability.
 - [`docs-validate`](skills/docs-validate/SKILL.md) — run a repository's strict
   `docs:validate` script through its own package manager and interpret the
   result: clean/warnings-only, hard bundle errors, or validator malfunction.
-- [`docs-sync`](skills/docs-sync/SKILL.md) — reconcile an OKF `docs/` bundle
-  with a branch's work: pick the mode and a target branch, scope from the
-  merge-base through the whole working state, fan out to disjoint concept
-  owners with one reconciler for indexes/logs/timestamps, compact branch-local
+- [`docs-sync`](skills/docs-sync/SKILL.md) — reconcile an OKF `docs/` bundle in
+  one of two modes, chosen before any write: **branch sync** scopes from a target
+  branch's merge-base through the whole working state and compacts branch-local
   drafting down to the accepted net state (one net lifecycle entry per concept,
   merged history preserved, a material reversal gated behind a linked
-  supersession), verify, and run the validator — all in the working tree, never
-  touching Git state; declares `docs-validate` as a required skill.
+  supersession, unrelated target drift reported separately); **bundle-wide**
+  audits the complete bundle and repairs every stale explanation, missing concept,
+  omission, lifecycle drift, and shared-bookkeeping drift (no unrelated-drift
+  category), preserving accepted history and blocking on any unknown acceptance
+  boundary rather than guessing. Both fan out to disjoint concept owners with one
+  reconciler for indexes/logs/timestamps, verify with a fresh checker, and run the
+  validator — all in the working tree, never touching Git state; declares
+  `docs-validate` as a required skill.
 - [`docs-setup`](skills/docs-setup/SKILL.md) — install, upgrade, reinstall, or
   repair the OKF v0.1 docs machinery in a repository (validator + tests, package
   scripts, seed policy/reference, marked `AGENTS.md` router, exact `CLAUDE.md`

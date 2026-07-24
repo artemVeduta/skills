@@ -18,9 +18,11 @@ once through a disjoint owner, and never guess through a contradiction._ Reconci
 is recomputed from a fixed boundary on every run, so a second sync from the same
 boundary is a no-op — the flow is idempotent.
 
-This skill covers **branch sync**. Bundle-wide reconciliation is a separate mode and
-the existing-source migration subflow is a separate gated flow; neither is part of this
-branch-scoped flow.
+This skill covers two reconciliation modes that share **one** execution, verification,
+and validation contract: **branch sync** (scope from a target branch's merge-base through
+the working state) and **bundle-wide reconciliation** (audit and repair the complete
+current bundle). The existing-source migration subflow is a separate gated flow, not part
+of either reconciliation mode.
 
 ## Required skills
 
@@ -53,7 +55,9 @@ user has selected the sync mode AND (for branch sync) a target branch.**
    truth for frontmatter, the taxonomy, reserved files, linking, and the
    create/update/supersede flow.
 
-Only after the mode and target are settled does scope computation begin.
+Only after the mode — and, for branch sync, the **target branch** — is settled does scope
+computation begin. **Bundle-wide reconciliation takes no target branch**: its scope is the
+complete current bundle (see **Bundle-wide reconciliation** below).
 
 ## Branch scope — recompute from the merge-base every run
 
@@ -161,6 +165,49 @@ delete the accepted choice in place.
 Compaction is **idempotent** — it writes the net state rather than appending, so a re-run
 from the same merge-base re-derives it and changes nothing (see **Idempotence** below).
 
+## Bundle-wide reconciliation — audit and repair the complete bundle
+
+The second mode reconciles the **entire current bundle** against executable truth (current
+code, tests, configuration) and still-valid explanatory truth, in one pass. There is **no
+target branch and no merge-base** — the scope is the **complete bundle** as it stands now,
+not a branch diff. Everything above about branch scope, the merge-base, and unrelated
+target drift is branch-mode only and does not apply here.
+
+**Audit the whole bundle for every drift kind and repair each in place:**
+
+- **Stale explanations** — a concept whose prose no longer matches the code/tests/config it
+  describes: update it to cite the current symbol/file (never paste executable truth) and
+  bump its `timestamp`.
+- **Missing concepts** — durable knowledge that has source but no concept (an undocumented
+  subsystem or symbol): file the concept following the bundle's lifecycle policy.
+- **Omissions** — a concept present on disk but absent from its parent `index.md`, or
+  otherwise unreferenced: register it.
+- **Lifecycle drift** — a concept with no `log.md` entry, or a lifecycle entry that no
+  longer reflects the concept's net state: repair the entry.
+- **Shared-bookkeeping drift** — index bullets, `log.md` entries, and `timestamp`s that
+  disagree with the concepts they track: reconcile them through the single reconciler.
+
+**No unrelated-drift category.** Branch sync reports unrelated target drift *separately* and
+leaves it byte-preserved; bundle-wide mode does the opposite — the **whole bundle is in
+scope**, so every stale concept is **repaired** (or, when it cannot be, reported as a
+precise **blocker**), never reported-and-left. There is nothing "unrelated" to defer.
+
+**Preserve accepted history; never invent a boundary.** **Accepted history** is preserved
+unless **branch-local provenance** establishes a **safe compaction boundary**. With no
+target branch there is no merge-base to separate accepted history from drafting residue, so
+compaction runs *only* where branch-local provenance makes the boundary certain. When the
+**acceptance boundary is unknown** — you cannot tell whether an amendment, dated value fact,
+or lifecycle entry is accepted history or branch-local drafting — **never guess through it**:
+leave the material **byte-preserved** and hand the user a **precise blocker** naming the
+concept and the provenance you need. Everything whose boundary is certain still reconciles.
+
+**The shared contract is reused, not redefined.** Execution (dynamic fanout, disjoint
+concept ownership, and one **sole reconciler** for indexes, logs, and timestamps), the
+300-line semantic keep-or-split review, the fresh verifier, contradiction blocking,
+validation gating, and Git-state preservation are **the same as branch sync** — reused
+unchanged. Bundle-wide adds only the whole-bundle audit scope, the no-unrelated-drift rule,
+and the unknown-boundary blocker above.
+
 ## Contradictions block precisely — never guess
 
 When two authoritative executable sources contradict each other about a claim (e.g. code
@@ -213,11 +260,19 @@ first successful run**. A **second run** re-derives an empty change set and writ
 If a re-run would rewrite timestamps, re-append log entries, or re-fold amendments, the
 first run was not idempotent — fix the reconciler, do not re-run to "settle" it.
 
+**Both modes are idempotent.** A **second identical bundle-wide reconciliation** re-derives
+the same whole-bundle audit over the same current state and writes nothing — an
+already-reconciled bundle is the fixed point, so two identical bundle-wide runs produce
+identical docs after the first successful run.
+
 ## Boundaries — never do these
 
-- **Never write before the mode and target are selected** — no concept edit, no index or
-  log change, no worker dispatched to write, until the user has chosen branch mode and a
-  target branch.
+- **Never write before the mode is selected** — no concept edit, no index or log change,
+  no worker dispatched to write, until the user has chosen a mode (and, for branch sync, a
+  target branch).
+- **Never invent a compaction boundary in bundle-wide mode** — with no merge-base, compact
+  only where branch-local provenance makes the accepted-state boundary certain; when it is
+  unknown, preserve the material byte-for-byte and block precisely rather than guessing.
 - **Never touch Git** — do not stage, commit, push, open a pull request, or add/change a
   remote. Every reconciliation lives in the working tree only; leave staging, commits,
   remotes, and pull-request state exactly as found.
@@ -263,3 +318,9 @@ its own words; each never-rule has its one canonical home in Boundaries.
    Git-state preservation.
 7. `docs:validate`: `0` clean/warnings-only = success; `1` hard errors or `2` malfunction
    = not successful. Never stage, commit, push, or open a PR.
+
+**Bundle-wide mode:** no target branch — audit the **complete bundle** and repair every
+stale explanation, missing concept, omission, lifecycle drift, and shared-bookkeeping drift
+(no unrelated-drift category); preserve accepted history and **block** on any unknown
+acceptance boundary rather than guessing; steps 4–7 (execution, verify, validation, Git
+state) apply **unchanged**.
