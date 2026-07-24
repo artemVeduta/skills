@@ -9,11 +9,13 @@
 //
 // Live behavioral evidence comes from the two sibling cases via the test-runner
 // CLI: docs-sync proves the MODE/TARGET gate (nothing written before the user
-// selects branch mode AND a target branch), and docs-sync-reconcile proves a
-// docs-only branch reconcile is idempotent (the git-unchanged seam — a second
-// run from the same boundary changes nothing). These tests are the CI-reachable
-// deterministic layer and never run a model. Bundle-wide reconciliation (#56),
-// compaction nuance (#55), and the migration subflow (#57) are out of scope here.
+// selects branch mode AND a target branch — git-unchanged), and
+// docs-sync-reconcile proves the GENUINE reconcile write path — a branch whose
+// source diverged from the docs gets its current truth updated to cite the new
+// symbol and its nearest log gains one Update, all in the working tree only
+// (git-uncommitted). These tests are the CI-reachable deterministic layer and
+// never run a model. Bundle-wide reconciliation (#56), compaction nuance (#55),
+// and the migration subflow (#57) are out of scope here.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
@@ -52,12 +54,11 @@ test('the SKILL.md documents the v2 branch-sync contract (all ten acceptance cri
   const skill = await readFile(join(skillDir, 'SKILL.md'), 'utf8');
 
   // AC1 — top-level, asks for the sync MODE and a TARGET BRANCH before any write.
-  assert.match(skill, /mode/i);
+  // Anchor on the specific two-mode ask (subsumes the bare "branch"/"bundle-wide"
+  // word checks) and the actual no-write-before-gate clause, not any prose.
+  assert.match(skill, /branch sync or bundle-wide/i);
   assert.match(skill, /target branch/i);
-  assert.match(skill, /before .*(writ|edit)|no write/i);
-  // Branch mode is one of (at least) two modes; bundle-wide is the companion.
-  assert.match(skill, /branch/i);
-  assert.match(skill, /bundle-wide/i);
+  assert.match(skill, /write nothing|no file is written/i);
 
   // AC2 — scope begins at the target's common ancestor (merge-base) and spans
   // committed, staged, unstaged, and relevant untracked state.
@@ -74,7 +75,7 @@ test('the SKILL.md documents the v2 branch-sync contract (all ten acceptance cri
 
   // AC4 — branch-affected current AND explanatory truth is reconciled; unrelated
   // target drift is reported SEPARATELY and byte-preserved.
-  assert.match(skill, /current/i);
+  assert.match(skill, /current truth/i);
   assert.match(skill, /explanatory truth/i);
   assert.match(skill, /unrelated/i);
   assert.match(skill, /drift/i);
@@ -86,8 +87,10 @@ test('the SKILL.md documents the v2 branch-sync contract (all ten acceptance cri
   assert.match(skill, /fanout/i);
   assert.match(skill, /disjoint/i);
   assert.match(skill, /(one|single|sole)[^.\n]*reconciler/i);
-  assert.match(skill, /index/i);
-  assert.match(skill, /log/i);
+  // Anchor the shared-bookkeeping writers on the concrete reserved filenames,
+  // not any occurrence of the words "index"/"log".
+  assert.match(skill, /index\.md|indexes/i);
+  assert.match(skill, /log\.md|logs\b/i);
   assert.match(skill, /timestamp/i);
 
   // AC6 — contradictory authoritative sources stop only the affected claim and
@@ -99,7 +102,7 @@ test('the SKILL.md documents the v2 branch-sync contract (all ten acceptance cri
   // AC7 — a fresh verifier checks source truth, complete scope, ownership,
   // lifecycle bookkeeping, validation, and Git-state preservation.
   assert.match(skill, /verif/i);
-  assert.match(skill, /scope/i);
+  assert.match(skill, /complete scope/i);
   assert.match(skill, /ownership/i);
   assert.match(skill, /lifecycle/i);
   assert.match(skill, /validat/i);
@@ -142,21 +145,41 @@ test('the gate case loads, targets docs-sync, and proves no write before mode + 
   assert.ok(types.includes('portable-contract'));
 });
 
-test('the reconcile case loads, targets docs-sync, and proves the idempotent docs-only reconcile (git-unchanged seam)', async () => {
+test('the reconcile case loads, targets docs-sync, and proves the genuine reconcile write path', async () => {
   const c = await loadCase('docs-sync-reconcile', { casesRoot });
   // The case directory is docs-sync-reconcile; the manifest projects the real
   // docs-sync skill so one skill carries both the gate case and this case.
   assert.equal(c.skill, 'docs-sync');
-  // AC9 headline: a docs-only branch that is already reconciled stays byte-for-
-  // byte unchanged when synced from the same boundary — nothing written, staged,
-  // committed, or pushed (idempotency + the no-Git-mutation guarantee, AC10).
+  // AC10 on the WRITE path: the reconcile legitimately dirties the tree, so this
+  // case asserts git-uncommitted (HEAD at baseline, nothing staged, no remote) —
+  // NOT git-unchanged, which the gate case owns. A genuine write that never
+  // touches Git is the guarantee here.
   assert.ok(
-    c.assertions.some((a) => a.type === 'git-unchanged'),
-    'the reconcile case must assert git-unchanged (idempotency + no Git mutation)',
+    c.assertions.some((a) => a.type === 'git-uncommitted'),
+    'the reconcile case must assert git-uncommitted (a genuine write that leaves Git untouched)',
+  );
+  // AC4 discriminator: a no-op / do-nothing / unresolved-merge-base run leaves
+  // 'MAX_RETRIES' absent from the stale spec, so the reconcile case must assert
+  // the reconciled Specification cites the new source symbol.
+  assert.ok(
+    c.assertions.some(
+      (a) => a.type === 'file-contains' && /specs\/retries\.md$/.test(a.path) && a.value === 'MAX_RETRIES',
+    ),
+    'the reconcile case must prove the stale spec was updated to cite the new source symbol',
+  );
+  // AC5 discriminator: the single reconciler appended exactly one Update to the
+  // NEAREST log — absent at baseline.
+  assert.ok(
+    c.assertions.some(
+      (a) => a.type === 'file-contains' && a.path === 'docs/payments/log.md' && a.value === '**Update**',
+    ),
+    'the reconcile case must prove the nearest log gained one Update entry',
   );
   assert.ok(c.assertions.some((a) => a.type === 'portable-contract'));
   // The declared skill is the real library skill; buildFixture projects it with
   // its docs-validate closure — exactly what the CLI would run for this case.
+  // The fixture carries the branch's unstaged source bump (an `uncommitted`
+  // input), so buildFixture leaves a genuinely dirty tree for the reconcile.
   const fixtureRoot = await mkdtemp(join(tmpdir(), 'dsync-'));
   try {
     const { closure } = await buildFixture({

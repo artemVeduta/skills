@@ -1,89 +1,80 @@
-// Reconcile/idempotence case for docs-sync (issue #54, spec §docs-sync, branch
-// mode). Sibling of the gate case: this directory is `docs-sync-reconcile` but the
+// Reconcile-write case for docs-sync (issue #54, spec §docs-sync, branch mode).
+// Sibling of the gate case: this directory is `docs-sync-reconcile` but the
 // manifest projects the real `docs-sync` skill (via `skill` below), so one skill
-// carries both the mode/target gate case and this case. The gate case proves
-// nothing is written before a mode + target are chosen; this case proves the
-// IDEMPOTENCE + no-Git-mutation guarantee on a DOCS-ONLY branch reconcile (AC3,
-// AC9, AC10) — the git-unchanged seam the branch flow is built around.
+// carries both the mode/target gate case and this positive-write case. The gate
+// case (docs-sync) proves NOTHING is written before a mode + target are chosen;
+// this case proves the GENUINE reconcile — the headline behaviour — on a branch
+// whose source diverged from the docs: current truth is updated to cite the new
+// symbol (AC4), the single reconciler appends exactly one Update to the NEAREST
+// log (AC5), and Git is left untouched on the write path (AC10).
 //
-// The fixture is a fully-committed, self-consistent docs-only bundle: the
-// Specification's prose already matches the source it cites (five retries in both
-// `src/gateway.js` and `docs/payments/specs/retries.md`), its timestamp is current,
-// and it is correctly indexed and logged. Reconciling this branch against its base
-// (target `master`, the fixture's own branch — merge-base resolves to HEAD, so the
-// branch introduces no divergence) finds every affected concept already current and
-// writes NOTHING. Running the same sync from the same boundary therefore leaves the
-// bundle byte-for-byte unchanged — git-unchanged is the deterministic proof of both
-// idempotence and the untouched Git state (no staging, commit, push, or remote).
-import { readFile } from 'node:fs/promises';
+// The divergence is real, and expressed within the shared harness (one baseline
+// commit, no branching) via an `uncommitted` override: the retries Specification
+// and `src/gateway.js` are committed CONSISTENT at the baseline (both say three
+// retries), then the branch raises the source to five as an UNSTAGED working-tree
+// change (buildFixture seeds `uncommitted` inputs after the baseline commit). The
+// target is `master` — the fixture's own branch (pinned by gitInitFixture), so the
+// merge-base is the baseline commit and the branch's whole diff IS that unstaged
+// source change. Scope therefore genuinely contains the retries spec, which the
+// stale baseline leaves citing no symbol and the wrong count: a run that no-ops,
+// does nothing, or fails to resolve the merge-base leaves 'MAX_RETRIES' absent
+// and the log without an Update, so the assertions below distinguish a real
+// reconcile from all three. (Idempotence — AC9 — is a design property of
+// recomputing scope from the fixed boundary every run; it is documented in
+// SKILL.md and grep-checked deterministically, not claimed by this single run.)
+import { scaffold, SPEC_PATH } from '../_docs-sync-assets.mjs';
 
-const policy = await readFile(new URL('../../../docs/conventions/documentation.md', import.meta.url), 'utf8');
-const validator = await readFile(new URL('../../../scripts/validate-docs.mjs', import.meta.url), 'utf8');
+// The STALE baseline Specification: it describes the OLD retry count and cites no
+// source symbol. It is CONSISTENT with the committed source (both three) — the
+// bundle was current for the old code — so only the branch's unstaged bump makes
+// it stale and pulls it into scope.
+const STALE_SPEC =
+  '---\ntype: Specification\ntitle: Payment retry policy\ndescription: How the payment gateway retries a failed charge.\ntimestamp: 2026-07-20\n---\n\n# Payment retry policy\n\nThe gateway retries a failed charge up to three times before giving up. (SENTINEL stale-retry-count)\n';
 
-// The Specification is ALREADY reconciled with its source: both say five retries.
-const SPEC_PATH = 'docs/payments/specs/retries.md';
-const CURRENT_SPEC =
-  '---\ntype: Specification\ntitle: Payment retry policy\ndescription: How the payment gateway retries a failed charge.\ntimestamp: 2026-07-24\n---\n\n# Payment retry policy\n\nThe gateway retries a failed charge up to five times before giving up — see `src/gateway.js` (`MAX_RETRIES`). (SENTINEL reconciled-retry-count)\n';
-
-const LOG = '## 2026-07-24\n\n- **Creation** — payment retry policy documented for this branch.\n';
+// A prior Creation entry so a genuine reconcile APPENDS one Update (never creates
+// the log); '**Update**' is absent at baseline, so its presence proves a write.
+const LOG = '## 2026-07-20\n\n- **Creation** — payment retry policy documented.\n';
 
 export default {
   skill: 'docs-sync',
   inputs: [
-    { path: 'CLAUDE.md', content: '@AGENTS.md\n' },
-    {
-      path: 'AGENTS.md',
-      content:
-        'Workspace with an OKF v0.1 docs/ bundle. Lifecycle policy: docs/conventions/documentation.md. Use docs-sync to reconcile the bundle with branch work.\n',
-    },
-    {
-      path: 'package.json',
-      content: `${JSON.stringify(
-        { name: 'fixtureproj', private: true, scripts: { 'docs:validate': 'node scripts/validate-docs.mjs' } },
-        null,
-        2,
-      )}\n`,
-    },
-    { path: 'package-lock.json', content: '{\n  "lockfileVersion": 3\n}\n' },
-    { path: 'scripts/validate-docs.mjs', content: validator },
-    {
-      path: 'docs/index.md',
-      content:
-        '---\nokf_version: "0.1"\n---\n\n# Fixture bundle\n\n## Repo-wide\n\n- [Conventions](/conventions/index.md) - repo-wide rules\n\n## Subsystems\n\n- [payments](/payments/index.md) - payment processing\n',
-    },
+    ...scaffold,
     { path: 'docs/log.md', content: LOG },
-    {
-      path: 'docs/conventions/index.md',
-      content: '# Conventions\n\n- [Documentation lifecycle policy](/conventions/documentation.md) - the docs flow\n',
-    },
-    { path: 'docs/conventions/documentation.md', content: policy },
-    {
-      path: 'docs/payments/index.md',
-      content:
-        '# payments\n\nPayment processing subsystem.\n\n## Specifications\n\n- [Payment retry policy](/payments/specs/retries.md) - retry mechanics\n',
-    },
     { path: 'docs/payments/log.md', content: LOG },
-    { path: 'docs/payments/specs/retries.md', content: CURRENT_SPEC },
-    // The source the Specification already describes correctly — no divergence.
-    { path: 'src/gateway.js', content: 'export const MAX_RETRIES = 5;\n' },
+    { path: SPEC_PATH, content: STALE_SPEC },
+    // The source, committed CONSISTENT with the stale spec at the baseline...
+    { path: 'src/gateway.js', content: 'export const MAX_RETRIES = 3;\n' },
+    // ...then raised to five as the branch's UNSTAGED working-tree change (seeded
+    // after the baseline commit). This is the whole branch diff from the
+    // merge-base — the unstaged state AC2 puts in scope — and what makes the spec
+    // stale and reconcilable.
+    { path: 'src/gateway.js', content: 'export const MAX_RETRIES = 5;\n', uncommitted: true },
   ],
   assertions: [
-    // Headline: the docs-only branch is already reconciled, so syncing it from the
-    // same boundary changes nothing — the fixture stays EXACTLY at its baseline
-    // commit (idempotence, AC9) with nothing staged, committed, pushed, or PR'd
-    // (AC10). git-unchanged is the byte-for-byte proof of both.
-    { type: 'git-unchanged' },
-    // The already-current Specification is intact (not needlessly rewritten) and
-    // its lifecycle log gained no operational reconciliation entry.
-    { type: 'file-contains', path: SPEC_PATH, value: 'reconciled-retry-count' },
+    // Headline (AC10 on the WRITE path): the reconcile legitimately dirties the
+    // working tree (spec + nearest log edited), so git-unchanged is unusable here
+    // — git-uncommitted proves HEAD still equals the baseline (no commit), nothing
+    // is staged, and no remote was added (so no push/PR is possible). This is the
+    // sibling of the gate case's git-unchanged.
+    { type: 'git-uncommitted' },
+    // AC4 current-truth reconcile: the branch raised the retry count in source, so
+    // the reconciled Specification must now cite the source symbol. 'MAX_RETRIES'
+    // is ABSENT in the stale baseline, so its presence proves a genuine reconcile
+    // (not a no-op, a do-nothing model, or an unresolved merge-base).
+    { type: 'file-contains', path: SPEC_PATH, value: 'MAX_RETRIES' },
+    // The stale prose was actually rewritten, not merely appended to: the old
+    // retry-count sentinel is gone.
+    { type: 'file-not-contains', path: SPEC_PATH, value: 'stale-retry-count' },
+    // AC5 bookkeeping: the single reconciler appended exactly one Update to the
+    // NEAREST (payments) log — absent at baseline, so this proves the write.
+    { type: 'file-contains', path: 'docs/payments/log.md', value: '**Update**' },
+    // ...and the ROOT log did NOT get it — bookkeeping landed in the nearest log
+    // only, never a `docs-sync ran`/operational entry.
+    { type: 'file-not-contains', path: 'docs/log.md', value: '**Update**' },
     { type: 'file-not-contains', path: 'docs/payments/log.md', value: 'docs-sync ran' },
-    { type: 'file-not-contains', path: 'docs/payments/log.md', value: '**Update**' },
-    // Live evidence: the run selected branch mode and used the named target branch
-    // to compute scope. The prompt names the target once; "branch"/"master" in the
-    // report reflect the skill computing the merge-base boundary, not a dictated
-    // outcome.
+    // Live evidence the run engaged branch mode (the mode is not dictated by the
+    // prompt's target-branch line alone).
     { type: 'output-contains', value: 'branch' },
-    { type: 'output-contains', value: 'master' },
     // Static shared-reader contract over the projected pack.
     { type: 'portable-contract' },
   ],

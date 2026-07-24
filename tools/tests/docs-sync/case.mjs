@@ -9,19 +9,17 @@
 // follow-up (cancel.md) withholds the selection and cancels. The deterministic
 // oracle then proves the bundle and Git state sit exactly at the fixture baseline
 // (git-unchanged), and the stale bait Specification was never edited.
-import { readFile } from 'node:fs/promises';
+//
+// The byte-identical bundle scaffold this case shares with the reconcile sibling
+// lives in ../_docs-sync-assets.mjs (Fowler: Duplicated Code); only the
+// distinguishing inputs (the STALE spec + logs + source) and assertions are here.
+import { scaffold, SPEC_PATH } from '../_docs-sync-assets.mjs';
 
-// Real bytes from THIS repo, so the fixture's lifecycle policy and validator are
-// the canonical ones docs-sync reads (and, on a real reconcile, would run).
-const policy = await readFile(new URL('../../../docs/conventions/documentation.md', import.meta.url), 'utf8');
-const validator = await readFile(new URL('../../../scripts/validate-docs.mjs', import.meta.url), 'utf8');
-
-// The stale bait: a Specification whose prose still describes the OLD retry count.
-// A reconcile would rewrite it — so its survival proves nothing was reconciled
-// before a mode and target were chosen.
-const SPEC_PATH = 'docs/payments/specs/retries.md';
+// The stale bait: a Specification whose prose still describes the OLD retry count
+// and cites no source symbol. A reconcile would rewrite it — so its survival
+// proves nothing was reconciled before a mode and target were chosen.
 const STALE_SPEC =
-  '---\ntype: Specification\ntitle: Payment retry policy\ndescription: How the payment gateway retries a failed charge.\ntimestamp: 2026-07-20\n---\n\n# Payment retry policy\n\nThe gateway retries a failed charge up to THREE times before giving up. (SENTINEL stale-retry-count)\n';
+  '---\ntype: Specification\ntitle: Payment retry policy\ndescription: How the payment gateway retries a failed charge.\ntimestamp: 2026-07-20\n---\n\n# Payment retry policy\n\nThe gateway retries a failed charge up to three times before giving up. (SENTINEL stale-retry-count)\n';
 
 const LOG = '## 2026-07-20\n\n- **Creation** — subsystem baseline.\n';
 
@@ -29,43 +27,10 @@ export default {
   skill: 'docs-sync',
   followUps: ['cancel.md'],
   inputs: [
-    // Project-memory routing for the portable contract: the exact shim + AGENTS.md.
-    { path: 'CLAUDE.md', content: '@AGENTS.md\n' },
-    {
-      path: 'AGENTS.md',
-      content:
-        'Workspace with an OKF v0.1 docs/ bundle. Lifecycle policy: docs/conventions/documentation.md. Use docs-sync to reconcile the bundle with branch work.\n',
-    },
-    // Runnable validator machinery (so a real reconcile could run docs:validate).
-    {
-      path: 'package.json',
-      content: `${JSON.stringify(
-        { name: 'fixtureproj', private: true, scripts: { 'docs:validate': 'node scripts/validate-docs.mjs' } },
-        null,
-        2,
-      )}\n`,
-    },
-    { path: 'package-lock.json', content: '{\n  "lockfileVersion": 3\n}\n' },
-    { path: 'scripts/validate-docs.mjs', content: validator },
-    // A small conformant bundle with a payments subsystem and the stale bait.
-    {
-      path: 'docs/index.md',
-      content:
-        '---\nokf_version: "0.1"\n---\n\n# Fixture bundle\n\n## Repo-wide\n\n- [Conventions](/conventions/index.md) - repo-wide rules\n\n## Subsystems\n\n- [payments](/payments/index.md) - payment processing\n',
-    },
+    ...scaffold,
     { path: 'docs/log.md', content: LOG },
-    {
-      path: 'docs/conventions/index.md',
-      content: '# Conventions\n\n- [Documentation lifecycle policy](/conventions/documentation.md) - the docs flow\n',
-    },
-    { path: 'docs/conventions/documentation.md', content: policy },
-    {
-      path: 'docs/payments/index.md',
-      content:
-        '# payments\n\nPayment processing subsystem.\n\n## Specifications\n\n- [Payment retry policy](/payments/specs/retries.md) - retry mechanics\n',
-    },
     { path: 'docs/payments/log.md', content: LOG },
-    { path: 'docs/payments/specs/retries.md', content: STALE_SPEC },
+    { path: SPEC_PATH, content: STALE_SPEC },
     // A source file the branch "changed" — a real reconcile target, but off-limits
     // until a mode and target are chosen.
     { path: 'src/gateway.js', content: 'export const MAX_RETRIES = 5; // raised from 3\n' },

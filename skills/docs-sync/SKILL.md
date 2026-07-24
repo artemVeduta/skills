@@ -107,10 +107,12 @@ repairs into a branch sync; that is bundle-wide work.
 - **Disjoint ownership:** each worker owns a **disjoint** set of concept files. No two
   workers touch the same concept. Partition the affected concepts before dispatch; if two
   areas would touch one concept, one owner takes it.
-- **One reconciler writes the shared bookkeeping:** a single reconciler is the **sole
-  writer** of `index.md` files, `log.md` files, and `timestamp` frontmatter. Domain
-  workers never write a shared index, a log, or another worker's concept. This keeps two
-  workers from racing the same file.
+- **One reconciler writes the shared bookkeeping:** domain workers edit only their own
+  concept's **body**; the `index.md`, `log.md`, and `timestamp`-frontmatter bookkeeping is
+  deferred to a **single reconciler** that makes the final pass. That reconciler is the
+  **sole writer** of indexes, logs, and timestamps — so no two workers race a shared file,
+  and a concept's body edit (by its owning worker) never collides with its timestamp stamp
+  (by the reconciler).
 - **Lifecycle bookkeeping is one net entry per concept:** a concept created and then edited
   on the branch gets one `Creation` entry; an existing concept changed gets one `Update`;
   a retired one gets one `Deprecation`. Never write a `docs-sync ran` or `Noted`
@@ -193,21 +195,17 @@ first run was not idempotent — fix the reconciler, do not re-run to "settle" i
 
 ## Common Mistakes
 
+These are the error-prone traps that the "Boundaries" list above does not already cover in
+its own words; each never-rule has its one canonical home in Boundaries.
+
 - **Assuming the target branch** — ask every run; the merge-base and therefore the entire
   scope depend on it.
-- **Reconciling drift the branch did not cause** — that inflates a branch sync into a
-  bundle-wide edit and buries the real change; report it separately instead.
 - **Pasting the changed code into a Specification** — cite the symbol/file; copied
   executable truth drifts the moment the source changes and the validator cannot catch it.
-- **Two workers editing the same concept or both bumping a shared log** — disjoint
-  ownership and a single reconciler exist precisely to prevent this race.
-- **Guessing which of two conflicting sources is authoritative** — never; block the claim.
 - **Treating a warning as a failure** — only exit `1` (hard errors) or `2` (malfunction)
   prevents success; warnings never block.
 - **Re-running to make repeated output "stabilise"** — a correct run is already idempotent;
   a changing re-run is a reconciler bug.
-- **Staging or committing "to be helpful"** — the working tree is the only surface sync
-  writes.
 
 ## Quick Reference
 

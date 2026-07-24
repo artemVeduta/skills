@@ -76,6 +76,13 @@ function gitInitFixture(fixtureRoot) {
     return r;
   };
   runGit(['init', '-q']);
+  // Pin the initial branch to `master` deterministically, regardless of the
+  // contributor's `init.defaultBranch`. symbolic-ref (not `git init -b`) works on
+  // every git version, including pre-2.28. Without this, a machine configured for
+  // `main` leaves the fixture on `main`, so a case that computes a merge-base
+  // against a fixed branch name (docs-sync targets `master`) would fail to resolve
+  // it — and a git-state assertion could pass vacuously off that error.
+  runGit(['symbolic-ref', 'HEAD', 'refs/heads/master']);
   // Local, fixture-scoped identity — never touches the developer's real git
   // config (no --global), so commits succeed even with no user-level identity.
   runGit(['config', 'user.email', 'test-runner@fixture.invalid']);

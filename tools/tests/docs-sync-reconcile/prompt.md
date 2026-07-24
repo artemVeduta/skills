@@ -1,5 +1,5 @@
-This repository has an OKF v0.1 documentation bundle under `docs/`, including a `payments` subsystem. I've been working on a docs-only branch and I want the bundle reconciled before I wrap up.
+This repository has an OKF v0.1 documentation bundle under `docs/`, including a `payments` subsystem. On this branch I raised the payment gateway's retry limit in the source code, but I have not touched the docs yet, so the bundle is now stale.
 
-Use the docs-sync skill in branch mode. The target branch to compare against is `master`. Reconcile every concept my branch affected with the current repository state.
+Use the docs-sync skill in branch mode. The target branch to compare against is `master`. Reconcile every concept my branch affected with the current working state of the repository, so the docs match the code I changed.
 
-If the bundle is already current with the branch's changes, reconcile to that state and make no changes — do not rewrite concepts that are already correct, and do not add operational log entries. Report what you found. Do not stage, commit, push, or open a pull request.
+Do the reconciliation entirely in the working tree. Do not stage, commit, push, or open a pull request.
