@@ -339,7 +339,6 @@ const TOY = [
     scopes: ['global'],
     channels: ['development'],
     customProfileValidation: { allowHomeRelative: true },
-    sharedStorage: false,
   },
 ];
 
@@ -416,10 +415,13 @@ const placementCount = (stdout) => (stdout.match(/Skill directory:/g) || []).len
 
 test('the registry models three harness products (exit 0)', async () => {
   const root = await makeCheckout({ alpha: { 'SKILL.md': SKILL('alpha') } });
-  const r = run(['--inspect', '--checkout', root]);
-  assert.equal(r.status, 0);
-  for (const id of ['claude-code', 'codex', 'opencode']) assert.match(r.stdout, new RegExp(id));
-  try {} finally { await rm(root, { recursive: true, force: true }); }
+  try {
+    const r = run(['--inspect', '--checkout', root]);
+    assert.equal(r.status, 0);
+    for (const id of ['claude-code', 'codex', 'opencode']) assert.match(r.stdout, new RegExp(id));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test('exact global targets: claude-code -> ~/.claude/skills, codex/opencode -> ~/.agents/skills', async () => {
@@ -486,6 +488,29 @@ test('OpenCode adds no placement already exposed by a selected Claude target', a
   } finally {
     await rm(root, { recursive: true, force: true });
     await rm(home, { recursive: true, force: true });
+  }
+});
+
+test('OpenCode survives a CLAUDE_CONFIG_DIR-overridden Claude global target (custom root is not discovered)', async () => {
+  // OpenCode scans the CANONICAL ~/.claude/skills, not another product's env override.
+  // With Claude pointed at a custom config dir, that dir is not on OpenCode's discovery
+  // path, so OpenCode must keep its own ~/.agents/skills placement rather than dedup away.
+  const root = await makeCheckout({ alpha: { 'SKILL.md': SKILL('alpha') } });
+  const home = await mkdtemp(join(tmpdir(), 'home-'));
+  const claudeCfg = await mkdtemp(join(tmpdir(), 'claude-'));
+  try {
+    const r = run(
+      ['--dry-run', '--checkout', root, '--profile', 'claude-code:personal', '--harness', 'opencode'],
+      { env: { HOME: home, CLAUDE_CONFIG_DIR: claudeCfg } },
+    );
+    assert.equal(r.status, 0);
+    assert.equal(placementCount(r.stdout), 2); // custom Claude root + OpenCode's own .agents/skills
+    assert.ok(r.stdout.includes(join(claudeCfg, 'skills')), 'Claude links into the custom config root');
+    assert.match(r.stdout, /\.agents\/skills/); // OpenCode keeps its own placement
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true });
+    await rm(claudeCfg, { recursive: true, force: true });
   }
 });
 

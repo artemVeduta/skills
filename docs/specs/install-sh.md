@@ -2,7 +2,7 @@
 type: Specification
 title: install.sh — development-links install wizard
 description: PRD for rebuilding scripts/install.sh into the registry-driven interactive wizard that validates the skill dependency graph and symlinks the whole library into selected harness profiles.
-timestamp: 2026-07-11
+timestamp: 2026-07-24
 ---
 
 # install.sh — development-links install wizard
@@ -17,6 +17,15 @@ implements the "Distribution and installation" section of the
 [locked platform specification](/specs/skills-platform.md). Vocabulary:
 [skill](/glossary/skill.md), [harness](/glossary/harness.md) (including *harness
 profile*), [skill dependency](/glossary/skill-dependency.md).
+
+> **Status note (2026-07-24).** This PRD predates the
+> [OKF docs skill-suite v2 spec](/specs/okf-docs-skill-suite-v2.md), the governing
+> authority for the three-harness (Claude Code, Codex, OpenCode) checkout installer
+> (issue #61). Where this document leaves a choice implementer-owned or describes older
+> intent — notably the blanket `~/.agents/skills` channel-mixing warning and
+> `CODEX_HOME`-based Codex resolution — the v2 spec supersedes it: channel mixing is a
+> precise managed-shape **refusal** (not a warning), and Codex resolves to a fixed
+> `~/.agents/skills` (its `configRoot.env` is `null`, so no `CODEX_HOME` lookup).
 
 ## Problem Statement
 
@@ -196,11 +205,15 @@ profile live, and `git pull` is the only update command.
   name is replaced — but only after the preview disclosed it and the user confirmed.
   The **self-symlink guard** is kept: a target directory that is itself a symlink
   resolving into this repository is refused with remediation guidance.
-- **Channel-mixing guard.** Linking into `~/.agents/skills` — also the portable CLI's
-  own storage — is called out or refused; and per the distribution-channels Decision, a
-  single harness profile must not consume the library through both the pure-skill and
-  native-plugin channels. Whether the `~/.agents/skills` guard warns or refuses is
-  implementer-owned (the platform spec's implementation notes leave it open).
+- **Channel-mixing guard.** A single harness profile must not consume the library
+  through more than one channel (per the distribution-channels Decision). The
+  [v2 skill-suite spec](/specs/okf-docs-skill-suite-v2.md) settled the previously
+  implementer-owned warn-vs-refuse choice: before any mutation the installer detects an
+  already-present **managed** portable or native shape — an `.okf-managed.json` marker at
+  the skill directory (portable) or at its parent config root (native plugin) — and
+  refuses the checkout overlay with the exact conflicting path and channel. A plain
+  `~/.agents/skills` directory with no managed marker is Codex/OpenCode's own canonical
+  location and is linked normally; the older blanket `~/.agents/skills` warning is gone.
 - **Non-interactive surface.** A flag-driven, TTY-free invocation exists for automation
   and tests (in the spirit of the current `--list` / `--all` / `--target`), and exit
   statuses distinguish usage errors, nothing-to-do outcomes, and validation rejection
@@ -277,9 +290,11 @@ profile live, and `git pull` is the only update command.
   baseline contract above.
 - **Implementer-owned gaps** (consistent with the platform spec's implementation
   notes; none reopens a Decision): the registry's file format and location; exact flag
-  names and exit-code assignments; warn-vs-refuse for `~/.agents/skills`; whether and
-  how stale links (skills removed from the library) are pruned on re-run; the README
-  guidance generation mechanism.
+  names and exit-code assignments; the README guidance generation mechanism. The
+  warn-vs-refuse choice for a colliding managed shape and stale-link pruning on re-run
+  were later settled by the [v2 skill-suite spec](/specs/okf-docs-skill-suite-v2.md): a
+  precise managed-shape refusal, and pruning of a stale link only when ownership proves
+  it points into the same checkout.
 - **Related but different:** the
   [docs-setup install contract](/docs-setup/specs/install-contract.md)
   describes what that *skill* installs into target repositories when it runs — not how

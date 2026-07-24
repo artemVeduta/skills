@@ -131,7 +131,9 @@ export async function managedShapeGuard(skillDir) {
     return {
       path: marker,
       channel,
-      message: `${skillDir} already holds a ${channel} managed install (${marker}); a profile uses exactly one package shape, so checkout links must not overlay the ${channel} package. Remove the ${channel} install first.`,
+      // Name the directory the marker was actually found in (`dir`): for a native
+      // plugin that is the config root (the skill dir's parent), not the skill dir.
+      message: `${dir} already holds a ${channel} managed install (${marker}); a profile uses exactly one package shape, so checkout links must not overlay the ${channel} package. Remove the ${channel} install first.`,
     };
   }
   return null;

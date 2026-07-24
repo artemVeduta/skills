@@ -13,10 +13,6 @@ export function renderPreview(plan) {
     for (const l of t.links) lines.push(`    [${ACTION_TAG[l.action]}] ${l.name} -> ${l.src}`);
     for (const p of t.prunes ?? []) lines.push(`    [remove stale] ${p.name} (checkout-owned link no longer in the pack)`);
   }
-  if (plan.warnings?.length) {
-    lines.push('', 'Warnings:');
-    for (const w of plan.warnings) lines.push(`  ! ${w}`);
-  }
   lines.push('', 'Nothing has been changed yet.');
   return lines.join('\n');
 }

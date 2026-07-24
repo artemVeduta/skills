@@ -1,5 +1,6 @@
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { findEntry } from './registry.mjs';
 
 // Expand a leading ~ against home; leave other paths untouched.
 export function expandHome(p, home = homedir()) {
@@ -35,28 +36,36 @@ export function resolveSkillDir(entry, profile, scope, { projectDir = process.cw
   return resolve(join(profile.configRoot, entry.skillDirs.global)); // global: relative to config root
 }
 
-// Absolute directories a harness ALSO discovers (OpenCode reads Claude's and the
-// shared .agents locations). A selected Claude/Codex placement in one of these
-// already exposes the pack, so the OpenCode target is redundant.
-export function resolveReadDirs(entry, scope, { home = homedir(), projectDir = process.cwd() } = {}) {
-  const templates = entry.readsSkillDirs?.[scope] ?? [];
-  return templates.map((p) =>
-    scope === 'project' ? resolve(join(projectDir, p)) : resolve(expandHome(p, home)),
-  );
+// Absolute directories a harness ALSO discovers: OpenCode reads the CANONICAL
+// (default-root) skill directories of the products named in `readsSharedWith`. Each
+// path is derived from that product's own `skillDirs`/`configRoot` via resolveSkillDir,
+// so a placement has exactly one definition. Resolution uses the product's canonical
+// default config root — never a per-run env override such as CLAUDE_CONFIG_DIR —
+// because OpenCode scans the standard locations regardless of how another product is
+// configured, so a Claude install into a custom root is NOT discovered by OpenCode.
+export function resolveReadDirs(entry, scope, registry, { home = homedir(), projectDir = process.cwd() } = {}) {
+  const dirs = [];
+  for (const id of entry.readsSharedWith ?? []) {
+    const other = findEntry(registry, id);
+    const def = other?.configRoot?.defaults?.[0];
+    if (!def || !other.skillDirs[scope]) continue;
+    dirs.push(resolveSkillDir(other, { configRoot: join(home, def.dir) }, scope, { projectDir }));
+  }
+  return dirs;
 }
 
 // Reduce resolved selections to the deduplicated set of write placements.
 // 1. Selections resolving to the same directory collapse to one (first wins).
-// 2. An OpenCode-style selection (one that declares `readsSkillDirs`) is dropped
-//    when another selected harness already writes into a directory it reads, so
+// 2. An OpenCode-style selection (one that declares `readsSharedWith`) is dropped
+//    when another selected harness already writes into a directory it discovers, so
 //    OpenCode adds no placement already exposed by a selected Claude or Codex target.
-export function reduceSelections(selections, { home = homedir(), projectDir = process.cwd() } = {}) {
+export function reduceSelections(selections, registry, { home = homedir(), projectDir = process.cwd() } = {}) {
   const exposedByOthers = new Set(
-    selections.filter((s) => !s.entry.readsSkillDirs).map((s) => s.skillDir),
+    selections.filter((s) => !s.entry.readsSharedWith).map((s) => s.skillDir),
   );
   const kept = selections.filter((s) => {
-    if (!s.entry.readsSkillDirs) return true;
-    const readDirs = resolveReadDirs(s.entry, s.scope, { home, projectDir });
+    if (!s.entry.readsSharedWith) return true;
+    const readDirs = resolveReadDirs(s.entry, s.scope, registry, { home, projectDir });
     return !readDirs.some((d) => exposedByOthers.has(d));
   });
   const seen = new Set();

@@ -2,6 +2,13 @@
 
 ## 2026-07-24
 
+- **Update** of [install.sh — development-links install wizard](/specs/install-sh.md) —
+  reconciled the PRD with shipped three-harness behaviour (#61): added a supersession
+  note pointing to the [v2 skill-suite spec](/specs/okf-docs-skill-suite-v2.md), and
+  corrected the Channel-mixing guard and implementer-owned-gaps sections so they no
+  longer describe the removed blanket `~/.agents/skills` warning or `CODEX_HOME`-based
+  Codex resolution. Channel mixing is now a precise managed-shape refusal; Codex global
+  resolves to a fixed `~/.agents/skills`.
 - **Update** — completed the `docs-setup` identity migration (#60): retired the obsolete
   `okf-docs-setup` skill identity and renamed the subsystem to
   [docs-setup](/docs-setup/index.md). The skill now lives only at `skills/docs-setup/`,

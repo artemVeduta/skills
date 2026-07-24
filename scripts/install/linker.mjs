@@ -15,8 +15,19 @@ export async function linkSkill(src, dest) {
   await symlink(src, dest);
 }
 
+// Remove a stale checkout-owned link, tolerating its prior disappearance: the
+// plan→confirm→apply gap lets the user delete it first, and a vanished link is
+// already in the desired end state (idempotent, like linkSkill's ENOENT swallow).
+async function prune(dest) {
+  try {
+    await unlink(dest);
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err;
+  }
+}
+
 export async function applyTarget(target) {
   await mkdir(target.skillDir, { recursive: true });
-  for (const p of target.prunes ?? []) await unlink(p.dest); // remove stale checkout-owned links
+  for (const p of target.prunes ?? []) await prune(p.dest); // remove stale checkout-owned links
   for (const l of target.links) await linkSkill(l.src, l.dest);
 }

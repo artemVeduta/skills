@@ -105,8 +105,8 @@ function parseArgs(argv) {
   return o;
 }
 
-function printInspect(skills, registry, provenance) {
-  const lines = [formatProvenance(provenance), '', 'Discovered skills:'];
+function printInspect(skills, registry, provenanceText) {
+  const lines = [provenanceText, '', 'Discovered skills:'];
   for (const s of skills) lines.push(`  ${s.name}`);
   lines.push('', 'Known harnesses:');
   for (const e of registry) {
@@ -215,10 +215,12 @@ async function main(argv) {
     return EXIT.HARD;
   }
 
-  const provenance = checkoutProvenance(checkout);
+  // Format the checkout provenance once at this boundary; inspect and the plan
+  // preview both consume the same string.
+  const provenanceText = formatProvenance(checkoutProvenance(checkout));
 
   if (o.inspect) {
-    printInspect(skills, registry, provenance);
+    printInspect(skills, registry, provenanceText);
     return EXIT.OK;
   }
 
@@ -247,7 +249,7 @@ async function main(argv) {
     throw err;
   }
   // Deduplicate coincident directories and drop redundant OpenCode placements.
-  selections = reduceSelections(selections);
+  selections = reduceSelections(selections, registry);
   if (selections.length === 0) {
     stdin.close();
     process.stderr.write('nothing to do: select a harness profile (--harness/--profile) or use --inspect\n');
@@ -275,7 +277,7 @@ async function main(argv) {
   for (const sel of selections) {
     targets.push(await planTarget(sel.entry, sel.profile, sel.scope, skills, sel.skillDir, checkout));
   }
-  const plan = { skills, targets, provenance: formatProvenance(provenance) };
+  const plan = { skills, targets, provenance: provenanceText };
   process.stdout.write(renderPreview(plan) + '\n');
   if (o.dryRun) {
     stdin.close();
