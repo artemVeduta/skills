@@ -250,15 +250,41 @@ test('follow-up turns against a driver without buildResumeInvocation are a confi
       defaultModel: 'fake-model-1', probe: { args: ['--version'] },
       buildInvocation: () => ({ command: process.execPath, args: ['-e', ''], env: {} }),
     };
-    await assert.rejects(
-      runHarness(fake, {
-        skillName: 'okf-docs-setup', skillsRoot: join(REPO_ROOT, 'skills'),
-        testCase: { inputs: [], prompt: 'x', followUpPrompts: ['approve'], assertions: [] },
-        runsRoot, runId: 'no-resume', beforeHash: '', dryRun: false,
-        preflight: async () => ({ skipReason: null, version: 'fake 9.9' }),
-      }),
-      /buildResumeInvocation/,
-    );
+    const args = (dryRun, runId) => ({
+      skillName: 'okf-docs-setup', skillsRoot: join(REPO_ROOT, 'skills'),
+      testCase: { inputs: [], prompt: 'x', followUpPrompts: ['approve'], assertions: [] },
+      runsRoot, runId, beforeHash: '', dryRun,
+      preflight: async () => ({ skipReason: null, version: 'fake 9.9' }),
+    });
+    await assert.rejects(runHarness(fake, args(false, 'no-resume')), /buildResumeInvocation/);
+    // Dry-run must surface the same configuration error — a misconfigured
+    // gated case must not preview green and only fail when turns run live.
+    await assert.rejects(runHarness(fake, args(true, 'no-resume-dry')), /buildResumeInvocation/);
+  } finally {
+    await rm(runsRoot, { recursive: true, force: true });
+  }
+});
+
+test('a dry run of a gated case records the resume invocation for every follow-up turn', async () => {
+  const runsRoot = await mkdtemp(join(tmpdir(), 'tr-runs-'));
+  try {
+    const r = await runHarness(gatedFakeDriver({ applyOnResume: false }), {
+      skillName: 'okf-docs-setup', skillsRoot: join(REPO_ROOT, 'skills'),
+      testCase: {
+        inputs: [], prompt: 'propose a plan and wait',
+        followUpPrompts: ['approved — apply the plan', 'and confirm'],
+        assertions: [],
+      },
+      runsRoot, runId: 'dry-turns', beforeHash: '', dryRun: true,
+      preflight: async () => ({ skipReason: null, version: 'fake 9.9' }),
+    });
+    assert.equal(r.status, 'dry-run');
+    // The FULL exchange is previewed: one resume invocation per follow-up,
+    // each carrying its own prompt.
+    assert.equal(r.resumeInvocations.length, 2);
+    assert.ok(r.resumeInvocations[0].args.join(' ').includes('approved — apply the plan'));
+    assert.ok(r.resumeInvocations[1].args.join(' ').includes('and confirm'));
+    await rm(r.fixtureRoot, { recursive: true, force: true });
   } finally {
     await rm(runsRoot, { recursive: true, force: true });
   }
@@ -321,7 +347,7 @@ test('runCase compares declared outcome paths across executed harnesses', async 
       ['fake-b', writerFakeDriver('fake-b', 'same\n')],
     ]);
     const equalRun = await runCase('okf-docs-setup', {
-      runsRoot, casesRoot,
+      runsRoot, casesRoot, runId: 'cmp-equal',
       harnessSelections: [{ id: 'fake-a', model: null }, { id: 'fake-b', model: null }],
       resolveDriverFn: (id) => equalDrivers.get(id) ?? null,
       preflight: async () => ({ skipReason: null, version: 'fake 9.9' }),
@@ -337,13 +363,18 @@ test('runCase compares declared outcome paths across executed harnesses', async 
       ['fake-b', writerFakeDriver('fake-b', 'two\n')],
     ]);
     const divergentRun = await runCase('okf-docs-setup', {
-      runsRoot, casesRoot,
+      runsRoot, casesRoot, runId: 'cmp-div',
       harnessSelections: [{ id: 'fake-a', model: null }, { id: 'fake-b', model: null }],
       resolveDriverFn: (id) => divergentDrivers.get(id) ?? null,
       preflight: async () => ({ skipReason: null, version: 'fake 9.9' }),
     });
     assert.equal(divergentRun.comparisons[0].pass, false);
     assert.match(divergentRun.comparisons[0].detail, /fake-a/);
+
+    // The gating verdict is persisted alongside the per-leg records, so a
+    // divergence stays attributable after the run (comparisons.json).
+    const persisted = JSON.parse(await readFile(join(runsRoot, 'cmp-div', 'comparisons.json'), 'utf8'));
+    assert.deepEqual(persisted, divergentRun.comparisons);
     for (const h of [...equalRun.harnesses, ...divergentRun.harnesses]) {
       await rm(h.fixtureRoot, { recursive: true, force: true });
     }

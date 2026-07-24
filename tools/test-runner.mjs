@@ -47,7 +47,7 @@ export async function runHarness(driver, {
   // into the skill under test. The profile env covers user scope only.
   const fixtureRoot = await mkdtemp(join(tmpdir(), 'tr-fx-'));
 
-  const closure = await buildFixture({
+  const { closure, baselineSha } = await buildFixture({
     skillName, skillsRoot, driver, fixtureRoot, inputs: testCase.inputs,
   });
   const sourcesUnmodified = (await hashGuardedTrees(REPO_ROOT, GUARDED_DIRS)) === beforeHash;
@@ -59,8 +59,24 @@ export async function runHarness(driver, {
     fixtureRoot, prompt: testCase.prompt, model: resolvedModel, profileDir,
   });
 
+  // Plan/approval turns (v2 acceptance seam): the case's prompt is turn 1
+  // (propose and pause — the headless turn ends on the pause); each follow-up
+  // prompt resumes the SAME session (explicit approval or denial). A driver
+  // without resume support cannot run a gated case — configuration error,
+  // surfaced BEFORE the dry-run return so a misconfigured gated case cannot
+  // dry-run green and only fail live.
+  const followUps = testCase.followUpPrompts ?? [];
+  if (followUps.length > 0 && typeof driver.buildResumeInvocation !== 'function') {
+    await rm(fixtureRoot, { recursive: true, force: true });
+    throw new Error(`harness ${id} does not implement buildResumeInvocation but the case declares follow-up turns`);
+  }
+
   if (dryRun) {
-    return { id, status: 'dry-run', closure, invocation, model: resolvedModel, sourcesUnmodified, fixtureRoot };
+    // Dry-run previews the WHOLE exchange that would execute: turn 1 plus one
+    // resume invocation per follow-up turn.
+    const resumeInvocations = followUps.map((prompt) =>
+      driver.buildResumeInvocation({ fixtureRoot, prompt, model: resolvedModel, profileDir }));
+    return { id, status: 'dry-run', closure, invocation, resumeInvocations, model: resolvedModel, sourcesUnmodified, fixtureRoot };
   }
 
   const gate = await preflight(driver, profileDir);
@@ -72,17 +88,6 @@ export async function runHarness(driver, {
       exitStatus: null, timedOut: false, skipReason: gate.skipReason,
     });
     return { id, status: 'skipped', skipReason: gate.skipReason, fixtureRoot };
-  }
-
-  // Plan/approval turns (v2 acceptance seam): the case's prompt is turn 1
-  // (propose and pause — the headless turn ends on the pause); each follow-up
-  // prompt resumes the SAME session (explicit approval or denial). A driver
-  // without resume support cannot run a gated case — configuration error,
-  // surfaced before any turn spawns.
-  const followUps = testCase.followUpPrompts ?? [];
-  if (followUps.length > 0 && typeof driver.buildResumeInvocation !== 'function') {
-    await rm(fixtureRoot, { recursive: true, force: true });
-    throw new Error(`harness ${id} does not implement buildResumeInvocation but the case declares follow-up turns`);
   }
 
   const turns = [runDriver(driver, { fixtureRoot, prompt: testCase.prompt, model: resolvedModel, profileDir })];
@@ -97,8 +102,11 @@ export async function runHarness(driver, {
   // The oracle judges the WHOLE exchange: state assertions read the fixture as
   // the final turn left it; output assertions see every turn's output.
   const output = turns.map((t) => t.stdout).join('\n');
+  // baselineSha pins git-unchanged to the true fixture baseline; skillsSubdir
+  // points portable-contract at THIS driver's projected pack.
   const assertions = await evaluateAssertions(testCase.assertions, {
     workdir: fixtureRoot, repoRoot: REPO_ROOT, output,
+    baselineSha, skillsSubdir: driver.discoverySubdir,
   });
   const afterUnmodified = (await hashGuardedTrees(REPO_ROOT, GUARDED_DIRS)) === beforeHash;
 
@@ -163,7 +171,7 @@ export async function runCase(skillName, opts = {}) {
     harnesses.push(
       await runHarness(driver, {
         skillName, skillsRoot, testCase, runsRoot, runId, beforeHash, dryRun, model,
-        ...(preflight && { preflight }),
+        preflight,
       }),
     );
   }
@@ -171,11 +179,18 @@ export async function runCase(skillName, opts = {}) {
   // Cross-harness outcome comparison (v2 acceptance seam): every executed
   // leg's fixture must hold an EQUIVALENT repository outcome for each
   // case-declared path. Computed while fixtures still exist (the CLI cleans
-  // them up only after reporting).
+  // them up only after reporting). Persisted next to the per-leg records: the
+  // EQUIVALENT/DIVERGED verdict gates the exit code, so it must be
+  // attributable after the run like every other verdict (spec §7).
   const executed = harnesses.filter((h) => h.status === 'executed');
   const comparisons = !dryRun && testCase.compare?.paths?.length
-    ? await compareOutcomes(testCase.compare.paths, executed.map((h) => ({ id: h.id, fixtureRoot: h.fixtureRoot })))
+    ? await compareOutcomes(testCase.compare.paths, executed)
     : [];
+  if (comparisons.length > 0) {
+    const runDir = join(runsRoot, runId);
+    await mkdir(runDir, { recursive: true });
+    await writeFile(join(runDir, 'comparisons.json'), JSON.stringify(comparisons, null, 2));
+  }
 
   return { skill: skillName, runId, dryRun, harnesses, comparisons };
 }

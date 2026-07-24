@@ -79,6 +79,11 @@ export function lintFrontmatter(relPath, data) {
   return { errors, warnings };
 }
 
+// NOTE: the name==dirName rule (and lintFrontmatter's presence rules above)
+// intentionally ALSO exist, with stricter bounds, in
+// tools/test-runner/static-contract.mjs (checkSkillMetadata): this linter is
+// advisory over the library at rest; that module gates projected packs with
+// the shared-reader pattern/length limits. Keep both; see the note there.
 export function lintName(relPath, name, dirName) {
   const errors = [];
   if (name !== dirName) {

@@ -29,6 +29,15 @@ test('a name outside the pattern is rejected', () => {
   }
 });
 
+test('limits count characters (code points), not UTF-16 code units', () => {
+  // 512 astronaut emoji = 1,024 UTF-16 units but only 512 characters — within
+  // the spec's 1,024-character description limit.
+  const emoji = '\u{1F680}'.repeat(512);
+  assert.equal(emoji.length, 1024);
+  assert.deepEqual(checkSkillMetadata({ dirName: 'x', name: 'x', description: emoji }), []);
+  assert.ok(checkSkillMetadata({ dirName: 'x', name: 'x', description: '\u{1F680}'.repeat(1025) }).length > 0);
+});
+
 test('a name over 64 characters is rejected; exactly 64 passes', () => {
   const name64 = 'a'.repeat(64);
   assert.deepEqual(checkSkillMetadata({ dirName: name64, name: name64, description: 'd' }), []);
@@ -69,6 +78,18 @@ test('a cross-skill support path is rejected', () => {
   assert.ok(errors.length > 0);
 });
 
+test('absolute targets in reference-style definitions and angle-bracket destinations are rejected', () => {
+  const referenceStyle = 'See [the template][t].\n\n[t]: /abs/ref-target.md\n';
+  const refErrors = checkSupportPaths('docs-add', referenceStyle, new Set(['docs-add']));
+  assert.ok(refErrors.some((e) => e.includes('/abs/ref-target.md')));
+  const angleBracket = 'Use [template](</abs path with spaces.md>).';
+  const angleErrors = checkSupportPaths('docs-add', angleBracket, new Set(['docs-add']));
+  assert.ok(angleErrors.some((e) => e.includes('/abs path with spaces.md')));
+  // Relative targets in the same forms stay clean.
+  const relative = 'See [a][t] and [b](<templates/x y.md>).\n\n[t]: templates/x.md\n';
+  assert.deepEqual(checkSupportPaths('docs-add', relative, new Set(['docs-add'])), []);
+});
+
 // --- project-memory routing (spec: root CLAUDE.md is exactly @AGENTS.md) ---
 
 test('the exact CLAUDE.md shim with a non-empty AGENTS.md passes', () => {
@@ -105,6 +126,9 @@ test('the budget is measured in bytes, not characters', () => {
 async function writeFixture(root, { claudeMd, agentsMd, skills }) {
   if (claudeMd !== undefined) await writeFile(join(root, 'CLAUDE.md'), claudeMd);
   if (agentsMd !== undefined) await writeFile(join(root, 'AGENTS.md'), agentsMd);
+  // The subdir always exists (buildFixture always projects it); an EMPTY
+  // projected subdir is conformant, an ABSENT one is an explicit error.
+  await mkdir(join(root, '.claude/skills'), { recursive: true });
   for (const [dirName, skillMd] of Object.entries(skills ?? {})) {
     await mkdir(join(root, '.claude/skills', dirName), { recursive: true });
     await writeFile(join(root, '.claude/skills', dirName, 'SKILL.md'), skillMd);
@@ -156,6 +180,20 @@ test('checkPortableContract fails an over-budget AGENTS.md chain', async () => {
     });
     const { errors } = await checkPortableContract(root, {});
     assert.ok(errors.some((e) => e.includes('32')));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('an absent skills subdir is an explicit error, never a vacuous pass', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'sc-fx-'));
+  try {
+    await writeFile(join(root, 'CLAUDE.md'), '@AGENTS.md\n');
+    await writeFile(join(root, 'AGENTS.md'), '# Project\n');
+    // No skills subdir at all — e.g. a pack that was never projected, or a
+    // check pointed at the wrong per-harness discovery dir.
+    const { errors } = await checkPortableContract(root, { skillsSubdir: '.agents/skills' });
+    assert.ok(errors.some((e) => e.includes('.agents/skills') && e.includes('missing')));
   } finally {
     await rm(root, { recursive: true, force: true });
   }

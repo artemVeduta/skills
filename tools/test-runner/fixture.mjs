@@ -13,7 +13,11 @@ import { parseRequiredSkills, transitiveClosure } from '../skill-graph.mjs';
 
 // Copy the closure of `skillName` into <fixtureRoot>/<driver.discoverySubdir>/<name>/
 // and seed any case `inputs` into the fixture working dir (fixtureRoot). Returns
-// the sorted projected closure names. Throws if the skill is not in the library.
+// { closure, baselineSha }: the sorted projected closure names plus the sha of
+// the fixture's single baseline commit — recorded HERE, at creation, so the
+// git-unchanged oracle can assert equality with the true baseline (a rewritten
+// history that merely LOOKS like one clean commit must not pass). Throws if the
+// skill is not in the library.
 export async function buildFixture({ skillName, skillsRoot, driver, fixtureRoot, inputs = [] }) {
   const skills = await discoverSkills(skillsRoot);
   const srcByName = new Map(skills.map((s) => [s.name, s.srcDir]));
@@ -37,8 +41,8 @@ export async function buildFixture({ skillName, skillsRoot, driver, fixtureRoot,
     await writeFile(dest, input.content);
   }
 
-  gitInitFixture(fixtureRoot);
-  return closure;
+  const baselineSha = gitInitFixture(fixtureRoot);
+  return { closure, baselineSha };
 }
 
 // opencode's `run` does not confine to the process cwd: it walks up from cwd
@@ -68,6 +72,7 @@ function gitInitFixture(fixtureRoot) {
   // inside a throwaway tmpdir fixture (not a real project commit), so it must
   // not hang or fail in dev environments with global commit signing enabled.
   runGit(['-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'fixture baseline']);
+  return runGit(['rev-parse', 'HEAD']).stdout.trim();
 }
 
 // Stable content hash of a directory tree: for each file (sorted by rel path)

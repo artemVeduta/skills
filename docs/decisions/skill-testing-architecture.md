@@ -215,10 +215,15 @@ central cases, out-of-repo fixtures, provenance):
   `codex exec resume --last` with the workspace-write posture re-asserted via
   `-c sandbox_mode`, `opencode run --continue --dir <fixture>`; flags verified
   against the installed CLIs 2026-07-24). A timed-out turn ends the exchange. Later
-  turns write numbered transcripts; `run.json` records `turnCount`.
+  turns write numbered transcripts; `run.json` records `turnCount`. A dry run
+  previews the WHOLE exchange (turn 1 plus every resume invocation) and surfaces a
+  missing-resume-support configuration error just like a live run.
 - **Git-state oracle.** New `git-unchanged` assertion: empty `git status
-  --porcelain` and a single-commit history prove the fixture sits exactly at its
-  baseline commit — the observable proof a denied approval changed nothing.
+  --porcelain --ignored` (gitignored writes count as changes) and `HEAD` equal to
+  the baseline commit sha recorded when the fixture was built — the observable
+  proof a denied approval changed nothing. Equality-with-baseline, not
+  shape-of-history: a rewritten history (`commit --amend`) presenting one clean
+  commit with changed content fails.
 - **Execution-trace oracle.** `trace-field`, `trace-every`, and `trace-disjoint`
   assertions parse the last fenced `execution-trace` block from the harness output
   and check coordinator/worker ownership (sole-writer coordinator, read-only
@@ -226,12 +231,17 @@ central cases, out-of-repo fixtures, provenance):
 - **Cross-harness comparison.** A case may declare `compare.paths`; after all legs
   run, each path's content digest (file or tree, absence included) must be equal
   across every executed harness. Divergence gates the exit code; fewer than two
-  executed legs records SKIPPED and never gates.
+  executed legs records SKIPPED and never gates. Verdicts are persisted as
+  `comparisons.json` alongside the per-leg records, keeping every gating verdict
+  attributable after the run.
 - **Static portable contract.** `tools/test-runner/static-contract.mjs` checks the
   strictest shared-reader skill metadata (name pattern/length/dir match,
-  description length), relative support references, project-memory routing (root
+  description length in characters), relative support references (inline,
+  angle-bracket, and reference-style link targets), project-memory routing (root
   `CLAUDE.md` is exactly the `@AGENTS.md` shim), and the 32 KiB root-to-workdir
   `AGENTS.md` instruction-chain budget; cases reach it through the
-  `portable-contract` assertion.
+  `portable-contract` assertion, which defaults to the EXECUTING driver's
+  discovery subdir and fails loudly when that subdir was never projected (no
+  vacuous pass).
 
   Driven by #48.

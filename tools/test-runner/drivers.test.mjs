@@ -117,6 +117,23 @@ test('every driver can build a resume invocation whose env matches its first tur
   }
 });
 
+// Freezes the resume/turn-1 args invariant for the drivers whose resume is by
+// design "turn 1 plus --continue" (claude-code, opencode). The argv lists stay
+// hand-written and CLI-verified (the repo's no-derived-flags stance), so this
+// test is what catches a turn-1 flag change (e.g. permission posture) that is
+// not mirrored into its resume twin. codex's resume is a genuinely different
+// subcommand shape and is pinned exactly by its own test above.
+test('claude-code and opencode resume args are exactly turn-1 args plus --continue', () => {
+  for (const id of ['claude-code', 'opencode']) {
+    const d = resolveDriver(id);
+    const opts = { fixtureRoot: '/fx', prompt: 'go on', model: d.defaultModel, profileDir: `/prof/${id}` };
+    const resumeArgs = d.buildResumeInvocation(opts).args;
+    assert.equal(resumeArgs.filter((a) => a === '--continue').length, 1, `${id}: resume must add --continue once`);
+    assert.deepEqual(resumeArgs.filter((a) => a !== '--continue'), d.buildInvocation(opts).args,
+      `${id}: resume args must be turn-1 args plus --continue — mirror turn-1 flag changes into the resume twin`);
+  }
+});
+
 // Rewritten isolation invariant (spec §10): scoped to the env map
 // buildInvocation RETURNS (not the effective child env). Every path-valued
 // entry points at the fixture root or that harness's profile dir; the map

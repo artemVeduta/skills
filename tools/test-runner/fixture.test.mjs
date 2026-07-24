@@ -26,7 +26,7 @@ test('buildFixture projects the full ## Required skills closure and nothing extr
   try {
     await makeSkills(skillsRoot);
     const driver = { discoverySubdir: '.claude/skills' };
-    const closure = await buildFixture({ skillName: 'a', skillsRoot, driver, fixtureRoot });
+    const { closure } = await buildFixture({ skillName: 'a', skillsRoot, driver, fixtureRoot });
     assert.deepEqual(closure, ['a', 'b', 'c']); // sorted, includes start, excludes unrelated z
     const projected = await readdir(join(fixtureRoot, '.claude/skills'));
     assert.deepEqual(projected.sort(), ['a', 'b', 'c']);
@@ -84,7 +84,7 @@ test('buildFixture leaves the fixture as a git repo with a clean, committed base
   const fixtureRoot = await mkdtemp(join(tmpdir(), 'tr-fx-'));
   try {
     await makeSkills(skillsRoot);
-    await buildFixture({
+    const { baselineSha } = await buildFixture({
       skillName: 'a',
       skillsRoot,
       driver: { discoverySubdir: '.opencode/skills' },
@@ -97,6 +97,10 @@ test('buildFixture leaves the fixture as a git repo with a clean, committed base
     assert.equal(git(['status', '--porcelain']).stdout, '');
     // Exactly one baseline commit, so the walk-up finds real history here.
     assert.equal(git(['rev-list', '--count', 'HEAD']).stdout.trim(), '1');
+    // The recorded baseline sha IS that commit — the git-unchanged oracle
+    // asserts equality with it (equality-with-baseline, not shape-of-history).
+    assert.match(baselineSha, /^[0-9a-f]{40}$/);
+    assert.equal(git(['rev-parse', 'HEAD']).stdout.trim(), baselineSha);
   } finally {
     await rm(skillsRoot, { recursive: true, force: true });
     await rm(fixtureRoot, { recursive: true, force: true });

@@ -2,23 +2,16 @@
 // assertions (filesystem + structured-output containment). Advisory signal
 // (skill-selection evidence, judge scores) is NEVER evaluated here — that is a
 // hard rule of the testing architecture.
-import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { spawnSync } from 'node:child_process';
-import { checkPortableContract } from './static-contract.mjs';
+import { checkPortableContract, readIf } from './static-contract.mjs';
 
-async function readIf(path) {
-  try {
-    return await readFile(path, 'utf8');
-  } catch (err) {
-    if (err.code === 'ENOENT') return null;
-    throw err;
-  }
-}
-
-// ctx: { workdir, repoRoot, output }. Returns one { assertion, pass, detail }
-// per assertion, in order.
+// ctx: { workdir, repoRoot, output, baselineSha, skillsSubdir }. baselineSha is
+// the fixture's recorded baseline commit (buildFixture); skillsSubdir is the
+// EXECUTING driver's discovery subdir, so a shared portable-contract assertion
+// targets the right projected pack on every leg. Returns one
+// { assertion, pass, detail } per assertion, in order.
 export async function evaluateAssertions(assertions, ctx) {
   const results = [];
   for (const a of assertions) {
@@ -27,7 +20,7 @@ export async function evaluateAssertions(assertions, ctx) {
   return results;
 }
 
-async function evaluateOne(a, { workdir, repoRoot, output }) {
+async function evaluateOne(a, { workdir, repoRoot, output, baselineSha, skillsSubdir }) {
   switch (a.type) {
     case 'file-exists': {
       const c = await readIf(join(workdir, a.path));
@@ -62,14 +55,18 @@ async function evaluateOne(a, { workdir, repoRoot, output }) {
     case 'trace-disjoint':
       return evaluateTrace(a, output);
     case 'git-unchanged':
-      return evaluateGitUnchanged(workdir);
+      return evaluateGitUnchanged(workdir, baselineSha);
     case 'portable-contract': {
       // Static shared-reader contract over the projected pack in the fixture
       // (skill metadata, relative support references, project-memory routing,
-      // instruction-chain budget) — see static-contract.mjs.
+      // instruction-chain budget) — see static-contract.mjs. The subdir to
+      // check defaults to the EXECUTING driver's discovery subdir (from ctx),
+      // so one shared assertion targets .claude/skills on the claude-code leg,
+      // .agents/skills on codex, .opencode/skills on opencode; a case may
+      // still pin an explicit subdir.
       const { errors } = await checkPortableContract(workdir, {
-        ...(a.skillsSubdir !== undefined && { skillsSubdir: a.skillsSubdir }),
-        ...(a.workdirRel !== undefined && { workdirRel: a.workdirRel }),
+        skillsSubdir: a.skillsSubdir ?? skillsSubdir,
+        workdirRel: a.workdirRel,
       });
       return { pass: errors.length === 0, detail: errors.join('; ') };
     }
@@ -80,13 +77,17 @@ async function evaluateOne(a, { workdir, repoRoot, output }) {
 
 // --- git-unchanged (v2 acceptance seam) ---
 // Proves the fixture sits EXACTLY at its baseline commit: an empty
-// `git status --porcelain` (no modified, staged, or untracked paths) AND a
-// single-commit history (no commit was made past the fixture baseline —
-// fixture.mjs commits every fixture exactly once when fully populated).
-// A non-git workdir FAILS rather than passing vacuously.
+// `git status --porcelain --ignored` (no modified, staged, untracked, OR
+// gitignored paths — a denied plan that writes only ignored paths must still
+// fail) AND `git rev-parse HEAD` equal to the baseline sha recorded when
+// buildFixture created the commit. Equality-with-baseline, not
+// shape-of-history: a rewritten history (`commit --amend`, orphan re-init)
+// that presents one clean commit with CHANGED content has a different sha and
+// fails. A non-git workdir or a missing recorded baseline FAILS rather than
+// passing vacuously.
 
-function evaluateGitUnchanged(workdir) {
-  const status = spawnSync('git', ['status', '--porcelain'], { cwd: workdir, encoding: 'utf8' });
+function evaluateGitUnchanged(workdir, baselineSha) {
+  const status = spawnSync('git', ['status', '--porcelain', '--ignored'], { cwd: workdir, encoding: 'utf8' });
   if (status.status !== 0) {
     return { pass: false, detail: `git status failed in workdir: ${(status.stderr || '').trim() || 'not a git repository'}` };
   }
@@ -94,13 +95,16 @@ function evaluateGitUnchanged(workdir) {
   if (dirty !== '') {
     return { pass: false, detail: `working tree or index changed:\n${dirty}` };
   }
-  const count = spawnSync('git', ['rev-list', '--count', 'HEAD'], { cwd: workdir, encoding: 'utf8' });
-  if (count.status !== 0) {
-    return { pass: false, detail: `git rev-list failed in workdir: ${(count.stderr || '').trim()}` };
+  if (!baselineSha) {
+    return { pass: false, detail: 'no baseline commit sha recorded for this fixture — cannot prove Git state unchanged' };
   }
-  const commits = Number(count.stdout.trim());
-  if (commits !== 1) {
-    return { pass: false, detail: `history moved past the fixture baseline: ${commits} commits (expected the single baseline commit)` };
+  const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: workdir, encoding: 'utf8' });
+  if (head.status !== 0) {
+    return { pass: false, detail: `git rev-parse failed in workdir: ${(head.stderr || '').trim()}` };
+  }
+  const headSha = head.stdout.trim();
+  if (headSha !== baselineSha) {
+    return { pass: false, detail: `history moved off the fixture baseline commit: HEAD is ${headSha}, baseline was ${baselineSha}` };
   }
   return { pass: true, detail: '' };
 }

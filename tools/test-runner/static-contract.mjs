@@ -15,22 +15,35 @@ export const INSTRUCTION_CHAIN_BUDGET_BYTES = 32 * 1024;
 
 const NAME_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
+// Code POINTS, not UTF-16 code units: the spec limits are in "characters", and
+// `.length` double-counts non-BMP characters (emoji in a description).
+function charLength(str) {
+  return [...str].length;
+}
+
 // Strictest shared-reader SKILL.md metadata contract: name is 1–64 chars,
 // matches the pattern, and equals the directory name; description is 1–1,024
 // chars. Returns plain error strings (empty = conformant).
+//
+// INTENTIONAL overlap with tools/lint-skills.mjs (lintName, lintFrontmatter):
+// the linter is the ADVISORY check over the library tree at rest with the
+// looser repo rules (name==dir, non-empty keys); this is the GATING contract
+// over a projected pack with the strict shared-reader bounds (pattern, 64/1024
+// character limits). The two deliberately do not delegate to each other — do
+// not "deduplicate" one into the other without deciding which rule set gates.
 export function checkSkillMetadata({ dirName, name, description }) {
   const errors = [];
-  if (typeof name !== 'string' || name.length < 1 || name.length > 64) {
-    errors.push(`${dirName}: skill name must be 1–64 characters, got ${typeof name === 'string' ? name.length : typeof name}`);
+  if (typeof name !== 'string' || charLength(name) < 1 || charLength(name) > 64) {
+    errors.push(`${dirName}: skill name must be 1–64 characters, got ${typeof name === 'string' ? charLength(name) : typeof name}`);
   } else if (!NAME_PATTERN.test(name)) {
     errors.push(`${dirName}: skill name ${JSON.stringify(name)} does not match ^[a-z0-9]+(-[a-z0-9]+)*$`);
   } else if (name !== dirName) {
     errors.push(`${dirName}: skill name "${name}" does not equal its directory name "${dirName}"`);
   }
-  if (typeof description !== 'string' || description.length < 1) {
+  if (typeof description !== 'string' || charLength(description) < 1) {
     errors.push(`${dirName}: missing skill description`);
-  } else if (description.length > 1024) {
-    errors.push(`${dirName}: description is ${description.length} characters (> 1,024 limit)`);
+  } else if (charLength(description) > 1024) {
+    errors.push(`${dirName}: description is ${charLength(description)} characters (> 1,024 limit)`);
   }
   return errors;
 }
@@ -41,7 +54,15 @@ export function checkSkillMetadata({ dirName, name, description }) {
 // the linter's single implementation of that rule).
 export function checkSupportPaths(skillName, body, knownSkillNames) {
   const errors = [];
-  for (const m of body.matchAll(/\]\((\/[^)\s]*)\)/g)) {
+  // Every Markdown link form with an absolute destination: inline `](/abs)`,
+  // angle-bracket inline `](</abs path>)`, and reference-style definitions
+  // (`[t]: /abs/path.md`) — a root-anchored target hides in any of them.
+  const absoluteTargets = [
+    ...body.matchAll(/\]\((\/[^)\s]*)\)/g),
+    ...body.matchAll(/\]\(<(\/[^>]*)>\)/g),
+    ...body.matchAll(/^ {0,3}\[[^\]]+\]:\s*<?(\/\S*?)>?(?:\s|$)/gm),
+  ];
+  for (const m of absoluteTargets) {
     errors.push(`${skillName}: absolute support path ${m[1]} — support references must be relative`);
   }
   errors.push(...lintCrossSkillPaths(skillName, skillName, body, knownSkillNames).errors);
@@ -71,7 +92,8 @@ export function checkInstructionChainBudget(texts) {
   return [];
 }
 
-async function readIf(path) {
+// Shared "read a file or null on ENOENT" helper — also used by the oracle.
+export async function readIf(path) {
   try {
     return await readFile(path, 'utf8');
   } catch (err) {
@@ -81,9 +103,11 @@ async function readIf(path) {
 }
 
 // Aggregate: run every static check over a fixture/pack root. `skillsSubdir`
-// names the projected discovery dir (checked only when present — a fixture
-// without skills still gets routing + budget checks); `workdirRel` extends the
-// AGENTS.md chain from the root down to a nested working directory.
+// names the projected discovery dir — its ABSENCE is an explicit error, never
+// a silent skip: the metadata/support checks would otherwise vanish exactly
+// when the pack was never projected (or the wrong subdir was targeted). An
+// EMPTY existing subdir is fine (projected, zero skills). `workdirRel` extends
+// the AGENTS.md chain from the root down to a nested working directory.
 export async function checkPortableContract(rootDir, { skillsSubdir = '.claude/skills', workdirRel = '' } = {}) {
   const errors = [];
 
@@ -93,6 +117,7 @@ export async function checkPortableContract(rootDir, { skillsSubdir = '.claude/s
     entries = (await readdir(skillsRoot, { withFileTypes: true })).filter((e) => e.isDirectory());
   } catch (err) {
     if (err.code !== 'ENOENT') throw err;
+    errors.push(`${skillsSubdir}: skills subdir is missing — the pack was never projected here, so no skill was checked`);
   }
   const skillDirs = entries.map((e) => e.name);
   const knownSkillNames = new Set(skillDirs);

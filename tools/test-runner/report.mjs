@@ -13,10 +13,14 @@ export function formatRunReport(run) {
         break;
       case 'dry-run': {
         // Show exactly what WOULD execute: full args (long values elided for
-        // readability — the prompt is a whole file) plus the profile env.
-        const shownArgs = h.invocation.args.map((a) => (a.length > 80 ? `${a.slice(0, 77)}...` : a));
-        lines.push(`  ${h.id}: would run \`${[h.invocation.command, ...shownArgs].join(' ')}\` with ${h.closure.length} skill(s): ${h.closure.join(', ')}`);
+        // readability — the prompt is a whole file) plus the profile env, and
+        // for a gated case every follow-up resume turn of the exchange.
+        const elide = (args) => args.map((a) => (a.length > 80 ? `${a.slice(0, 77)}...` : a));
+        lines.push(`  ${h.id}: would run \`${[h.invocation.command, ...elide(h.invocation.args)].join(' ')}\` with ${h.closure.length} skill(s): ${h.closure.join(', ')}`);
         for (const [k, v] of Object.entries(h.invocation.env)) lines.push(`    env ${k}=${v}`);
+        for (const r of h.resumeInvocations ?? []) {
+          lines.push(`    then would resume with \`${[r.command, ...elide(r.args)].join(' ')}\``);
+        }
         if (!h.sourcesUnmodified) lines.push('    ! canonical sources were modified');
         break;
       }
