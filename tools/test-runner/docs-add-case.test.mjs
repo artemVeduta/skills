@@ -1,10 +1,12 @@
 // Deterministic recognition tests for the canonical docs-add skill (issue #51,
-// spec §docs-add). The dependency graph, the README inventory, the central
-// case shape, the self-relative templates, and the strict validator must all
-// recognize the skill and its guarantees. Live behavioral evidence (the
-// approval gate; nothing written/staged/committed on denial) comes from the
-// case itself via the test-runner CLI; these tests are the CI-reachable
-// deterministic layer and never run a model.
+// spec §docs-add). The dependency graph, the README inventory, the two case
+// shapes, the self-relative templates, and the strict validator must all
+// recognize the skill and its guarantees. Live behavioral evidence comes from
+// the two sibling cases via the test-runner CLI: docs-add proves the approval
+// GATE (nothing written/staged/committed on denial) and docs-add-approve proves
+// the primary happy path (the concept + one index bullet + one log entry are
+// written after approval, then validated and read back). These tests are the
+// CI-reachable deterministic layer and never run a model.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
@@ -128,6 +130,56 @@ test('the case loads, targets docs-add, and proves the gate on the deny turn', a
   assert.ok(c.assertions.some((a) => a.type === 'file-absent'), 'the deny case must assert the concept is absent');
   // Static shared-reader contract over the projected pack (AC1).
   assert.ok(types.includes('portable-contract'));
+});
+
+test('the approve case projects docs-add and proves the write/read-back behavior', async () => {
+  const c = await loadCase('docs-add-approve', { casesRoot });
+  // The case directory is docs-add-approve; the manifest projects docs-add so
+  // the two sibling cases share one skill.
+  assert.equal(c.skill, 'docs-add');
+  // Turn 1 proposes and pauses; the single follow-up APPROVES (vs the deny
+  // case's denial).
+  assert.equal(c.followUpPrompts.length, 1);
+  const concept = 'docs/payments/decisions/idempotency-keys.md';
+  // AC7/AC8: the concept is written and read back as a conformant Decision.
+  assert.ok(
+    c.assertions.some((a) => a.type === 'file-exists' && a.path === concept),
+    'the approve case must assert the concept was written',
+  );
+  assert.ok(
+    c.assertions.some((a) => a.type === 'file-contains' && a.path === concept && /type:\s*Decision/.test(a.value)),
+    'the approve case must read the concept back and confirm its frontmatter type',
+  );
+  // Exactly one parent-index bullet and one nearest-log Creation entry.
+  assert.ok(
+    c.assertions.some((a) => a.type === 'file-contains' && a.path === 'docs/payments/decisions/index.md'),
+    'the approve case must assert the parent index gained the concept bullet',
+  );
+  assert.ok(
+    c.assertions.some((a) => a.type === 'file-contains' && a.path === 'docs/payments/log.md' && a.value.includes('Creation')),
+    'the approve case must assert the nearest log gained a Creation entry',
+  );
+  // "updated once" bait: the root index/log and an unrelated sibling index stay
+  // untouched.
+  assert.ok(
+    c.assertions.some((a) => a.type === 'file-not-contains' && a.path === 'docs/log.md'),
+    'the approve case must prove the root log was not touched',
+  );
+  // The declared skill is the real library skill, so buildFixture projects it
+  // with no dependency closure — exactly what the CLI would run for this case.
+  const fixtureRoot = await mkdtemp(join(tmpdir(), 'da-approve-'));
+  try {
+    const { closure } = await buildFixture({
+      skillName: c.skill,
+      skillsRoot,
+      driver: { discoverySubdir: '.claude/skills' },
+      fixtureRoot,
+      inputs: c.inputs,
+    });
+    assert.deepEqual(closure, ['docs-add']);
+  } finally {
+    await rm(fixtureRoot, { recursive: true, force: true });
+  }
 });
 
 test('the projected docs-add pack passes the static portable contract', async () => {

@@ -72,7 +72,10 @@ export default {
     { type: 'file-not-contains', path: 'docs/payments/decisions/index.md', value: 'idempotency-keys' },
     { type: 'file-not-contains', path: 'docs/payments/log.md', value: 'idempotency' },
     // Live AC4 evidence: turn 1's plan named the concept path, its frontmatter
-    // type, and the lifecycle Creation entry BEFORE any write.
+    // type, and the lifecycle Creation entry BEFORE any write. The prompt names
+    // only the destination path and calls the subject an "architectural
+    // decision"; the `type: Decision` frontmatter and the `Creation` lifecycle
+    // verb come from the skill applying the policy, not from dictated tokens.
     { type: 'output-contains', value: 'payments/decisions/idempotency-keys.md' },
     { type: 'output-contains', value: 'type: Decision' },
     { type: 'output-contains', value: 'Creation' },

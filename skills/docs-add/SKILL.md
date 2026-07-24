@@ -1,6 +1,6 @@
 ---
 name: docs-add
-description: Use when adding ONE concept to an OKF docs/ bundle — a Decision/ADR, Specification, Convention, Glossary term, Reference, or a new subsystem index node — from either a prepared complete concept or content to scaffold from a template, and when a filing must produce its frontmatter, body, path, parent index.md entry, and log.md lifecycle entry together under a single approval. Also when invoked as /docs-add. Not for validating a bundle (that is docs-validate) or bootstrapping/repairing one (that is docs-setup).
+description: Use when adding ONE concept to an OKF docs/ bundle — a Decision/ADR, Specification, Convention, Glossary term, Reference, or a new subsystem index node — from either a prepared complete concept or content to scaffold from a template, and when a filing must produce its frontmatter, body, path, parent index.md entry, and log.md lifecycle entry together under a single approval. Also when invoked as /docs-add. Not for validating a bundle (that is docs-validate) or bootstrapping/repairing one (that is okf-docs-setup).
 ---
 
 # docs-add
@@ -10,8 +10,9 @@ description: Use when adding ONE concept to an OKF docs/ bundle — a Decision/A
 Files exactly one conformant concept into an OKF v0.1 `docs/` bundle: the concept
 itself, its parent `index.md` entry, and the nearest `log.md` lifecycle entry — planned
 as a unit, written only after explicit approval, then validated and read back. This
-skill applies the bundle's lifecycle policy; it does not restate it, and it owns the
-scaffolding templates under `templates/`.
+skill applies the bundle's lifecycle policy — it reads that policy and formats every
+entry to match it rather than prescribing its own format — and owns the scaffolding
+templates under `templates/`.
 
 ## When to Use
 
@@ -33,8 +34,11 @@ supersede flow. Everything below applies that policy to one filing.
 
 A filing is defined by three things:
 
-1. **Type** — one taxonomy value (`Decision`, `Specification`, `Convention`, `Glossary`,
-   `Reference`, an open-taxonomy type, or a Subsystem index node).
+1. **Type** — for a concept, one open-taxonomy `type` value (`Decision`,
+   `Specification`, `Convention`, `Glossary`, `Reference`, or another type the bundle
+   already uses). A new subsystem `index.md` node is the exception: it is a reserved
+   index file that carries no frontmatter and no `type` (there is no `Subsystem` type
+   value).
 2. **Destination** — the bundle-relative concept path (kebab-case filename; repo-wide
    knowledge at the top level, subsystem knowledge nested under the subsystem). The
    concept ID is that path minus `.md`.
@@ -64,12 +68,12 @@ plan states, in full:
 - the concept's **final frontmatter**;
 - its **body**;
 - the exact bundle **path**;
-- the parent **local `index.md` entry** — a `[Title](…) - description` bullet under the
-  right section heading, its link target the bundle-relative absolute path the policy
-  specifies; and
-- the **nearest `log.md` lifecycle entry** — a `* **Creation**: <one line>` line linking
-  the new concept, under today's `## YYYY-MM-DD` heading, newest first — including the
-  300-line keep/split reasoning if it applied.
+- the parent **local `index.md` entry** — the one bullet to add, under the correct
+  section heading, formatted as the bundle's `documentation.md` prescribes and matching
+  the entries already there; and
+- the **nearest `log.md` lifecycle entry** — the one dated `**Creation**` entry to
+  append under today's heading, written in the same style as the surrounding entries —
+  including the 300-line keep/split reasoning if it applied.
 
 Ask plainly — **"Ready to apply this? (yes / no)"** — and wait. Silence or "looks good"
 is not approval; only an explicit yes is.

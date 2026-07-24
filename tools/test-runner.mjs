@@ -47,8 +47,12 @@ export async function runHarness(driver, {
   // into the skill under test. The profile env covers user scope only.
   const fixtureRoot = await mkdtemp(join(tmpdir(), 'tr-fx-'));
 
+  // Project the skill the case declares (manifest `skill`), which may differ
+  // from the case-directory name so one skill can have sibling case variants
+  // (e.g. a deny-gate case and an approve/write case for docs-add). Falls back
+  // to skillName when a case omits it (the common case / direct runHarness).
   const { closure, baselineSha } = await buildFixture({
-    skillName, skillsRoot, driver, fixtureRoot, inputs: testCase.inputs,
+    skillName: testCase.skill ?? skillName, skillsRoot, driver, fixtureRoot, inputs: testCase.inputs,
   });
   const sourcesUnmodified = (await hashGuardedTrees(REPO_ROOT, GUARDED_DIRS)) === beforeHash;
 

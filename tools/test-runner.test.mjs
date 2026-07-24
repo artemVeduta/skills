@@ -395,6 +395,30 @@ test('a case without a compare declaration produces no comparisons (v1 behavior 
   }
 });
 
+test('a case projects the skill its manifest declares, not the case-directory name', async () => {
+  // Sibling case variants (e.g. docs-add + docs-add-approve) share one skill:
+  // the case directory names the case, the manifest `skill` names the skill to
+  // project into the fixture.
+  const runsRoot = await mkdtemp(join(tmpdir(), 'tr-runs-'));
+  const casesRoot = await mkdtemp(join(tmpdir(), 'tr-cases-'));
+  try {
+    const caseDir = join(casesRoot, 'alias-dir');
+    await mkdir(caseDir, { recursive: true });
+    await writeFile(join(caseDir, 'case.mjs'), 'export default { skill: "okf-docs-setup", assertions: [] };\n');
+    await writeFile(join(caseDir, 'prompt.md'), 'do a thing\n');
+    const run = await runCase('alias-dir', {
+      dryRun: true, runsRoot, casesRoot,
+      harnessSelections: [{ id: 'claude-code', model: null }],
+    });
+    assert.equal(run.skill, 'alias-dir'); // label stays the case-directory name
+    assert.ok(run.harnesses[0].closure.includes('okf-docs-setup'), 'projected the manifest-declared skill');
+    for (const h of run.harnesses) await rm(h.fixtureRoot, { recursive: true, force: true });
+  } finally {
+    await rm(runsRoot, { recursive: true, force: true });
+    await rm(casesRoot, { recursive: true, force: true });
+  }
+});
+
 test('runHarness resolves the model, threads preflight version, and writes run.json', async () => {
   const runsRoot = await mkdtemp(join(tmpdir(), 'tr-runs-'));
   try {
