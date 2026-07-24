@@ -31,10 +31,13 @@
 //
 // The shared bundle scaffold (routing pair, runnable validator, root/conventions
 // skeleton, policy) lives in ../_docs-sync-assets.mjs (Fowler: Duplicated Code);
-// only the distinguishing concept content, source, logs, and index overrides are
-// here. Everything is committed, so the audit's repairs dirty the working tree
-// without a commit → git-uncommitted.
-import { scaffold } from '../_docs-sync-assets.mjs';
+// only the distinguishing concept content, source, logs, and this case's own
+// subsystem index are here. This case needs a payments index that also links the
+// decisions sub-index, so it composes the scaffold WITHOUT the default payments
+// index (`scaffoldWithout`) and supplies its own — no second same-path input
+// shadowing the scaffold via seed order. Everything is committed, so the audit's
+// repairs dirty the working tree without a commit → git-uncommitted.
+import { scaffoldWithout, PAYMENTS_INDEX_PATH } from '../_docs-sync-assets.mjs';
 
 const RETRIES_PATH = 'docs/payments/specs/retries.md';
 const REFUNDS_PATH = 'docs/payments/specs/refunds.md';
@@ -103,10 +106,11 @@ const PAYMENTS_LOG =
 export default {
   skill: 'docs-sync',
   inputs: [
-    ...scaffold,
-    // Overrides + concepts (all COMMITTED — the drift lives in merged state, so a
-    // branch diff is empty and only a bundle-wide audit reaches it):
-    { path: 'docs/payments/index.md', content: PAYMENTS_INDEX },
+    ...scaffoldWithout([PAYMENTS_INDEX_PATH]),
+    // Concepts + this case's own subsystem index (all COMMITTED — the drift lives
+    // in merged state, so a branch diff is empty and only a bundle-wide audit
+    // reaches it):
+    { path: PAYMENTS_INDEX_PATH, content: PAYMENTS_INDEX },
     { path: DECISIONS_INDEX_PATH, content: DECISIONS_INDEX },
     { path: RETRIES_PATH, content: STALE_RETRIES },
     { path: CURRENCY_PATH, content: CURRENCY_DECISION },
@@ -142,11 +146,18 @@ export default {
     { type: 'file-contains', path: DECISIONS_INDEX_PATH, value: 'currency.md' },
     { type: 'file-contains', path: CURRENCY_PATH, value: 'currency-decision' },
 
-    // AC — LIFECYCLE drift repaired by the single reconciler in the NEAREST log: a
-    // net Update (retries reconciled) and net Creations (refunds filed, currency
-    // registered), with no operational entry.
+    // AC — LIFECYCLE drift repaired by the single reconciler in the NEAREST log.
+    // '**Update**' is absent at baseline (the seeded payments log holds only the
+    // retries Creation), so it proves the reconciled-spec write path. '**Creation**'
+    // is ALREADY present at baseline, so on its own it does not prove a NEW entry;
+    // the discriminator for the currency lifecycle-drift repair (the currency
+    // Decision had NO log entry at baseline) is a new entry NAMING the concept —
+    // 'currency' is absent from the baseline payments log, so its presence pins
+    // that the previously-unlogged Decision got its net lifecycle entry. No
+    // operational entry is written.
     { type: 'file-contains', path: 'docs/payments/log.md', value: '**Update**' },
     { type: 'file-contains', path: 'docs/payments/log.md', value: '**Creation**' },
+    { type: 'file-contains', path: 'docs/payments/log.md', value: 'currency' },
     { type: 'file-not-contains', path: 'docs/payments/log.md', value: 'docs-sync ran' },
     { type: 'file-not-contains', path: 'docs/payments/log.md', value: '**Noted**' },
     // The already-present retries Creation survives (the reconciler appends, never

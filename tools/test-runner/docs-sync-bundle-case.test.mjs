@@ -44,6 +44,22 @@ test('the SKILL.md documents the v2 bundle-wide contract (all seven #56 criteria
   // part of the docs-sync contract, not a stray sentence.
   assert.match(skill, /^#+.*bundle-wide/im, 'SKILL.md needs a dedicated bundle-wide section');
 
+  // Discovery surface — the DESCRIPTION frontmatter (not merely the body) must
+  // advertise bundle-wide mode. AC1 ("the user can select bundle-wide mode")
+  // presupposes docs-sync was surfaced at all; a bundle-wide request with no
+  // branch framing ("audit the whole docs bundle") would never trigger the skill
+  // if only branch triggers are front-loaded. Parse the description explicitly so
+  // a body mention cannot vacuously satisfy this.
+  const fm = skill.match(/^---\n([\s\S]*?)\n---/);
+  assert.ok(fm, 'SKILL.md must open with YAML frontmatter');
+  const descLine = fm[1].match(/^description:\s*(.*)$/m);
+  assert.ok(descLine, 'SKILL.md frontmatter must carry a description');
+  assert.match(
+    descLine[1],
+    /bundle-wide|whole[- ]bundle|entire bundle/i,
+    'the description must advertise bundle-wide mode so a non-branch-framed request surfaces docs-sync',
+  );
+
   // AC1 — the user selects bundle-wide mode before any write, and (unlike branch
   // sync) it needs NO target branch: its scope is the complete current bundle.
   assert.match(skill, /bundle-wide/i);
@@ -143,8 +159,16 @@ test('the bundle-wide audit case loads, targets docs-sync, and proves whole-bund
   // Lifecycle-drift discriminator — the single reconciler recorded the repairs in
   // the nearest log (a net Update for the reconciled spec, net Creations for the
   // newly filed / newly registered concepts), and wrote no operational entry.
+  // '**Creation**' is already present at baseline (the seeded retries Creation),
+  // so the currency lifecycle-drift repair (its Decision had no log entry) is
+  // pinned distinctly by a new entry NAMING the concept — 'currency' is absent
+  // from the baseline payments log.
   assert.ok(has((a) => a.type === 'file-contains' && a.path === 'docs/payments/log.md' && a.value === '**Update**'));
   assert.ok(has((a) => a.type === 'file-contains' && a.path === 'docs/payments/log.md' && a.value === '**Creation**'));
+  assert.ok(
+    has((a) => a.type === 'file-contains' && a.path === 'docs/payments/log.md' && a.value === 'currency'),
+    'the audit case must pin the currency lifecycle-drift repair by a new log entry naming the concept (absent at baseline)',
+  );
   assert.ok(
     has((a) => a.type === 'file-not-contains' && a.path === 'docs/payments/log.md' && a.value === 'docs-sync ran'),
   );
@@ -219,10 +243,17 @@ test('the unknown-boundary case loads single-turn and proves a blocker without g
     'the unknown-boundary case must prove the ambiguous amendment heading was preserved, not folded',
   );
 
-  // The skill surfaced a precise blocker rather than guessing.
+  // The skill surfaced a precise blocker rather than guessing. Match 'blocker'
+  // (the skill's own term) rather than the looser substring 'block'.
   assert.ok(
-    has((a) => a.type === 'output-contains' && a.value === 'block'),
+    has((a) => a.type === 'output-contains' && a.value === 'blocker'),
     'the unknown-boundary case must prove the run surfaced a blocker',
+  );
+  // Parity with the sibling cases: prove the run engaged bundle-wide mode, so a
+  // branch-mode run that merely said "blocker" cannot pass.
+  assert.ok(
+    has((a) => a.type === 'output-contains' && a.value === 'bundle-wide'),
+    'the unknown-boundary case must prove the run engaged bundle-wide mode',
   );
 
   assert.ok(has((a) => a.type === 'portable-contract'));

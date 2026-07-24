@@ -78,3 +78,19 @@ export const scaffold = [
 // The bundle-relative path of the payments retry Specification the payments
 // index links — the concept each docs-sync case fills with its own content.
 export const SPEC_PATH = 'docs/payments/specs/retries.md';
+
+// The bundle-relative path of the subsystem index the scaffold seeds by default.
+export const PAYMENTS_INDEX_PATH = 'docs/payments/index.md';
+
+// Some cases need a DIFFERENT subsystem index than the scaffold's default (a
+// bundle-wide case that adds a Decisions section, or one whose bundle has no
+// retries spec). Rather than append a second input at the same path and rely on
+// buildFixture seeding inputs in array order (a silent last-write-wins shadow of
+// the scaffold entry that no test guards), such a case composes the scaffold
+// WITHOUT the entries it will replace and supplies its own — so `inputs` never
+// carries two committed entries for one path. Returns a fresh array; the shared
+// `scaffold` is left untouched.
+export const scaffoldWithout = (paths) => {
+  const drop = new Set(paths);
+  return scaffold.filter((input) => !drop.has(input.path));
+};

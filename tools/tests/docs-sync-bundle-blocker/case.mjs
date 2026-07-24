@@ -24,8 +24,11 @@
 //
 // Because the correct run writes NOTHING (preserve + block) over an otherwise
 // current committed bundle, git-unchanged holds. The shared scaffold lives in
-// ../_docs-sync-assets.mjs (Fowler: Duplicated Code).
-import { scaffold } from '../_docs-sync-assets.mjs';
+// ../_docs-sync-assets.mjs (Fowler: Duplicated Code); this case's bundle has no
+// retries spec, so it composes the scaffold WITHOUT the default payments index
+// (which links one) and supplies its own decisions-only index — no second
+// same-path input shadowing the scaffold via seed order.
+import { scaffoldWithout, PAYMENTS_INDEX_PATH } from '../_docs-sync-assets.mjs';
 
 const IDEM_PATH = 'docs/payments/decisions/idempotency.md';
 const DECISIONS_INDEX_PATH = 'docs/payments/decisions/index.md';
@@ -73,8 +76,8 @@ export default {
   // Single-turn: the pause/block must be the skill's own recognition, not a
   // scripted "wait for my go-ahead".
   inputs: [
-    ...scaffold,
-    { path: 'docs/payments/index.md', content: PAYMENTS_INDEX },
+    ...scaffoldWithout([PAYMENTS_INDEX_PATH]),
+    { path: PAYMENTS_INDEX_PATH, content: PAYMENTS_INDEX },
     { path: DECISIONS_INDEX_PATH, content: DECISIONS_INDEX },
     { path: IDEM_PATH, content: IDEM_DECISION },
     { path: 'docs/log.md', content: ROOT_LOG },
@@ -101,8 +104,14 @@ export default {
     // The skill surfaced a precise BLOCKER rather than guessing — this
     // discriminates "recognized the unknown boundary and blocked" from a lazy
     // no-op (which git-unchanged alone cannot). The prompt never says "block", so
-    // this is the skill's own recognition.
-    { type: 'output-contains', value: 'block' },
+    // this is the skill's own recognition. Match 'blocker' — the skill's own term
+    // for the precise blocker it hands the user — not the looser substring 'block'
+    // (which also matches "unblock"/"roadblock"/"building block"/"block quote").
+    { type: 'output-contains', value: 'blocker' },
+    // Parity with the audit and idempotent siblings: prove the run actually
+    // engaged bundle-wide mode, so a branch-mode run that merely happened to say
+    // "blocker" cannot pass this case.
+    { type: 'output-contains', value: 'bundle-wide' },
 
     // Static shared-reader contract over the projected pack.
     { type: 'portable-contract' },

@@ -39,12 +39,9 @@ const CURRENT_RETRIES =
   'The gateway retries a failed charge up to five times before giving up; the limit is the\n' +
   '`MAX_RETRIES` symbol in `src/gateway.js`. (SENTINEL current-retry-spec)\n';
 
-const PAYMENTS_INDEX =
-  '# payments\n\n' +
-  'Payment processing subsystem.\n\n' +
-  '## Specifications\n\n' +
-  '- [Payment retry policy](/payments/specs/retries.md) - retry mechanics\n';
-
+// This case's steady-state subsystem index is exactly the scaffold's default
+// (Specifications → the retries spec), so it uses the scaffold's payments index
+// as-is rather than re-declaring an identical one and shadowing it via seed order.
 const ROOT_LOG = '## 2026-07-05\n\n- **Creation** — payments subsystem baseline.\n';
 const PAYMENTS_LOG =
   '## 2026-07-14\n\n- **Creation** — payment retry policy documented. (SENTINEL retries-log-creation)\n';
@@ -54,7 +51,6 @@ export default {
   // Single-turn steady-state run.
   inputs: [
     ...scaffold,
-    { path: 'docs/payments/index.md', content: PAYMENTS_INDEX },
     { path: RETRIES_PATH, content: CURRENT_RETRIES },
     { path: 'docs/log.md', content: ROOT_LOG },
     { path: 'docs/payments/log.md', content: PAYMENTS_LOG },

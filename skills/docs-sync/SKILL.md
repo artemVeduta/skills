@@ -1,6 +1,6 @@
 ---
 name: docs-sync
-description: Use when source or docs work on a branch is wrapping up and the OKF docs/ bundle must be reconciled with it — "sync the docs", "reconcile docs with my branch", "bring the bundle up to date before I merge", "the docs are stale after this work", "make the docs match the code I changed". Covers branch-scoped reconciliation from a target branch's merge-base through the whole working state. Not for adding one concept (docs-add), running the validator (docs-validate), or standing up the machinery (docs-setup).
+description: Use when source or docs work is wrapping up and the OKF docs/ bundle must be reconciled with the code, in one of two modes chosen before any write. Branch sync — "sync the docs", "reconcile docs with my branch", "bring the bundle up to date before I merge", "make the docs match the code I changed". Bundle-wide audit — "audit the whole docs bundle", "reconcile the entire bundle against the code", "the docs have drifted everywhere, repair them". Covers branch-scoped reconciliation from a target branch's merge-base through the working state, and whole-bundle reconciliation of the complete current bundle. Not for adding one concept (docs-add), running the validator (docs-validate), or standing up the machinery (docs-setup).
 ---
 
 # docs-sync
