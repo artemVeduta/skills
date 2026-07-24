@@ -107,6 +107,47 @@ test('buildFixture leaves the fixture as a git repo with a clean, committed base
   }
 });
 
+// Dirty-worktree support (#53): a case marks an input `uncommitted: true` to
+// seed it AFTER the baseline commit, so the fixture starts with real, detectable
+// working-tree drift — the only way a docs-setup upgrade case can exercise the
+// "clean-worktree by default, explicit approval when dirty" gate live. Committed
+// inputs (the default) still land in the single baseline commit; only flagged
+// inputs are left uncommitted.
+test('buildFixture seeds uncommitted inputs AFTER the baseline commit (dirty worktree)', async () => {
+  const skillsRoot = await mkdtemp(join(tmpdir(), 'tr-src-'));
+  const fixtureRoot = await mkdtemp(join(tmpdir(), 'tr-fx-'));
+  try {
+    await makeSkills(skillsRoot);
+    const { baselineSha } = await buildFixture({
+      skillName: 'c',
+      skillsRoot,
+      driver: { discoverySubdir: '.claude/skills' },
+      fixtureRoot,
+      inputs: [
+        { path: 'package.json', content: '{"name":"x"}\n' },
+        { path: 'dirty.txt', content: 'uncommitted drift\n', uncommitted: true },
+      ],
+    });
+    const git = (args) => spawnSync('git', args, { cwd: fixtureRoot, encoding: 'utf8' });
+    // Both files exist on disk...
+    assert.equal(await readFile(join(fixtureRoot, 'package.json'), 'utf8'), '{"name":"x"}\n');
+    assert.equal(await readFile(join(fixtureRoot, 'dirty.txt'), 'utf8'), 'uncommitted drift\n');
+    // ...but the flagged one is NOT in the baseline commit — the tree is dirty.
+    const status = git(['status', '--porcelain']).stdout;
+    assert.match(status, /dirty\.txt/);
+    assert.doesNotMatch(status, /package\.json/);
+    // HEAD is still the recorded baseline (nothing new committed), so
+    // git-uncommitted holds while git-unchanged (clean tree) would not.
+    assert.equal(git(['rev-parse', 'HEAD']).stdout.trim(), baselineSha);
+    assert.equal(git(['rev-list', '--count', 'HEAD']).stdout.trim(), '1');
+    // The uncommitted file is untracked, so nothing is staged.
+    assert.equal(git(['diff', '--cached', '--quiet']).status, 0);
+  } finally {
+    await rm(skillsRoot, { recursive: true, force: true });
+    await rm(fixtureRoot, { recursive: true, force: true });
+  }
+});
+
 test('buildFixture throws on an unknown skill', async () => {
   const skillsRoot = await mkdtemp(join(tmpdir(), 'tr-src-'));
   const fixtureRoot = await mkdtemp(join(tmpdir(), 'tr-fx-'));

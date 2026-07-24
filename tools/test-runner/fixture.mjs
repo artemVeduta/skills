@@ -35,13 +35,25 @@ export async function buildFixture({ skillName, skillsRoot, driver, fixtureRoot,
     await cp(srcByName.get(name), join(skillsDest, name), { recursive: true });
   }
 
-  for (const input of inputs) {
+  // Committed inputs (the default) are seeded BEFORE the baseline commit so they
+  // land in it. Inputs flagged `uncommitted` are seeded AFTER, leaving genuine
+  // working-tree drift — the only way a case can exercise a dirty-worktree gate
+  // live (e.g. docs-setup's clean-by-default upgrade). HEAD still equals the
+  // recorded baseline, so git-uncommitted holds while git-unchanged does not.
+  const seed = async (input) => {
     const dest = join(fixtureRoot, input.path);
     await mkdir(dirname(dest), { recursive: true });
     await writeFile(dest, input.content);
+  };
+  for (const input of inputs) {
+    if (!input.uncommitted) await seed(input);
   }
 
   const baselineSha = gitInitFixture(fixtureRoot);
+
+  for (const input of inputs) {
+    if (input.uncommitted) await seed(input);
+  }
   return { closure, baselineSha };
 }
 

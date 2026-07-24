@@ -13,11 +13,12 @@ the capability.
 - [`docs-validate`](skills/docs-validate/SKILL.md) — run a repository's strict
   `docs:validate` script through its own package manager and interpret the
   result: clean/warnings-only, hard bundle errors, or validator malfunction.
-- [`docs-setup`](skills/docs-setup/SKILL.md) — stand up the OKF v0.1 docs
-  machinery in a fresh repository (validator + tests, package scripts, seed
-  policy/reference, marked `AGENTS.md` router, exact `CLAUDE.md` shim) through
-  read-only audits, one approved plan, and one deterministic writer; declares
-  `docs-add` and `docs-validate` as required skills.
+- [`docs-setup`](skills/docs-setup/SKILL.md) — install, upgrade, reinstall, or
+  repair the OKF v0.1 docs machinery in a repository (validator + tests, package
+  scripts, seed policy/reference, marked `AGENTS.md` router, exact `CLAUDE.md`
+  shim) — state recomputed from the repo every run, through read-only audits, one
+  approved plan, and one deterministic writer; declares `docs-add` and
+  `docs-validate` as required skills.
 - [`okf-docs-setup`](skills/okf-docs-setup/SKILL.md) — set up or standardize a
   repository's documentation as an OKF (Open Knowledge Format) v0.1 bundle:
   validator, docs-add/docs-validate skills, rules, frontmatter taxonomy.
