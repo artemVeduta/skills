@@ -42,7 +42,10 @@ const PACKAGE_JSON = {
 const PACKAGE_LOCK = { path: 'package-lock.json', content: '{\n  "lockfileVersion": 3\n}\n' };
 const VALIDATOR = { path: 'scripts/validate-docs.mjs', content: validator };
 
-const LOG = '## 2026-07-20\n\n- **Creation** — references area baseline.\n';
+// Baseline log entry for both logs. It deliberately uses a NON-`Creation` verb so
+// the approve case's `**Creation**` assertion on the references log proves the run
+// added a NEW Creation entry, instead of vacuously matching this seeded baseline.
+const LOG = '## 2026-07-20\n\n- **Update** — references area baseline note.\n';
 
 // A conformant bundle skeleton: root index (with a References area), the
 // conventions index + the real lifecycle policy, a References subsystem index

@@ -76,15 +76,19 @@ test('docs-autoresearch ships ONLY SKILL.md plus one flat RESEARCH-DEFAULTS.md �
   assert.ok(defaults.isFile() && defaults.size > 0, 'RESEARCH-DEFAULTS.md must be a non-empty flat file');
 });
 
-test('RESEARCH-DEFAULTS.md is the single source of the shipped default values', async () => {
+test('RESEARCH-DEFAULTS.md is the single source of the shipped tunable defaults', async () => {
   const defaults = await readFile(join(skillDir, 'RESEARCH-DEFAULTS.md'), 'utf8');
   // The default write mode is Reference enrichment.
   assert.match(defaults, /reference enrichment/i);
-  // The normal fetch cap and the recommended per-round split.
+  // The normal fetch cap and the recommended per-round split (the tunable
+  // budget numbers live ONLY here — SKILL.md defers to them by reference).
   assert.match(defaults, /\b20\b/);
   assert.match(defaults, /12\D+5\D+3/);
-  // The three-concept mutation ceiling.
-  assert.match(defaults, /\bthree\b|\b3\b/i);
+  // Hard ceilings (the one-run 45-attempt ceiling and the three-concept mutation
+  // ceiling) are NOT tunable, so they must NOT be declared here — SKILL.md owns
+  // them. Guard against the ceilings drifting back into the defaults file.
+  assert.doesNotMatch(defaults, /\b45\b/, '45-attempt hard ceiling belongs in SKILL.md, not the tunable defaults');
+  assert.doesNotMatch(defaults, /at most three concepts/i, 'three-concept ceiling belongs in SKILL.md, not the tunable defaults');
   // The confidence vocabulary and the source hierarchy.
   assert.match(defaults, /high/i);
   assert.match(defaults, /medium/i);
@@ -147,9 +151,14 @@ test('the SKILL.md documents the v2 docs-autoresearch contract (all #58 acceptan
   assert.match(skill, /failed/i);
 
   // AC6 — fetch accounting includes failures and retries, respects the normal
-  // total cap, and stops early only when evidence sufficiency is met.
+  // total cap, and stops early only when evidence sufficiency is met. The tunable
+  // cap NUMBER lives in RESEARCH-DEFAULTS.md (asserted in the defaults test);
+  // SKILL.md documents the cap MECHANIC (a cap exists and counts failures+retries)
+  // and single-sources the hard one-run ceiling (45), which is NOT tunable — so we
+  // assert the structure here, not the reappearance of the tunable 20 in prose.
   assert.match(skill, /failures?\s+and\s+retries|failures?,?\s*retries/i);
-  assert.match(skill, /\b20\b/);
+  assert.match(skill, /fetch cap/i);
+  assert.match(skill, /\b45\b/);
   assert.match(skill, /stop early|early stop|stop(?:ping)? early/i);
   assert.match(skill, /sufficien/i);
 

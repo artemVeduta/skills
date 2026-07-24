@@ -1,10 +1,12 @@
 # docs-autoresearch shipped defaults
 
-This is the **single source of the shipped default values and default research
-policy** for the docs-autoresearch skill. `SKILL.md` owns the fixed mechanics,
-orchestration, safety rules, hard ceilings, failure behaviour, and filing — those
-are **not** configurable here. This file carries only the tunable defaults a run
-applies when the target repository declares no override.
+This is the **single source of the shipped tunable defaults** for the
+docs-autoresearch skill — the values a run applies when the target repository
+declares no override, and the only values repository policy may later lower or
+refine. `SKILL.md` owns everything that is **not** tunable: the fixed mechanics,
+orchestration and round structure, safety rules, **hard ceilings** (the one-run
+fetch ceiling and the concept-mutation ceiling), failure behaviour, and filing.
+Those never live here.
 
 A repository may lower budgets and refine preferences in a later slice through an
 optional `docs/conventions/research.md`; it can never raise a budget past a hard
@@ -19,25 +21,14 @@ pre-work-reconnaissance modes are explicit, never the default.
 
 ## Fetch budget
 
-- **Normal global cap: 20 fetch attempts per run**, counting every failure and
-  every retry — not just successful bodies.
+- **Normal global cap: 20 fetch attempts per run.** Repository policy may lower
+  this; it can never persistently raise it.
 - **Recommended per-round split: 12 / 5 / 3** (Round 1 / Round 2 / Round 3).
-  Unused quota moves forward only at a round boundary, never mid-round.
-- A run may, with explicit user approval, take a **one-run increase up to 45**
-  attempts. The next run resets to 20; the raised budget never persists.
 
-## Round structure
-
-| Round | Purpose | Angles / gaps | Searches |
-| --- | --- | --- | --- |
-| 1 | Breadth | 3–5 independent angles, one worker each | 2–3 searches per worker |
-| 2 | Gaps | up to 5 material evidence gaps | at most 5 targeted searches |
-| 3 | Verification (optional) | unresolved contradictions / missing decisive evidence | at most 5 targeted searches |
-
-## Concept mutation ceiling
-
-**At most three concepts** created or materially updated in one run, excluding
-`index.md` and `log.md` bookkeeping.
+How attempts are counted (every failure and every retry, not just successful
+bodies), how unused quota carries forward, the round structure that consumes the
+split, and the hard one-run ceiling a user-approved increase may reach are fixed
+mechanics in `SKILL.md`, not tunable here.
 
 ## Source hierarchy
 

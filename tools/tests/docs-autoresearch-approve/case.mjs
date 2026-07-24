@@ -32,6 +32,9 @@ export default {
     { type: 'file-contains', path: REF_PATH, value: 'Citations' },
     // AC9 bookkeeping: the references index gained the one bullet linking the new
     // concept, and the NEAREST (references) log gained one dated Creation entry.
+    // The shared baseline log seeds a NON-Creation verb (see _docs-autoresearch-
+    // assets.mjs), so the `**Creation**` check proves a NEW Creation entry from the
+    // run — not the baseline — and the slug check proves that entry names the concept.
     { type: 'file-contains', path: 'docs/references/index.md', value: 'semver-precedence.md' },
     { type: 'file-contains', path: 'docs/references/log.md', value: '**Creation**' },
     { type: 'file-contains', path: 'docs/references/log.md', value: 'semver-precedence.md' },
