@@ -15,40 +15,10 @@
 // (git-unchanged is unusable here — the fixture is intentionally dirty from the
 // start — so git-uncommitted is the correct no-side-effects proof.)
 //
-// Assets are read and per-install-substituted here so the fixture is a genuinely
-// current install. Self-contained per case (the isolation pattern kept in #52).
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { join, dirname } from 'node:path';
-
-const ASSETS = join(dirname(fileURLToPath(import.meta.url)), '../../../skills/docs-setup/assets');
-const asset = (rel) => readFileSync(join(ASSETS, rel), 'utf8');
-const installed = (rel) =>
-  asset(rel)
-    .replaceAll('<YYYY-MM-DD>', '2026-07-24')
-    .replaceAll('<PROJECT>', 'FixtureProj')
-    .replaceAll('pnpm docs:validate', 'npm run docs:validate')
-    .replaceAll('<pm>', 'npm run');
-const indexMd = installed('docs/index.md')
-  .split('\n')
-  .filter((l) => !l.includes('<subsystem>'))
-  .join('\n');
-
-const AGENTS = `# fixtureproj
-
-## House rules
-
-- Build with \`make build\` before pushing. (SENTINEL house-rule-keep-me)
-
-${installed('agents/documentation-block.md')}`;
-
-const OLD_VALIDATOR = `#!/usr/bin/env node
-// OKF-OLD-VALIDATOR-SENTINEL — an older/customized docs validator predating the
-// canonical v2 machinery. It differs from the shipped asset, so a recomputed
-// state is UPGRADE and this file is customized-until-reviewed.
-console.log('old docs validator (stub)');
-process.exit(0);
-`;
+// Present files are per-install-substituted via the shared pure asset helper so
+// the fixture is a genuinely current install; the case still owns its own inputs
+// and assertions (only the stateless asset-substitution boilerplate is shared).
+import { asset, installed, indexMd, AGENTS, OLD_VALIDATOR } from '../_setup-assets.mjs';
 
 export default {
   skill: 'docs-setup',

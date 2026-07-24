@@ -61,8 +61,9 @@ export async function buildFixture({ skillName, skillsRoot, driver, fixtureRoot,
 // looking for a `.git` dir and resolves a project via its own registry, so a
 // non-git fixture cwd can resolve to an unrelated project and escape the
 // fixture entirely (root cause of the opencode fixture-escape bug). Making
-// every fixture a real, pinned git repo — committed once fully populated, so
-// nothing case-specific is left uncommitted — gives the walk-up something to
+// every fixture a real, pinned git repo — a single baseline commit over all
+// committed inputs (inputs flagged `uncommitted` are intentionally left as
+// working-tree drift, see buildFixture) — gives the walk-up something to
 // bind to right there. Harness-agnostic (applies regardless of which driver
 // built this fixture): codex already tolerates a git fixture via
 // --skip-git-repo-check, and claude-code confines to cwd regardless of git.

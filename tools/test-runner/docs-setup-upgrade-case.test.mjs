@@ -138,6 +138,15 @@ test('the clean-worktree upgrade case reinstalls a differing managed file after 
     ),
     'upgrade case must assert an already-current file stayed byte-identical (no-op)',
   );
+  // AC8: an EVOLVED index that DIFFERS from the seed is byte-PRESERVED, never
+  // reinstalled — the guard that a differing evolving index is NOT treated like a
+  // differing machinery file (which would wipe accumulated project content).
+  assert.ok(
+    c.assertions.some(
+      (a) => a.type === 'file-contains' && a.path === 'docs/index.md' && a.value === 'evolved-index-keep-me',
+    ),
+    'upgrade case must assert an evolved (differing) index is byte-preserved, not reinstalled',
+  );
   // Marked wiring present (idempotent replace) + unrelated guidance byte-preserved (AC6).
   assert.ok(c.assertions.some((a) => a.type === 'file-contains' && a.path === 'AGENTS.md' && a.value === 'BEGIN OKF docs router'));
   assert.ok(c.assertions.some((a) => a.type === 'file-contains' && a.path === 'AGENTS.md' && a.value === 'house-rule-keep-me'));

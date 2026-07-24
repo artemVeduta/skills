@@ -21,32 +21,10 @@
 // a no-op, specifications/ content is preserved and un-renamed, and Git was left
 // otherwise untouched.
 //
-// Assets are read and per-install-substituted here so present files are a
-// genuinely current install. Self-contained per case (isolation pattern, #52).
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { join, dirname } from 'node:path';
-
-const ASSETS = join(dirname(fileURLToPath(import.meta.url)), '../../../skills/docs-setup/assets');
-const asset = (rel) => readFileSync(join(ASSETS, rel), 'utf8');
-const installed = (rel) =>
-  asset(rel)
-    .replaceAll('<YYYY-MM-DD>', '2026-07-24')
-    .replaceAll('<PROJECT>', 'FixtureProj')
-    .replaceAll('pnpm docs:validate', 'npm run docs:validate')
-    .replaceAll('<pm>', 'npm run');
-const indexMd = installed('docs/index.md')
-  .split('\n')
-  .filter((l) => !l.includes('<subsystem>'))
-  .join('\n');
-
-const AGENTS = `# fixtureproj
-
-## House rules
-
-- Build with \`make build\` before pushing. (SENTINEL house-rule-keep-me)
-
-${installed('agents/documentation-block.md')}`;
+// Present files are per-install-substituted via the shared pure asset helper so
+// they are a genuinely current install; the case still owns its own inputs and
+// assertions (only the stateless asset-substitution boilerplate is shared).
+import { asset, installed, indexMd, AGENTS } from '../_setup-assets.mjs';
 
 const LEGACY_SPEC = `---
 type: Specification

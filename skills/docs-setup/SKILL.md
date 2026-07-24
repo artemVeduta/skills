@@ -29,9 +29,7 @@ machinery.
 - docs-validate
 
 The two canonical helper skills are depended on by name and must be **discoverable** at
-run time. docs-setup installs **no project-local helper-skill copies** and performs **no
-semantic conversion** of existing documentation — those are, respectively, never done and
-sync work.
+run time — docs-setup installs no project-local helper-skill copies (see Boundaries).
 
 ## When to Use
 
@@ -60,8 +58,14 @@ file. Cover, in parallel, all six surfaces:
 - **canonical-skill discovery** — whether `docs-add` and `docs-validate` resolve;
 - **stale project-local helper copies** — obsolete v1 `.claude/skills/docs-*` copies.
 
-For each managed surface the audit records one of: **absent**, **byte-current** (identical
-to the asset modulo the documented per-install substitutions below), or **differing**.
+For each managed surface the audit records one of: **absent**, **byte-current**, or
+**differing**. A file is **byte-current** when it equals the asset under _some_ valid
+per-install substitution — the substitution slots (date, `<PROJECT>`, `<pm>`) are
+**wildcards**, never pinned to today's values. Currency compares the surrounding bytes,
+never the slot fills: a bundle stamped with an _earlier_ install date is still current
+(its `<YYYY-MM-DD>` was filled once, at install, and is never re-stamped on audit). This
+is what keeps a correctly-installed bundle a no-op on every later run, whatever the
+calendar says.
 
 ### 2. Classify (recomputed, shown BEFORE any mutation)
 
@@ -123,8 +127,13 @@ conflict, is proposed for removal.
 
 Source is this skill's `assets/`; destinations are the target repo root. Mind the
 `assets/claude/` → `.claude/` rename (leading dot). On a **fresh** install every row is
-created; on an upgrade/repair each row is created if missing, reviewed-then-reinstalled if
-differing, or a no-op if byte-current.
+created. On an upgrade/repair the **How** column governs each row. An **upgrade-managed**
+row is created if missing, reviewed-then-reinstalled if differing, or a no-op if
+byte-current. A **skeleton** row (marked _skeleton_) is created only if **missing** and is
+otherwise **byte-preserved** — once the bundle exists its evolving indexes and logs are
+not upgrade-managed and are **never** reinstalled from the seed (that would wipe
+accumulated project content). Only the machinery/policy/reference/wiring rows are
+reinstall-if-differing.
 
 | From `assets/`                             | To (target repo)                       | How                     |
 | ------------------------------------------ | -------------------------------------- | ----------------------- |
@@ -132,9 +141,9 @@ differing, or a no-op if byte-current.
 | `scripts/validate-docs.test.mjs`           | `scripts/validate-docs.test.mjs`       | verbatim                |
 | `docs/references/okf.md`                   | `docs/references/okf.md`               | verbatim + date + pm    |
 | `docs/conventions/documentation.md`        | `docs/conventions/documentation.md`    | verbatim + date + pm    |
-| `docs/index.md`                            | `docs/index.md`                        | fill `<PROJECT>`        |
-| `docs/log.md`                              | `docs/log.md`                          | fill date               |
-| `docs/{conventions,glossary,references}/index.md` | same paths                      | verbatim                |
+| `docs/index.md`                            | `docs/index.md`                        | _skeleton_: create-if-missing, fill `<PROJECT>` |
+| `docs/log.md`                              | `docs/log.md`                          | _skeleton_: create-if-missing, fill date |
+| `docs/{conventions,glossary,references}/index.md` | same paths               | _skeleton_: create-if-missing |
 | `agents/documentation-block.md`            | `AGENTS.md` (between its markers)       | + pm; preserve the rest |
 | _(the exact shim)_                         | `CLAUDE.md`                            | exactly `@AGENTS.md`    |
 | `github/workflows/docs-validate.yml` _(opt)_ | `.github/workflows/docs-validate.yml` | verbatim, on request    |
@@ -225,18 +234,18 @@ does **not** misclassify tooling installation — the two results are reported i
 
 - **Reading a suite-version file to decide the plan** — there is none; recompute state from
   the repository every run. Local customization makes a recorded version unreliable.
-- **Overwriting a differing managed file because "it should be the canonical one"** — it is
-  customized-until-reviewed; a differing file means propose a review, never a silent clobber.
-- **Treating a dirty-worktree upgrade like a clean one** — surface the dirt and require
-  explicit approval first.
+- **Re-stamping the date makes a current install "differ"** — install-time slots
+  (date, `<PROJECT>`, `<pm>`) are wildcards in the currency check; a bundle carrying an
+  earlier install date is still byte-current, so it stays a no-op, not an upgrade.
+- **Reinstalling an evolving index/log from the seed** — index/log/sub-index rows are
+  _skeleton_: create-if-missing, else byte-preserve. Only machinery/policy/reference/wiring
+  rows are reinstall-if-differing; a differing index has simply accumulated project content.
 - **Regenerating the validator from memory** instead of copying `assets/` — the #1 source
   of drift; the bundled assets exist for byte-for-byte fidelity.
 - **Routing a verbatim file through a subagent** to "do the copy" — subagents summarize,
   bytes drift; the writer copies machinery itself with the shell.
 - **Global-replacing `docs:validate`** — substitute only the full literal
   `pnpm docs:validate`; the bare `docs:validate` is also a package.json definition.
-- **Deleting an obsolete helper copy before confirming canonical discovery** — a conflict
-  stays until the user resolves it.
 - **Calling a pre-existing bundle content error a tooling failure** — report the two
   results independently; a pre-existing exit `1` goes to docs-sync.
 - **Treating validator warnings as failures** — only exit `1` gates a fresh install; on
@@ -245,14 +254,9 @@ does **not** misclassify tooling installation — the two results are reported i
 ## Quick Reference
 
 1. Parallel read-only audits over the six surfaces → recompute state (no state file).
-2. Classify (fresh / no-change / partial repair / upgrade-reinstall) from managed surfaces;
-   show it before any mutation.
+2. Classify (fresh / no-change / partial repair / upgrade-reinstall) from managed surfaces, shown before any mutation.
 3. Show the worktree; an upgrade/repair on a dirty tree needs explicit approval.
-4. Present create / replace / no-op / preserve / delete + every ambiguity (ambiguous memory
-   blocks); wait for an explicit yes.
-5. One deterministic writer applies the plan (create missing, reinstall reviewed differing,
-   no-op current) + substitutions; no parallel writers.
-6. Verify preservation, `docs:validate:test`, `docs:validate` exit classification, discovery,
-   and an idempotent no-change rerun; report tooling-installed and bundle-validates
-   independently.
+4. Present create / replace / no-op / preserve / delete + every ambiguity (ambiguous memory blocks); wait for an explicit yes.
+5. One deterministic writer applies the plan (create missing, reinstall reviewed differing, no-op current) + substitutions.
+6. Verify preservation, `docs:validate:test`, exit classification, discovery, idempotent rerun; report the two results independently.
 7. Never stage, commit, push, or open a PR.
