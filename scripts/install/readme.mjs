@@ -6,10 +6,6 @@ import {
   portableCommand, nativeCommands, portableHarnesses, nativeHarnesses, MANAGED_PACKAGE,
 } from './registry.mjs';
 
-// Kept for backward compatibility with earlier single-block callers.
-export const README_BEGIN = '<!-- BEGIN dev-install (generated from registry) -->';
-export const README_END = '<!-- END dev-install -->';
-
 // Oxford-comma join: "A", "A and B", "A, B, and C".
 function joinAnd(items) {
   if (items.length <= 1) return items.join('');
@@ -128,7 +124,12 @@ export function renderNativeSection(registry) {
 // The generated blocks, in document order. Each owns its markers and its renderer;
 // validate/write iterate this one list so adding a block is a data change.
 export const BLOCKS = [
-  { name: 'dev-install', begin: README_BEGIN, end: README_END, render: renderInstallSection },
+  {
+    name: 'dev-install',
+    begin: '<!-- BEGIN dev-install (generated from registry) -->',
+    end: '<!-- END dev-install -->',
+    render: renderInstallSection,
+  },
   {
     name: 'portable-install',
     begin: '<!-- BEGIN portable-install (generated from registry) -->',

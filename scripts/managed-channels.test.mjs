@@ -9,6 +9,7 @@ import {
 import {
   renderPortableSection, renderNativeSection, validateReadme, writeReadme, BLOCKS,
 } from './install/readme.mjs';
+import { discoverSkills } from './install/discovery.mjs';
 
 const README = readFileSync(fileURLToPath(new URL('../README.md', import.meta.url)), 'utf8');
 
@@ -93,6 +94,19 @@ test('native section documents verified Claude+Codex ops and never advertises Op
   // OpenCode is only pointed at the portable channel, never offered a native plugin
   assert.match(s, /no OpenCode native plugin/);
   assert.doesNotMatch(s, /opencode plugin (add|install|marketplace)/i);
+});
+
+// The "N-skill pack" prose is spelled out in both managed sections. Nothing else
+// asserts the count, so pin the word to the real pack size: adding or removing a
+// skill fails here and forces the prose to be corrected in lockstep (anti-drift).
+test('both managed sections state the pack size matching the actual skill count', async () => {
+  const skills = await discoverSkills(fileURLToPath(new URL('../skills', import.meta.url)));
+  const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+  const word = WORDS[skills.length];
+  assert.ok(word, `no count word for ${skills.length} skills; extend WORDS`);
+  const phrase = new RegExp(`\\bcomplete ${word}-skill pack\\b`);
+  assert.match(renderPortableSection(REGISTRY), phrase);
+  assert.match(renderNativeSection(REGISTRY), phrase);
 });
 
 // --- multi-block validate/write round trip --------------------------------

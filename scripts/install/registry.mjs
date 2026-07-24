@@ -91,19 +91,19 @@ export const MANAGED_PACKAGE = {
 };
 
 // The supported portable install: the whole pack, never a per-skill picker.
-export function portableCommand(pkg = MANAGED_PACKAGE) {
-  return `npx skills@latest add ${pkg.repo} --skill '*'`;
+export function portableCommand() {
+  return `npx skills@latest add ${MANAGED_PACKAGE.repo} --skill '*'`;
 }
 
 // Derive a native harness's exact marketplace add / install / update operations from
 // its adapter verbs and the shared package identity. This is the definition the
 // README documents and the manifest tests verify against the real manifest ids.
-export function nativeCommands(entry, pkg = MANAGED_PACKAGE) {
+export function nativeCommands(entry) {
   const { cli, installVerb, updateVerb } = entry.native;
   return {
-    marketplaceAdd: `${cli} plugin marketplace add ${pkg.repo}`,
-    install: `${cli} plugin ${installVerb} ${pkg.pluginId}@${pkg.marketplaceId}`,
-    update: `${cli} plugin marketplace ${updateVerb} ${pkg.marketplaceId}`,
+    marketplaceAdd: `${cli} plugin marketplace add ${MANAGED_PACKAGE.repo}`,
+    install: `${cli} plugin ${installVerb} ${MANAGED_PACKAGE.pluginId}@${MANAGED_PACKAGE.marketplaceId}`,
+    update: `${cli} plugin marketplace ${updateVerb} ${MANAGED_PACKAGE.marketplaceId}`,
   };
 }
 

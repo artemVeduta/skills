@@ -39,8 +39,8 @@ function usage() {
     '  --profile <id[:sel]>  select a harness profile or custom dir (repeatable)',
     '  --scope <global|project>  install scope (default: global)',
     '  --registry <path>     use an alternate registry (.json or .mjs)',
-    '  --check-readme <path> verify the README dev-install block matches the registry',
-    '  --write-readme <path> rewrite the README dev-install block from the registry',
+    '  --check-readme <path> verify the README managed-install blocks match the registry',
+    '  --write-readme <path> rewrite the README managed-install blocks from the registry',
     '  --interactive         force the interactive wizard (read selections from stdin)',
     '  --dry-run             show the preview; change nothing',
     '  --yes, -y             skip the confirmation prompt (non-interactive)',
@@ -204,7 +204,7 @@ async function main(argv) {
   if (o.writeReadme) {
     const updated = writeReadme(registry, await readFile(o.writeReadme, 'utf8'));
     await writeFile(o.writeReadme, updated);
-    process.stdout.write(`Wrote README dev-install block to ${o.writeReadme}.\n`);
+    process.stdout.write(`Wrote README managed-install blocks to ${o.writeReadme}.\n`);
     return EXIT.OK;
   }
 
