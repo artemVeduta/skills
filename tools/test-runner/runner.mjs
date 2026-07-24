@@ -32,8 +32,12 @@ export function probeHarness(driver) {
 // explicit harness-level diagnostic instead of a bare content FAIL.
 const DEFAULT_TIMEOUT_MS = 600_000;
 
-export function runDriver(driver, { fixtureRoot, prompt, model, profileDir, timeoutMs }) {
-  const { command, args, env } = driver.buildInvocation({ fixtureRoot, prompt, model, profileDir });
+// `resume: true` continues the SAME session via the driver's
+// buildResumeInvocation (v2 plan/approval seam) — same cwd, same profile env,
+// same bounds; only the invocation shape differs per driver.
+export function runDriver(driver, { fixtureRoot, prompt, model, profileDir, timeoutMs, resume = false }) {
+  const build = resume ? driver.buildResumeInvocation.bind(driver) : driver.buildInvocation.bind(driver);
+  const { command, args, env } = build({ fixtureRoot, prompt, model, profileDir });
   const limit = timeoutMs ?? (Number(process.env.TEST_RUNNER_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS);
   const r = spawnSync(command, args, {
     cwd: fixtureRoot,

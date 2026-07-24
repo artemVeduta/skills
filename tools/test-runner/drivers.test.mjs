@@ -73,6 +73,50 @@ test('opencode invocation threads the provider-prefixed model and the confining 
   });
 });
 
+// --- resume invocations (v2 acceptance seam): a case pauses after a proposed
+// plan (the first headless turn ends) and resumes the SAME session with an
+// explicit approval or denial prompt. Flags verified against the installed
+// CLIs 2026-07-24 (`claude --help`, `codex exec resume --help`,
+// `opencode run --help`). ---
+
+test('claude-code resume continues the cwd-scoped most recent conversation', () => {
+  const inv = resolveDriver('claude-code').buildResumeInvocation({
+    fixtureRoot: '/fx', prompt: 'approve', model: 'claude-opus-4.8', profileDir: '/prof/claude-code',
+  });
+  assert.equal(inv.command, 'claude');
+  // --continue is scoped to "the most recent conversation in the current
+  // directory" — the per-run fixture cwd, so it can only hit this run's turn 1.
+  assert.deepEqual(inv.args, ['-p', 'approve', '--continue', '--permission-mode', 'bypassPermissions', '--model', 'claude-opus-4.8']);
+  assert.deepEqual(inv.env, { CLAUDE_CONFIG_DIR: '/prof/claude-code' });
+});
+
+test('codex resume picks the most recent session and keeps the sandbox posture', () => {
+  const inv = resolveDriver('codex').buildResumeInvocation({
+    fixtureRoot: '/fx', prompt: 'deny', model: 'gpt-5.6-sol', profileDir: '/prof/codex',
+  });
+  assert.equal(inv.command, 'codex');
+  // `exec resume` has no --sandbox flag; the workspace-write posture is
+  // re-asserted through the documented -c config override.
+  assert.deepEqual(inv.args, ['exec', 'resume', '--last', '-c', 'sandbox_mode="workspace-write"', '--skip-git-repo-check', '-m', 'gpt-5.6-sol', 'deny']);
+  assert.deepEqual(inv.env, { CODEX_HOME: '/prof/codex', HOME: '/prof/codex' });
+});
+
+test('opencode resume continues the last session pinned to the fixture dir', () => {
+  const inv = resolveDriver('opencode').buildResumeInvocation({
+    fixtureRoot: '/fx', prompt: 'approve', model: 'opencode-go/qwen3.7-max', profileDir: '/prof/opencode',
+  });
+  assert.equal(inv.command, 'opencode');
+  assert.deepEqual(inv.args, ['run', '--auto', '--continue', '--dir', '/fx', '-m', 'opencode-go/qwen3.7-max', 'approve']);
+});
+
+test('every driver can build a resume invocation whose env matches its first turn', () => {
+  for (const d of DRIVERS) {
+    const opts = { fixtureRoot: '/fx', prompt: 'go on', model: d.defaultModel, profileDir: `/prof/${d.id}` };
+    assert.deepEqual(d.buildResumeInvocation(opts).env, d.buildInvocation(opts).env,
+      `${d.id}: resume must see the same profile env as turn 1`);
+  }
+});
+
 // Rewritten isolation invariant (spec §10): scoped to the env map
 // buildInvocation RETURNS (not the effective child env). Every path-valued
 // entry points at the fixture root or that harness's profile dir; the map

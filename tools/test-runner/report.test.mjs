@@ -57,6 +57,43 @@ test('exitCodeFor for a dry run is 0 when sources are unmodified', () => {
   assert.equal(exitCodeFor(dry), 0);
 });
 
+test('exitCodeFor is 1 when a cross-harness comparison diverges, 0 when equivalent', () => {
+  const diverged = {
+    ...passing,
+    comparisons: [{ path: 'docs', status: 'compared', pass: false, detail: 'outcome for docs diverges: claude-code=file:aa, codex=file:bb' }],
+  };
+  assert.equal(exitCodeFor(diverged), 1);
+  const equivalent = {
+    ...passing,
+    comparisons: [{ path: 'docs', status: 'compared', pass: true, detail: '' }],
+  };
+  assert.equal(exitCodeFor(equivalent), 0);
+});
+
+test('skipped comparisons never gate and are reported as such', () => {
+  const skipped = {
+    ...passing,
+    comparisons: [{ path: 'docs', status: 'skipped', pass: true, detail: 'fewer than two executed harnesses — nothing to compare' }],
+  };
+  assert.equal(exitCodeFor(skipped), 0);
+  assert.match(formatRunReport(skipped), /docs: SKIPPED/);
+});
+
+test('formatRunReport prints one line per outcome comparison', () => {
+  const run = {
+    ...passing,
+    comparisons: [
+      { path: 'docs', status: 'compared', pass: true, detail: '' },
+      { path: 'out.md', status: 'compared', pass: false, detail: 'outcome for out.md diverges: claude-code=absent, codex=file:bb' },
+    ],
+  };
+  const out = formatRunReport(run);
+  assert.match(out, /cross-harness outcomes:/);
+  assert.match(out, /docs: EQUIVALENT/);
+  assert.match(out, /out\.md: DIVERGED/);
+  assert.match(out, /claude-code=absent/);
+});
+
 test('formatRunReport surfaces failing assertion details', () => {
   const out = formatRunReport(failing);
   assert.match(out, /claude-code: FAIL/);

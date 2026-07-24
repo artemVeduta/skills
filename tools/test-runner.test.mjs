@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -136,6 +136,232 @@ test('CLI exits 2 on duplicate --harness ids', () => {
   const r = spawnSync(process.execPath, [CLI, 'okf-docs-setup', '--harness', 'codex', '--harness', 'codex'], { encoding: 'utf8' });
   assert.equal(r.status, 2);
   assert.match(r.stderr, /duplicate --harness codex/);
+});
+
+// --- v2 acceptance seam: plan/approval turns ---
+// A fake driver whose turn 1 proposes a plan and pauses, and whose resume turn
+// reacts to the follow-up prompt — real spawns of node, no inference.
+
+function gatedFakeDriver({ applyOnResume }) {
+  return {
+    id: 'fake', command: process.execPath, discoverySubdir: '.claude/skills',
+    defaultModel: 'fake-model-1', probe: { args: ['--version'] },
+    buildInvocation: () => ({
+      command: process.execPath,
+      args: ['-e', 'process.stdout.write("PROPOSED-PLAN: create out.md — awaiting approval")'],
+      env: {},
+    }),
+    buildResumeInvocation: ({ prompt }) => ({
+      command: process.execPath,
+      args: ['-e', applyOnResume
+        ? `require('fs').writeFileSync('out.md', 'applied'); process.stdout.write('RESUMED: ' + ${JSON.stringify(prompt)})`
+        : `process.stdout.write('RESUMED: ' + ${JSON.stringify(prompt)})`],
+      env: {},
+    }),
+  };
+}
+
+test('runHarness pauses after the plan turn and resumes with the follow-up prompt', async () => {
+  const runsRoot = await mkdtemp(join(tmpdir(), 'tr-runs-'));
+  try {
+    const testCase = {
+      inputs: [], prompt: 'propose a plan and wait',
+      followUpPrompts: ['approved — apply the plan'],
+      assertions: [
+        { type: 'output-contains', value: 'PROPOSED-PLAN' },
+        { type: 'output-contains', value: 'RESUMED: approved — apply the plan' },
+        { type: 'file-exists', path: 'out.md' },
+      ],
+    };
+    const r = await runHarness(gatedFakeDriver({ applyOnResume: true }), {
+      skillName: 'okf-docs-setup', skillsRoot: join(REPO_ROOT, 'skills'),
+      testCase, runsRoot, runId: 'turns', beforeHash: '', dryRun: false,
+      preflight: async () => ({ skipReason: null, version: 'fake 9.9' }),
+    });
+    assert.equal(r.status, 'executed');
+    assert.deepEqual(r.assertions.map((a) => a.pass), [true, true, true]);
+    // Per-turn transcripts: turn 1 keeps the v1 name; later turns are numbered.
+    const t1 = await readFile(join(runsRoot, 'turns', 'fake', 'transcript.json'), 'utf8');
+    assert.match(t1, /PROPOSED-PLAN/);
+    const t2 = await readFile(join(runsRoot, 'turns', 'fake', 'transcript-2.json'), 'utf8');
+    assert.match(t2, /RESUMED/);
+    const record = JSON.parse(await readFile(join(runsRoot, 'turns', 'fake', 'run.json'), 'utf8'));
+    assert.equal(record.turnCount, 2);
+    await rm(r.fixtureRoot, { recursive: true, force: true });
+  } finally {
+    await rm(runsRoot, { recursive: true, force: true });
+  }
+});
+
+test('a denied approval leaves the fixture working tree and Git state at the baseline', async () => {
+  const runsRoot = await mkdtemp(join(tmpdir(), 'tr-runs-'));
+  try {
+    const testCase = {
+      inputs: [{ path: 'docs/index.md', content: '# existing\n' }],
+      prompt: 'propose a plan and wait',
+      followUpPrompts: ['denied — do not apply'],
+      assertions: [
+        { type: 'output-contains', value: 'RESUMED: denied — do not apply' },
+        { type: 'file-absent', path: 'out.md' },
+        { type: 'git-unchanged' },
+      ],
+    };
+    const r = await runHarness(gatedFakeDriver({ applyOnResume: false }), {
+      skillName: 'okf-docs-setup', skillsRoot: join(REPO_ROOT, 'skills'),
+      testCase, runsRoot, runId: 'deny', beforeHash: '', dryRun: false,
+      preflight: async () => ({ skipReason: null, version: 'fake 9.9' }),
+    });
+    assert.equal(r.status, 'executed');
+    assert.deepEqual(r.assertions.map((a) => a.pass), [true, true, true],
+      r.assertions.map((a) => a.detail).join(' | '));
+    await rm(r.fixtureRoot, { recursive: true, force: true });
+  } finally {
+    await rm(runsRoot, { recursive: true, force: true });
+  }
+});
+
+test('git-unchanged catches a harness that mutates the fixture despite a denial', async () => {
+  const runsRoot = await mkdtemp(join(tmpdir(), 'tr-runs-'));
+  try {
+    const testCase = {
+      inputs: [], prompt: 'propose a plan and wait',
+      followUpPrompts: ['denied — do not apply'],
+      assertions: [{ type: 'git-unchanged' }],
+    };
+    // Misbehaving harness: applies the plan anyway.
+    const r = await runHarness(gatedFakeDriver({ applyOnResume: true }), {
+      skillName: 'okf-docs-setup', skillsRoot: join(REPO_ROOT, 'skills'),
+      testCase, runsRoot, runId: 'deny-bad', beforeHash: '', dryRun: false,
+      preflight: async () => ({ skipReason: null, version: 'fake 9.9' }),
+    });
+    assert.equal(r.assertions[0].pass, false);
+    assert.match(r.assertions[0].detail, /out\.md/);
+    await rm(r.fixtureRoot, { recursive: true, force: true });
+  } finally {
+    await rm(runsRoot, { recursive: true, force: true });
+  }
+});
+
+test('follow-up turns against a driver without buildResumeInvocation are a configuration error', async () => {
+  const runsRoot = await mkdtemp(join(tmpdir(), 'tr-runs-'));
+  try {
+    const fake = {
+      id: 'fake', command: process.execPath, discoverySubdir: '.claude/skills',
+      defaultModel: 'fake-model-1', probe: { args: ['--version'] },
+      buildInvocation: () => ({ command: process.execPath, args: ['-e', ''], env: {} }),
+    };
+    await assert.rejects(
+      runHarness(fake, {
+        skillName: 'okf-docs-setup', skillsRoot: join(REPO_ROOT, 'skills'),
+        testCase: { inputs: [], prompt: 'x', followUpPrompts: ['approve'], assertions: [] },
+        runsRoot, runId: 'no-resume', beforeHash: '', dryRun: false,
+        preflight: async () => ({ skipReason: null, version: 'fake 9.9' }),
+      }),
+      /buildResumeInvocation/,
+    );
+  } finally {
+    await rm(runsRoot, { recursive: true, force: true });
+  }
+});
+
+test('a timed-out turn stops the sequence — later turns never run', async () => {
+  const runsRoot = await mkdtemp(join(tmpdir(), 'tr-runs-'));
+  const prev = process.env.TEST_RUNNER_TIMEOUT_MS;
+  process.env.TEST_RUNNER_TIMEOUT_MS = '300';
+  try {
+    let resumed = false;
+    const hanging = {
+      id: 'fake', command: process.execPath, discoverySubdir: '.claude/skills',
+      defaultModel: 'fake-model-1', probe: { args: ['--version'] },
+      buildInvocation: () => ({ command: process.execPath, args: ['-e', 'setTimeout(() => {}, 60000)'], env: {} }),
+      buildResumeInvocation: () => { resumed = true; return { command: process.execPath, args: ['-e', ''], env: {} }; },
+    };
+    const r = await runHarness(hanging, {
+      skillName: 'okf-docs-setup', skillsRoot: join(REPO_ROOT, 'skills'),
+      testCase: { inputs: [], prompt: 'x', followUpPrompts: ['approve'], assertions: [] },
+      runsRoot, runId: 'hang', beforeHash: '', dryRun: false,
+      preflight: async () => ({ skipReason: null, version: 'fake 9.9' }),
+    });
+    assert.equal(r.timedOut, true);
+    assert.equal(resumed, false, 'the resume turn must not run after a timeout');
+    await rm(r.fixtureRoot, { recursive: true, force: true });
+  } finally {
+    if (prev === undefined) delete process.env.TEST_RUNNER_TIMEOUT_MS;
+    else process.env.TEST_RUNNER_TIMEOUT_MS = prev;
+    await rm(runsRoot, { recursive: true, force: true });
+  }
+});
+
+// --- v2 acceptance seam: cross-harness outcome comparison ---
+
+function writerFakeDriver(id, content) {
+  return {
+    id, command: process.execPath, discoverySubdir: '.claude/skills',
+    defaultModel: 'fake-model-1', probe: { args: ['--version'] },
+    buildInvocation: () => ({
+      command: process.execPath,
+      args: ['-e', `require('fs').writeFileSync('docs-out.md', ${JSON.stringify(content)})`],
+      env: {},
+    }),
+  };
+}
+
+test('runCase compares declared outcome paths across executed harnesses', async () => {
+  const runsRoot = await mkdtemp(join(tmpdir(), 'tr-runs-'));
+  const casesRoot = await mkdtemp(join(tmpdir(), 'tr-cases-'));
+  try {
+    const caseDir = join(casesRoot, 'okf-docs-setup');
+    await mkdir(caseDir, { recursive: true });
+    await writeFile(join(caseDir, 'case.mjs'),
+      'export default { assertions: [{ type: "file-exists", path: "docs-out.md" }], compare: { paths: ["docs-out.md"] } };\n');
+    await writeFile(join(caseDir, 'prompt.md'), 'write docs-out.md\n');
+
+    const equalDrivers = new Map([
+      ['fake-a', writerFakeDriver('fake-a', 'same\n')],
+      ['fake-b', writerFakeDriver('fake-b', 'same\n')],
+    ]);
+    const equalRun = await runCase('okf-docs-setup', {
+      runsRoot, casesRoot,
+      harnessSelections: [{ id: 'fake-a', model: null }, { id: 'fake-b', model: null }],
+      resolveDriverFn: (id) => equalDrivers.get(id) ?? null,
+      preflight: async () => ({ skipReason: null, version: 'fake 9.9' }),
+    });
+    assert.equal(equalRun.comparisons.length, 1);
+    assert.deepEqual(
+      equalRun.comparisons[0],
+      { path: 'docs-out.md', status: 'compared', pass: true, detail: '' },
+    );
+
+    const divergentDrivers = new Map([
+      ['fake-a', writerFakeDriver('fake-a', 'one\n')],
+      ['fake-b', writerFakeDriver('fake-b', 'two\n')],
+    ]);
+    const divergentRun = await runCase('okf-docs-setup', {
+      runsRoot, casesRoot,
+      harnessSelections: [{ id: 'fake-a', model: null }, { id: 'fake-b', model: null }],
+      resolveDriverFn: (id) => divergentDrivers.get(id) ?? null,
+      preflight: async () => ({ skipReason: null, version: 'fake 9.9' }),
+    });
+    assert.equal(divergentRun.comparisons[0].pass, false);
+    assert.match(divergentRun.comparisons[0].detail, /fake-a/);
+    for (const h of [...equalRun.harnesses, ...divergentRun.harnesses]) {
+      await rm(h.fixtureRoot, { recursive: true, force: true });
+    }
+  } finally {
+    await rm(runsRoot, { recursive: true, force: true });
+    await rm(casesRoot, { recursive: true, force: true });
+  }
+});
+
+test('a case without a compare declaration produces no comparisons (v1 behavior intact)', async () => {
+  const runsRoot = await mkdtemp(join(tmpdir(), 'tr-runs-'));
+  try {
+    const run = await runCase('okf-docs-setup', { dryRun: true, runsRoot });
+    assert.deepEqual(run.comparisons, []);
+    for (const h of run.harnesses) await rm(h.fixtureRoot, { recursive: true, force: true });
+  } finally {
+    await rm(runsRoot, { recursive: true, force: true });
+  }
 });
 
 test('runHarness resolves the model, threads preflight version, and writes run.json', async () => {

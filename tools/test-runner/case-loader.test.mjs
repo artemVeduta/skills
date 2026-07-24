@@ -28,6 +28,44 @@ test('loadCase reads case.mjs and prompt.md from the skill case dir', async () =
   }
 });
 
+test('loadCase reads declared follow-up prompt files (plan/approval turns) and the compare declaration', async () => {
+  const casesRoot = await mkdtemp(join(tmpdir(), 'tr-cases-'));
+  try {
+    const dir = join(casesRoot, 'gated');
+    await mkdir(dir, { recursive: true });
+    await writeFile(
+      join(dir, 'case.mjs'),
+      `export default ${JSON.stringify({
+        followUps: ['deny.md'],
+        compare: { paths: ['docs'] },
+      })};\n`,
+    );
+    await writeFile(join(dir, 'prompt.md'), 'propose a plan and wait\n');
+    await writeFile(join(dir, 'deny.md'), 'denied — do not apply the plan\n');
+    const c = await loadCase('gated', { casesRoot });
+    assert.equal(c.prompt, 'propose a plan and wait\n');
+    assert.deepEqual(c.followUpPrompts, ['denied — do not apply the plan\n']);
+    assert.deepEqual(c.compare, { paths: ['docs'] });
+  } finally {
+    await rm(casesRoot, { recursive: true, force: true });
+  }
+});
+
+test('loadCase defaults followUpPrompts to empty and compare to null', async () => {
+  const casesRoot = await mkdtemp(join(tmpdir(), 'tr-cases-'));
+  try {
+    const dir = join(casesRoot, 'plain');
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, 'case.mjs'), 'export default {};\n');
+    await writeFile(join(dir, 'prompt.md'), 'x');
+    const c = await loadCase('plain', { casesRoot });
+    assert.deepEqual(c.followUpPrompts, []);
+    assert.equal(c.compare, null);
+  } finally {
+    await rm(casesRoot, { recursive: true, force: true });
+  }
+});
+
 test('loadCase defaults inputs/assertions to empty arrays', async () => {
   const casesRoot = await mkdtemp(join(tmpdir(), 'tr-cases-'));
   try {

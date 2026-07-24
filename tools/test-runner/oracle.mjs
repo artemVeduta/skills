@@ -4,6 +4,9 @@
 // hard rule of the testing architecture.
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
+import { spawnSync } from 'node:child_process';
+import { checkPortableContract } from './static-contract.mjs';
 
 async function readIf(path) {
   try {
@@ -54,8 +57,116 @@ async function evaluateOne(a, { workdir, repoRoot, output }) {
       const pass = typeof output === 'string' && output.includes(a.value);
       return { pass, detail: pass ? '' : `output does not contain ${JSON.stringify(a.value)}` };
     }
+    case 'trace-field':
+    case 'trace-every':
+    case 'trace-disjoint':
+      return evaluateTrace(a, output);
+    case 'git-unchanged':
+      return evaluateGitUnchanged(workdir);
+    case 'portable-contract': {
+      // Static shared-reader contract over the projected pack in the fixture
+      // (skill metadata, relative support references, project-memory routing,
+      // instruction-chain budget) — see static-contract.mjs.
+      const { errors } = await checkPortableContract(workdir, {
+        ...(a.skillsSubdir !== undefined && { skillsSubdir: a.skillsSubdir }),
+        ...(a.workdirRel !== undefined && { workdirRel: a.workdirRel }),
+      });
+      return { pass: errors.length === 0, detail: errors.join('; ') };
+    }
     default:
       return { pass: false, detail: `unknown assertion type: ${a.type}` };
+  }
+}
+
+// --- git-unchanged (v2 acceptance seam) ---
+// Proves the fixture sits EXACTLY at its baseline commit: an empty
+// `git status --porcelain` (no modified, staged, or untracked paths) AND a
+// single-commit history (no commit was made past the fixture baseline —
+// fixture.mjs commits every fixture exactly once when fully populated).
+// A non-git workdir FAILS rather than passing vacuously.
+
+function evaluateGitUnchanged(workdir) {
+  const status = spawnSync('git', ['status', '--porcelain'], { cwd: workdir, encoding: 'utf8' });
+  if (status.status !== 0) {
+    return { pass: false, detail: `git status failed in workdir: ${(status.stderr || '').trim() || 'not a git repository'}` };
+  }
+  const dirty = status.stdout.trim();
+  if (dirty !== '') {
+    return { pass: false, detail: `working tree or index changed:\n${dirty}` };
+  }
+  const count = spawnSync('git', ['rev-list', '--count', 'HEAD'], { cwd: workdir, encoding: 'utf8' });
+  if (count.status !== 0) {
+    return { pass: false, detail: `git rev-list failed in workdir: ${(count.stderr || '').trim()}` };
+  }
+  const commits = Number(count.stdout.trim());
+  if (commits !== 1) {
+    return { pass: false, detail: `history moved past the fixture baseline: ${commits} commits (expected the single baseline commit)` };
+  }
+  return { pass: true, detail: '' };
+}
+
+// --- execution-trace assertions (v2 acceptance seam) ---
+// The harness report carries a machine-readable fenced ```execution-trace
+// block (spec: the cross-harness observable contract for fanout workflows).
+// The LAST block wins: a run may emit partial traces before its final report.
+
+export function extractExecutionTrace(output) {
+  if (typeof output !== 'string') return { trace: null, error: 'no execution-trace block in output' };
+  const blocks = [...output.matchAll(/```execution-trace\s*\n([\s\S]*?)```/g)];
+  if (blocks.length === 0) return { trace: null, error: 'no execution-trace block in output' };
+  try {
+    return { trace: JSON.parse(blocks[blocks.length - 1][1]), error: null };
+  } catch (err) {
+    return { trace: null, error: `unparseable execution-trace block: ${err.message}` };
+  }
+}
+
+// Dot-path resolution into the parsed trace; numeric segments index arrays.
+// Missing segments resolve to `undefined` (assertions on them fail).
+function traceGet(trace, path) {
+  let node = trace;
+  for (const seg of path.split('.')) {
+    if (node == null) return undefined;
+    node = node[seg];
+  }
+  return node;
+}
+
+function evaluateTrace(a, output) {
+  const { trace, error } = extractExecutionTrace(output);
+  if (error) return { pass: false, detail: error };
+  switch (a.type) {
+    case 'trace-field': {
+      const actual = traceGet(trace, a.path);
+      const pass = actual !== undefined && isDeepStrictEqual(actual, a.equals);
+      return { pass, detail: pass ? '' : `trace ${a.path} is ${JSON.stringify(actual)}, expected ${JSON.stringify(a.equals)}` };
+    }
+    case 'trace-every': {
+      const arr = traceGet(trace, a.path);
+      if (!Array.isArray(arr)) return { pass: false, detail: `trace ${a.path} is not an array` };
+      for (let i = 0; i < arr.length; i++) {
+        if (!isDeepStrictEqual(arr[i]?.[a.field], a.equals)) {
+          return { pass: false, detail: `trace ${a.path}[${i}].${a.field} is ${JSON.stringify(arr[i]?.[a.field])}, expected ${JSON.stringify(a.equals)}` };
+        }
+      }
+      return { pass: true, detail: '' };
+    }
+    case 'trace-disjoint': {
+      // Ownership check: every element's `field` array must be pairwise
+      // disjoint (e.g. domain workers own disjoint concept files).
+      const arr = traceGet(trace, a.path);
+      if (!Array.isArray(arr)) return { pass: false, detail: `trace ${a.path} is not an array` };
+      const seen = new Map();
+      for (let i = 0; i < arr.length; i++) {
+        for (const item of arr[i]?.[a.field] ?? []) {
+          if (seen.has(item)) {
+            return { pass: false, detail: `trace ${a.path}[${seen.get(item)}] and ${a.path}[${i}] both own ${JSON.stringify(item)}` };
+          }
+          seen.set(item, i);
+        }
+      }
+      return { pass: true, detail: '' };
+    }
   }
 }
 

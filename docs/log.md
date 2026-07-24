@@ -2,6 +2,11 @@
 
 ## 2026-07-24
 
+- **Update** of
+  [Skill testing and benchmark architecture](/decisions/skill-testing-architecture.md)
+  — amended with the v2 acceptance-harness seam (#48): plan/approval turns,
+  git-state and execution-trace oracles, cross-harness outcome comparison, and
+  static portable-contract checks.
 - **Creation** of [OKF documentation skill-suite v2](/specs/okf-docs-skill-suite-v2.md)
   — assembled the implementation-ready destination contract for setup, authoring,
   validation, synchronization, autoresearch, migration, distribution, and parity.

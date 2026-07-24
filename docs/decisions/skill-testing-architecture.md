@@ -2,7 +2,7 @@
 type: Decision
 title: Skill testing and benchmark architecture
 description: Test skills with a repo-owned harness in tools/ driving headless harness CLIs, graded by deterministic state assertions, with central per-skill case dirs and paired with/without-skill benchmarks.
-timestamp: 2026-07-17
+timestamp: 2026-07-24
 ---
 
 # Skill testing and benchmark architecture
@@ -200,3 +200,38 @@ releases are no-contract snapshots
   analogue of the live-daemon preflight, checking the profile's `opencode.db` for
   a stale real-repo project entry rather than a live process. Driven by #24, fixed
   during #25.
+
+## 2026-07-24 — v2 acceptance-harness seam (#48)
+
+The harness gains the machinery the
+[OKF documentation skill-suite v2](/specs/okf-docs-skill-suite-v2.md) acceptance
+contract needs, without changing the decisions above (deterministic-only oracle,
+central cases, out-of-repo fixtures, provenance):
+
+- **Plan/approval turns.** A case may declare `followUps` — prompt files sent as
+  later turns of the SAME session. Turn 1 proposes a plan and pauses (the headless
+  turn ends); each follow-up resumes with explicit approval or denial. Drivers add
+  `buildResumeInvocation` (`claude -p --continue` cwd-scoped to the fixture,
+  `codex exec resume --last` with the workspace-write posture re-asserted via
+  `-c sandbox_mode`, `opencode run --continue --dir <fixture>`; flags verified
+  against the installed CLIs 2026-07-24). A timed-out turn ends the exchange. Later
+  turns write numbered transcripts; `run.json` records `turnCount`.
+- **Git-state oracle.** New `git-unchanged` assertion: empty `git status
+  --porcelain` and a single-commit history prove the fixture sits exactly at its
+  baseline commit — the observable proof a denied approval changed nothing.
+- **Execution-trace oracle.** `trace-field`, `trace-every`, and `trace-disjoint`
+  assertions parse the last fenced `execution-trace` block from the harness output
+  and check coordinator/worker ownership (sole-writer coordinator, read-only
+  workers, pairwise-disjoint concept ownership) deterministically.
+- **Cross-harness comparison.** A case may declare `compare.paths`; after all legs
+  run, each path's content digest (file or tree, absence included) must be equal
+  across every executed harness. Divergence gates the exit code; fewer than two
+  executed legs records SKIPPED and never gates.
+- **Static portable contract.** `tools/test-runner/static-contract.mjs` checks the
+  strictest shared-reader skill metadata (name pattern/length/dir match,
+  description length), relative support references, project-memory routing (root
+  `CLAUDE.md` is exactly the `@AGENTS.md` shim), and the 32 KiB root-to-workdir
+  `AGENTS.md` instruction-chain budget; cases reach it through the
+  `portable-contract` assertion.
+
+  Driven by #48.

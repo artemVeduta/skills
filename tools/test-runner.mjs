@@ -16,6 +16,7 @@ import { buildFixture, hashGuardedTrees } from './test-runner/fixture.mjs';
 import { loadCase } from './test-runner/case-loader.mjs';
 import { preflightHarness, runDriver } from './test-runner/runner.mjs';
 import { evaluateAssertions } from './test-runner/oracle.mjs';
+import { compareOutcomes } from './test-runner/compare.mjs';
 import { formatRunReport, exitCodeFor } from './test-runner/report.mjs';
 
 const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -73,29 +74,56 @@ export async function runHarness(driver, {
     return { id, status: 'skipped', skipReason: gate.skipReason, fixtureRoot };
   }
 
-  const proc = runDriver(driver, { fixtureRoot, prompt: testCase.prompt, model: resolvedModel, profileDir });
+  // Plan/approval turns (v2 acceptance seam): the case's prompt is turn 1
+  // (propose and pause — the headless turn ends on the pause); each follow-up
+  // prompt resumes the SAME session (explicit approval or denial). A driver
+  // without resume support cannot run a gated case — configuration error,
+  // surfaced before any turn spawns.
+  const followUps = testCase.followUpPrompts ?? [];
+  if (followUps.length > 0 && typeof driver.buildResumeInvocation !== 'function') {
+    await rm(fixtureRoot, { recursive: true, force: true });
+    throw new Error(`harness ${id} does not implement buildResumeInvocation but the case declares follow-up turns`);
+  }
+
+  const turns = [runDriver(driver, { fixtureRoot, prompt: testCase.prompt, model: resolvedModel, profileDir })];
+  for (const prompt of followUps) {
+    // A hung/killed turn ends the exchange — resuming a session that never
+    // paused cleanly would only produce unattributable output.
+    if (turns.at(-1).timedOut) break;
+    turns.push(runDriver(driver, { fixtureRoot, prompt, model: resolvedModel, profileDir, resume: true }));
+  }
+  const lastTurn = turns.at(-1);
+  const timedOut = turns.some((t) => t.timedOut);
+  // The oracle judges the WHOLE exchange: state assertions read the fixture as
+  // the final turn left it; output assertions see every turn's output.
+  const output = turns.map((t) => t.stdout).join('\n');
   const assertions = await evaluateAssertions(testCase.assertions, {
-    workdir: fixtureRoot, repoRoot: REPO_ROOT, output: proc.stdout,
+    workdir: fixtureRoot, repoRoot: REPO_ROOT, output,
   });
   const afterUnmodified = (await hashGuardedTrees(REPO_ROOT, GUARDED_DIRS)) === beforeHash;
 
   // Raw artifacts land in the git-ignored in-repo runs area, created lazily so
-  // a dry run leaves no empty dirs. The fixture itself stays ephemeral in tmpdir.
+  // a dry run leaves no empty dirs. The fixture itself stays ephemeral in
+  // tmpdir. Turn 1 keeps the v1 transcript name; later turns are numbered.
   const runDir = join(runsRoot, runId, id);
   await mkdir(runDir, { recursive: true });
-  await writeFile(join(runDir, 'transcript.json'), proc.stdout || proc.stderr || '');
+  for (let i = 0; i < turns.length; i++) {
+    const name = i === 0 ? 'transcript.json' : `transcript-${i + 1}.json`;
+    await writeFile(join(runDir, name), turns[i].stdout || turns[i].stderr || '');
+  }
   await writeFile(join(runDir, 'assertions.json'), JSON.stringify(assertions, null, 2));
   await writeRunJson(runsRoot, runId, id, {
     id, status: 'executed', model: resolvedModel, harnessVersion: gate.version,
     invocation: { command: invocation.command, args: invocation.args },
-    exitStatus: proc.status, timedOut: proc.timedOut, skipReason: null,
+    turnCount: turns.length,
+    exitStatus: lastTurn.status, timedOut, skipReason: null,
   });
 
   return {
     id, status: 'executed', assertions, sourcesUnmodified: afterUnmodified,
-    exitStatus: proc.status,
-    harnessError: proc.timedOut ? 'harness timed out after the configured limit' : proc.error,
-    timedOut: proc.timedOut,
+    exitStatus: lastTurn.status,
+    harnessError: timedOut ? 'harness timed out after the configured limit' : lastTurn.error,
+    timedOut,
     model: resolvedModel, harnessVersion: gate.version,
     fixtureRoot,
   };
@@ -119,6 +147,10 @@ export async function runCase(skillName, opts = {}) {
     harnessSelections = DRIVERS.map((d) => ({ id: d.id, model: null })),
     dryRun = false,
     runId = String(Date.now()),
+    // Injection seams for deterministic tests (fake drivers, green preflight);
+    // production always uses the real registry and ladder.
+    resolveDriverFn = resolveDriver,
+    preflight,
   } = opts;
 
   const testCase = await loadCase(skillName, { casesRoot });
@@ -126,14 +158,26 @@ export async function runCase(skillName, opts = {}) {
   const harnesses = [];
 
   for (const { id, model } of harnessSelections) {
-    const driver = resolveDriver(id);
+    const driver = resolveDriverFn(id);
     if (!driver) throw new UsageError(`unknown harness: ${id}`);
     harnesses.push(
-      await runHarness(driver, { skillName, skillsRoot, testCase, runsRoot, runId, beforeHash, dryRun, model }),
+      await runHarness(driver, {
+        skillName, skillsRoot, testCase, runsRoot, runId, beforeHash, dryRun, model,
+        ...(preflight && { preflight }),
+      }),
     );
   }
 
-  return { skill: skillName, runId, dryRun, harnesses };
+  // Cross-harness outcome comparison (v2 acceptance seam): every executed
+  // leg's fixture must hold an EQUIVALENT repository outcome for each
+  // case-declared path. Computed while fixtures still exist (the CLI cleans
+  // them up only after reporting).
+  const executed = harnesses.filter((h) => h.status === 'executed');
+  const comparisons = !dryRun && testCase.compare?.paths?.length
+    ? await compareOutcomes(testCase.compare.paths, executed.map((h) => ({ id: h.id, fixtureRoot: h.fixtureRoot })))
+    : [];
+
+  return { skill: skillName, runId, dryRun, harnesses, comparisons };
 }
 
 export function parseArgs(argv) {

@@ -22,6 +22,14 @@ import { profileEnvFor } from './profiles.mjs';
 //     live run sees; project scope stays the out-of-repo fixture cwd. Every
 //     flag emitted here was verified against the installed CLI's --help
 //     (no speculative flags).
+//   buildResumeInvocation(same shape) -> { command, args, env }
+//     Follow-up turn continuing the SAME session (v2 approval seam: pause after
+//     a proposed plan, resume with explicit approval or denial). Session
+//     selection is safe without parsing session ids: claude --continue is
+//     scoped to the cwd (the per-run fixture), codex --last to the profile's
+//     most recent recorded session (turns run sequentially in one process),
+//     opencode --continue to the --dir-pinned project. Flags verified against
+//     the installed CLIs 2026-07-24.
 export const DRIVERS = [
   {
     id: 'claude-code',
@@ -38,6 +46,16 @@ export const DRIVERS = [
         // because the fixture lives outside the repo tree (see runCase) and
         // config writes land in the test profile, not ~/.claude.
         args: ['-p', prompt, '--permission-mode', 'bypassPermissions', '--model', model],
+        env: profileEnvFor('claude-code', profileDir),
+      };
+    },
+    buildResumeInvocation({ fixtureRoot, prompt, model, profileDir }) {
+      return {
+        command: 'claude',
+        // --continue resumes "the most recent conversation in the current
+        // directory" — the per-run fixture cwd, so it can only reach turn 1
+        // of THIS run. Same permission posture as turn 1.
+        args: ['-p', prompt, '--continue', '--permission-mode', 'bypassPermissions', '--model', model],
         env: profileEnvFor('claude-code', profileDir),
       };
     },
@@ -58,6 +76,18 @@ export const DRIVERS = [
         args: ['exec', '--sandbox', 'workspace-write', '--skip-git-repo-check', '-m', model, prompt],
         // env (CODEX_HOME + HOME) comes from profileEnvFor — HOME is relocated
         // to confine the HOME-derived ~/.agents/skills leak (finding #4).
+        env: profileEnvFor('codex', profileDir),
+      };
+    },
+    buildResumeInvocation({ fixtureRoot, prompt, model, profileDir }) {
+      return {
+        command: 'codex',
+        // `exec resume --last` picks the profile's most recent recorded
+        // session — turn 1 of this run, since turns run sequentially in one
+        // process against a per-harness profile. `exec resume` exposes no
+        // --sandbox flag, so the workspace-write posture is re-asserted via
+        // the documented -c config override (value parsed as TOML).
+        args: ['exec', 'resume', '--last', '-c', 'sandbox_mode="workspace-write"', '--skip-git-repo-check', '-m', model, prompt],
         env: profileEnvFor('codex', profileDir),
       };
     },
@@ -84,6 +114,15 @@ export const DRIVERS = [
         // explicitly; fixture.mjs also git-inits the fixture so the walk-up
         // binds there too even if --dir's confinement is ever incomplete.
         args: ['run', '--auto', '--dir', fixtureRoot, '-m', model, prompt],
+        env: profileEnvFor('opencode', profileDir),
+      };
+    },
+    buildResumeInvocation({ fixtureRoot, prompt, model, profileDir }) {
+      return {
+        command: 'opencode',
+        // --continue resumes the last session of the --dir-pinned project —
+        // the fixture root, same confinement rationale as turn 1.
+        args: ['run', '--auto', '--continue', '--dir', fixtureRoot, '-m', model, prompt],
         env: profileEnvFor('opencode', profileDir),
       };
     },

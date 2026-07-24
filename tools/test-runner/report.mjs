@@ -2,6 +2,7 @@
 // GATING: the exit code is load-bearing and derives ONLY from deterministic
 // assertion results and source immutability — never from advisory signal.
 import { allPassed } from './oracle.mjs';
+import { comparisonsPassed } from './compare.mjs';
 
 export function formatRunReport(run) {
   const lines = [`test-runner — case: ${run.skill}${run.dryRun ? ' (dry run)' : ''}`];
@@ -33,6 +34,16 @@ export function formatRunReport(run) {
       }
     }
   }
+  // Cross-harness outcome comparisons (v2 acceptance seam): one line per
+  // declared path — EQUIVALENT/DIVERGED verdicts, SKIPPED when fewer than two
+  // legs executed (recorded, never gating).
+  if (run.comparisons?.length) {
+    lines.push('  cross-harness outcomes:');
+    for (const c of run.comparisons) {
+      if (c.status === 'skipped') lines.push(`    ${c.path}: SKIPPED (${c.detail})`);
+      else lines.push(`    ${c.path}: ${c.pass ? 'EQUIVALENT' : 'DIVERGED'}${c.pass ? '' : ` — ${c.detail}`}`);
+    }
+  }
   return lines.join('\n');
 }
 
@@ -42,6 +53,7 @@ export function exitCodeFor(run) {
   }
   const executed = run.harnesses.filter((h) => h.status === 'executed');
   if (executed.length === 0) return 1; // nothing ran — cannot gate
-  const ok = executed.every((h) => h.assertions.length > 0 && h.sourcesUnmodified && allPassed(h.assertions));
+  const ok = executed.every((h) => h.assertions.length > 0 && h.sourcesUnmodified && allPassed(h.assertions))
+    && comparisonsPassed(run.comparisons ?? []);
   return ok ? 0 : 1;
 }
