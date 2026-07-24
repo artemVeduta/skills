@@ -272,14 +272,21 @@ fixtures, model+version provenance):
   into the committed `*.test.mjs` suite (`scripts/install.test.mjs`,
   `manifests.test.mjs`, `managed-channels.test.mjs`, and the static portable
   contract), which the invariant test verifies all resolve.
-- **Live evidence is a genuine recorded attestation.** `tools/acceptance/
-  live-attestations.json` holds only real `npm run test:case` provenance
-  (harness id, model, CLI version, commit, verdict). A passing behavioral
-  attestation proves the pack — placed at that harness's canonical discovery
-  path and driven headless — is discovered and produces the semantic outcome;
-  it is the behavioral half every supported cell for that harness needs, paired
-  with the per-cell deterministic packaging half. A harness with no passing
-  attestation has its cells recorded as pending and WITHHELD.
+- **Live evidence is a genuine recorded attestation, scoped per HARNESS.**
+  `tools/acceptance/live-attestations.json` holds only real `npm run test:case`
+  provenance (harness id, model, CLI version, commit, verdict). A passing
+  behavioral attestation proves the pack — projected to that harness's canonical
+  discovery path and driven headless — is discovered and produces the semantic
+  outcome; it is the behavioral half every supported cell for that harness needs,
+  paired with the per-cell deterministic packaging half. This live half is
+  per-harness DISCOVERY, not per-channel PLACEMENT: no live run installs via the
+  native marketplace/plugin path or places checkout symlinks. Those channel
+  mechanics are proven DETERMINISTICALLY — the four exact native manifest/catalog
+  paths and OpenCode-native's proven absence, plus the exact checkout project and
+  global link targets — while symlink-placement behavioral proof is #44, out of
+  scope. So one passing per-harness attestation supplies the behavioral half of
+  that harness's portable, native, and checkout cells alike. A harness with no
+  passing attestation has its cells recorded as pending and WITHHELD.
 - **The invariant test is CI-gated and never runs a harness** (`tools/
   acceptance/matrix.test.mjs`, added to the `npm test` globs). It asserts the
   advertised surface — the harness registry that generates the README install

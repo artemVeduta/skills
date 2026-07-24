@@ -6,7 +6,7 @@
 // runs in `npm test`/CI while genuinely gating live-verified parity.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 
@@ -95,6 +95,13 @@ test('live attestations carry full run provenance (harness, model, version, comm
       assert.ok(typeof a[field] === 'string' && a[field].length > 0,
         `attestation for ${a.harness} missing ${field}`);
     }
+    // Provenance must be genuinely SHAPED, not merely non-empty: a full 40-hex
+    // git SHA and an ISO date. A hand-typed placeholder ("TODO", "abc") then
+    // fails the gate — a cheap honesty guard over the recorded provenance.
+    assert.match(a.commit, /^[0-9a-f]{40}$/,
+      `attestation for ${a.harness}: commit must be a full git SHA, got ${a.commit}`);
+    assert.match(a.date, /^\d{4}-\d{2}-\d{2}$/,
+      `attestation for ${a.harness}: date must be ISO YYYY-MM-DD, got ${a.date}`);
     assert.ok(['pass', 'fail'].includes(a.verdict), `attestation verdict must be pass|fail, got ${a.verdict}`);
   }
 });

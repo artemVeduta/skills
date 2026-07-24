@@ -10,6 +10,24 @@
 // proven gate runs in `npm test`/CI while genuinely gating live-verified parity.
 // Live evidence is a GENUINE recorded attestation (live-attestations.json);
 // absent an attestation a harness's supported cells are pending and WITHHELD.
+//
+// SCOPE OF THE LIVE HALF (an honest, deliberate decomposition — see the
+// 2026-07-25 amendment of docs/decisions/skill-testing-architecture.md). Live
+// evidence is per-HARNESS discovery: a genuine headless run proves the pack,
+// projected to that harness's canonical discovery path, is discovered and
+// produces the semantic outcome. It is NOT per-CHANNEL placement — no live run
+// installs via the native marketplace/plugin path or places checkout symlinks.
+// Those channel mechanics are proven DETERMINISTICALLY (exact manifest/catalog
+// paths, proven absence for native × opencode, exact project/global link
+// targets); symlink-placement behavioral proof is #44, out of scope. So a
+// harness's one passing attestation supplies the behavioral half of every
+// SUPPORTED cell for that harness across all channels.
+//
+// KNOWN LIMITATION: an attestation is bound to its recorded commit but not to a
+// content hash of the pack it exercised, so a later skill-content change does not
+// auto-invalidate a prior passing run (follow-up: have the runner emit a closure
+// content hash into run.json and assert it here). The deterministic half re-runs
+// against current content on every `npm test`.
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
@@ -70,22 +88,18 @@ const CHECKOUT_EVIDENCE = [
   ...PACK_COMPLETENESS,
 ];
 
-// Exactly-once discovery evidence, per harness: Claude and Codex each resolve
-// their own project/global identity once; OpenCode adds no redundant placement
-// and resolves each coincident identity exactly once (dedup).
-const DISCOVERY_ONCE = {
-  'claude-code': [
-    { file: 'scripts/install.test.mjs', contains: 'exact project targets' },
-  ],
-  codex: [
-    { file: 'scripts/install.test.mjs', contains: 'exact project targets' },
-  ],
-  opencode: [
-    { file: 'scripts/install.test.mjs', contains: 'OpenCode adds no placement already exposed by a selected Claude target' },
-    { file: 'scripts/install.test.mjs', contains: 'coexisting Claude and Codex project placements expose each identity once' },
-    { file: 'scripts/install.test.mjs', contains: 'are deduplicated' },
-  ],
-};
+// Exactly-once discovery evidence. Claude and Codex each resolve their own single
+// canonical project/global placement — already proven by CHECKOUT_EVIDENCE's
+// 'exact project targets' / 'exact global targets' refs, so those two harnesses
+// need no additional reference. OpenCode is the only harness that reads
+// placements it does not own (Claude's and Codex's), so its exactly-once
+// guarantee needs dedicated evidence: it adds no redundant placement and resolves
+// each coincident identity exactly once (dedup).
+const OPENCODE_CHECKOUT = [
+  { file: 'scripts/install.test.mjs', contains: 'OpenCode adds no placement already exposed by a selected Claude target' },
+  { file: 'scripts/install.test.mjs', contains: 'coexisting Claude and Codex project placements expose each identity once' },
+  { file: 'scripts/install.test.mjs', contains: 'are deduplicated' },
+];
 
 // Per-harness native manifest validity.
 const NATIVE_PER_HARNESS = {
@@ -114,17 +128,33 @@ export const CELLS = [
   supported('native', 'codex', [...NATIVE_EVIDENCE, ...NATIVE_PER_HARNESS.codex]),
   { channel: 'native', harness: 'opencode', support: 'unsupported', live: 'absence', deterministic: OPENCODE_NATIVE_ABSENT },
 
-  supported('checkout', 'claude-code', [...CHECKOUT_EVIDENCE, ...DISCOVERY_ONCE['claude-code']]),
-  supported('checkout', 'codex', [...CHECKOUT_EVIDENCE, ...DISCOVERY_ONCE.codex]),
-  supported('checkout', 'opencode', [...CHECKOUT_EVIDENCE, ...DISCOVERY_ONCE.opencode]),
+  supported('checkout', 'claude-code', CHECKOUT_EVIDENCE),
+  supported('checkout', 'codex', CHECKOUT_EVIDENCE),
+  supported('checkout', 'opencode', [...CHECKOUT_EVIDENCE, ...OPENCODE_CHECKOUT]),
 ];
 
 export function cellFor(channel, harness) {
   return CELLS.find((c) => c.channel === channel && c.harness === harness) || null;
 }
 
-// Resolve a cell's deterministic evidence: each ref's file must exist and
-// contain its substring. Returns { present, missing }.
+// A ref resolves only when the file DECLARES a test whose title contains the
+// substring — anchored to a real `test(...)`/`it(...)` call site rather than raw
+// file text, so a stale comment or unrelated prose that merely mentions the
+// phrase can never satisfy it. (The pass/fail signal itself still comes from
+// `npm test` running the referenced file; this is the anti-dangling-reference
+// half of the gate.) Extracts each call's title literal, honoring string
+// escapes, then tests plain containment against the extracted title.
+function declaresMatchingTest(text, needle) {
+  const re = /\b(?:test|it)\(\s*(['"`])((?:\\.|(?!\1)[\s\S])*?)\1/g;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    if (m[2].includes(needle)) return true;
+  }
+  return false;
+}
+
+// Resolve a cell's deterministic evidence: each ref's file must exist AND declare
+// a test whose title contains the ref substring. Returns { present, missing }.
 export function resolveDeterministicEvidence(cell, { repoRoot }) {
   const missing = [];
   for (const ref of cell.deterministic) {
@@ -135,7 +165,7 @@ export function resolveDeterministicEvidence(cell, { repoRoot }) {
       missing.push(ref);
       continue;
     }
-    if (!text.includes(ref.contains)) missing.push(ref);
+    if (!declaresMatchingTest(text, ref.contains)) missing.push(ref);
   }
   return { present: missing.length === 0, missing };
 }

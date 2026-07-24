@@ -11,6 +11,12 @@
   cell missing either evidence class, the new dependency-completeness check in the
   static portable contract, and the reconciled Claude model default. No decision was
   reversed; the deterministic-only oracle and provenance rules are unchanged.
+- **Update** of [Benchmark metrics and comparison design](/decisions/benchmark-metrics-and-comparison-design.md)
+  — appended a dated note (#63) superseding the 2026-07-17 amendment's live-file
+  citation: the Claude driver default in `tools/test-runner/drivers.mjs` is now the
+  canonical hyphenated `claude-opus-4-8`, so the historical parenthetical pointing at
+  the dotted `claude-opus-4.8` in that live file no longer holds. The dated history is
+  left intact; the note cross-references the reconciliation.
 
 ## 2026-07-24
 

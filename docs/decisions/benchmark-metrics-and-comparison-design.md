@@ -2,7 +2,7 @@
 type: Decision
 title: Benchmark metrics and comparison design
 description: Tiered smoke/full trial presets, an advisory two-of-five-trial regression flag, committed summary JSON with local raw artifacts, release-promoted baselines, an identity-set provenance schema, and per-case reports with no cross-case blend.
-timestamp: 2026-07-17
+timestamp: 2026-07-25
 ---
 
 # Benchmark metrics and comparison design
@@ -155,3 +155,16 @@ of decision 6) — now sourced from #24's `run.json` (`writeRunJson` in
   exist while the profile itself is logged out — to the CLI's own verdict:
   `claude auth status --json` against the profile's `CLAUDE_CONFIG_DIR`, gated
   on its `loggedIn` field rather than its exit code.
+
+## 2026-07-25 — `drivers.mjs` default-id citation superseded (#63)
+
+The 2026-07-17 amendment above cites "claude-code's malformed dotted default id
+`claude-opus-4.8` (`tools/test-runner/drivers.mjs`)". That was accurate when
+written; the #63 acceptance-matrix work has since reconciled the drift — the
+Claude driver's pinned default in `tools/test-runner/drivers.mjs` is now the
+canonical hyphenated `claude-opus-4-8`. The dated sentence stays intact as
+history, but a reader following its parenthetical live-file pointer should note
+that the file no longer holds the dotted id. See the 2026-07-25 "Model drift
+reconciled" note in
+[Skill testing and benchmark architecture](/decisions/skill-testing-architecture.md).
+Driven by #63.
