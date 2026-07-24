@@ -12,6 +12,6 @@
     "test:auth": "node tools/test-auth.mjs",
     "bench": "node tools/benchmarks/run.mjs",
     "release": "node scripts/release.mjs",
-    "test": "node --test scripts/*.test.mjs tools/*.test.mjs tools/test-runner/*.test.mjs tools/benchmarks/*.test.mjs"
+    "test": "node --test scripts/*.test.mjs tools/*.test.mjs tools/acceptance/*.test.mjs tools/test-runner/*.test.mjs tools/benchmarks/*.test.mjs"
   }
 }

@@ -9,6 +9,7 @@ import {
   checkSupportPaths,
   checkMemoryRouting,
   checkInstructionChainBudget,
+  checkDependencyCompleteness,
   checkPortableContract,
 } from './static-contract.mjs';
 
@@ -88,6 +89,51 @@ test('absolute targets in reference-style definitions and angle-bracket destinat
   // Relative targets in the same forms stay clean.
   const relative = 'See [a][t] and [b](<templates/x y.md>).\n\n[t]: templates/x.md\n';
   assert.deepEqual(checkSupportPaths('docs-add', relative, new Set(['docs-add'])), []);
+});
+
+// --- dependency completeness (spec AC1: static fixtures enforce dependency
+// completeness — every `## Required skills` dependency of a projected skill must
+// itself be present in the projected pack, so a partial projection can never
+// omit a required capability) ---
+
+test('a projected pack whose declared dependencies are all present is complete', () => {
+  const bodies = {
+    'docs-setup': '# docs-setup\n\n## Required skills\n\n- docs-add\n- docs-validate\n',
+    'docs-add': '# docs-add\n\nNo dependencies.\n',
+    'docs-validate': '# docs-validate\n\nNo dependencies.\n',
+  };
+  assert.deepEqual(checkDependencyCompleteness(bodies), []);
+});
+
+test('a projected pack missing a declared dependency is rejected, naming skill and dependency', () => {
+  const bodies = {
+    'docs-setup': '# docs-setup\n\n## Required skills\n\n- docs-add\n- docs-validate\n',
+    'docs-add': '# docs-add\n\nNo dependencies.\n',
+    // docs-validate omitted from the projection
+  };
+  const errors = checkDependencyCompleteness(bodies);
+  assert.ok(errors.some((e) => e.includes('docs-setup') && e.includes('docs-validate')),
+    `expected a docs-setup -> docs-validate omission error, got ${JSON.stringify(errors)}`);
+});
+
+test('checkPortableContract fails a projected pack that omits a required dependency', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'sc-fx-'));
+  try {
+    // docs-setup is projected but its required docs-add is not — a partial
+    // projection that would omit a required capability.
+    await writeFixture(root, {
+      claudeMd: '@AGENTS.md\n',
+      agentsMd: '# Project\n',
+      skills: {
+        'docs-setup': '---\nname: docs-setup\ndescription: Set up docs.\n---\n\n## Required skills\n\n- docs-add\n',
+      },
+    });
+    const { errors } = await checkPortableContract(root, { skillsSubdir: '.claude/skills' });
+    assert.ok(errors.some((e) => e.includes('docs-setup') && e.includes('docs-add')),
+      `expected a dependency-completeness error, got ${JSON.stringify(errors)}`);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 // --- project-memory routing (spec: root CLAUDE.md is exactly @AGENTS.md) ---

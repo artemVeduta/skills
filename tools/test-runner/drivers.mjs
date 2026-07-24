@@ -35,7 +35,11 @@ export const DRIVERS = [
     id: 'claude-code',
     command: 'claude',
     discoverySubdir: '.claude/skills',
-    defaultModel: 'claude-opus-4.8',
+    // Canonical current id is the hyphenated `claude-opus-4-8` (verified against
+    // the installed CLI 2026-07-25; the dotted `claude-opus-4.8` was model drift
+    // — recorded runs with it exited nonzero while the hyphenated id ran clean).
+    // Override per run with `--harness claude-code=<model>`.
+    defaultModel: 'claude-opus-4-8',
     probe: { args: ['--version'] },
     buildInvocation({ fixtureRoot, prompt, model, profileDir }) {
       return {

@@ -1,0 +1,38 @@
+{
+  "$comment": "GENUINE live behavioral attestations ONLY — never fabricated. Each record is the recorded provenance of a real `npm run test:case` run (see tools/test-runner.mjs / tools/runs/<runId>/<harness>/run.json). A `pass` behavioral attestation proves the pack, placed at a harness's canonical discovery path and driven headless, is discovered and produces the semantic outcome — the behavioral half every supported (channel × harness) cell for that harness needs; the deterministic half (packaging/paths/provenance) is proven by the tests named in tools/acceptance/matrix.mjs. A harness WITHOUT a passing attestation has its supported cells recorded as pending and WITHHELD from advertised support (registry + generated README), enforced by tools/acceptance/matrix.test.mjs. Add attestations only from a genuine recorded run; do not hand-edit verdicts.",
+  "behavioral": [
+    {
+      "harness": "claude-code",
+      "case": "docs-validate",
+      "model": "claude-opus-4-8",
+      "harnessVersion": "2.1.219 (Claude Code)",
+      "commit": "d508a9092177dc62072f768f9aa7ace7a90e7d35",
+      "date": "2026-07-25",
+      "runId": "1784927460418",
+      "assertions": "16/16",
+      "verdict": "pass"
+    },
+    {
+      "harness": "codex",
+      "case": "docs-validate",
+      "model": "gpt-5.6-sol",
+      "harnessVersion": "codex-cli 0.144.5",
+      "commit": "d508a9092177dc62072f768f9aa7ace7a90e7d35",
+      "date": "2026-07-25",
+      "runId": "1784927460418",
+      "assertions": "16/16",
+      "verdict": "pass"
+    },
+    {
+      "harness": "opencode",
+      "case": "docs-validate",
+      "model": "opencode-go/qwen3.7-max",
+      "harnessVersion": "1.18.4",
+      "commit": "d508a9092177dc62072f768f9aa7ace7a90e7d35",
+      "date": "2026-07-25",
+      "runId": "1784927460418",
+      "assertions": "16/16",
+      "verdict": "pass"
+    }
+  ]
+}

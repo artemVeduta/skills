@@ -52,7 +52,7 @@ test('runCase --dry-run --harness selects a single harness', async () => {
     });
     assert.equal(run.harnesses.length, 1);
     assert.equal(run.harnesses[0].id, 'claude-code');
-    assert.equal(run.harnesses[0].model, 'claude-opus-4.8'); // = the claude-code defaultModel pinned in drivers.mjs (Task 5) — keep in sync if that pin changed
+    assert.equal(run.harnesses[0].model, 'claude-opus-4-8'); // = the claude-code defaultModel pinned in drivers.mjs (Task 5) — keep in sync if that pin changed
     await rm(run.harnesses[0].fixtureRoot, { recursive: true, force: true });
   } finally {
     await rm(runsRoot, { recursive: true, force: true });

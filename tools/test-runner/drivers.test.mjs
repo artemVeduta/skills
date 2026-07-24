@@ -18,7 +18,7 @@ test('resolveDriver returns null for an unknown id', () => {
 });
 
 test('each driver pins a default model and a driver-owned probe', () => {
-  assert.equal(resolveDriver('claude-code').defaultModel, 'claude-opus-4.8');
+  assert.equal(resolveDriver('claude-code').defaultModel, 'claude-opus-4-8');
   assert.equal(resolveDriver('codex').defaultModel, 'gpt-5.6-sol');
   // opencode-go is the provider authed in the profile (finding #5); the id was
   // taken from `opencode models` run under that profile env.
@@ -34,10 +34,10 @@ test('only opencode declares a daemon guard', () => {
 
 test('claude-code invocation threads the model and uses the profile config dir', () => {
   const inv = resolveDriver('claude-code').buildInvocation({
-    fixtureRoot: '/fx', prompt: 'hello', model: 'claude-opus-4.8', profileDir: '/prof/claude-code',
+    fixtureRoot: '/fx', prompt: 'hello', model: 'claude-opus-4-8', profileDir: '/prof/claude-code',
   });
   assert.equal(inv.command, 'claude');
-  assert.deepEqual(inv.args, ['-p', 'hello', '--permission-mode', 'bypassPermissions', '--model', 'claude-opus-4.8']);
+  assert.deepEqual(inv.args, ['-p', 'hello', '--permission-mode', 'bypassPermissions', '--model', 'claude-opus-4-8']);
   assert.deepEqual(inv.env, { CLAUDE_CONFIG_DIR: '/prof/claude-code' });
 });
 
@@ -81,12 +81,12 @@ test('opencode invocation threads the provider-prefixed model and the confining 
 
 test('claude-code resume continues the cwd-scoped most recent conversation', () => {
   const inv = resolveDriver('claude-code').buildResumeInvocation({
-    fixtureRoot: '/fx', prompt: 'approve', model: 'claude-opus-4.8', profileDir: '/prof/claude-code',
+    fixtureRoot: '/fx', prompt: 'approve', model: 'claude-opus-4-8', profileDir: '/prof/claude-code',
   });
   assert.equal(inv.command, 'claude');
   // --continue is scoped to "the most recent conversation in the current
   // directory" — the per-run fixture cwd, so it can only hit this run's turn 1.
-  assert.deepEqual(inv.args, ['-p', 'approve', '--continue', '--permission-mode', 'bypassPermissions', '--model', 'claude-opus-4.8']);
+  assert.deepEqual(inv.args, ['-p', 'approve', '--continue', '--permission-mode', 'bypassPermissions', '--model', 'claude-opus-4-8']);
   assert.deepEqual(inv.env, { CLAUDE_CONFIG_DIR: '/prof/claude-code' });
 });
 

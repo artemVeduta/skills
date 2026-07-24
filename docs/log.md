@@ -1,5 +1,17 @@
 # Bundle change log
 
+## 2026-07-25
+
+- **Update** of [Skill testing and benchmark architecture](/decisions/skill-testing-architecture.md)
+  — amended for the acceptance-matrix parity gate (#63): the committed acceptance
+  matrix (`tools/acceptance/matrix.mjs`) mapping every (channel × harness) cell to
+  deterministic packaging evidence plus a genuine live behavioral attestation
+  (`tools/acceptance/live-attestations.json`), the CI-gated `advertised == proven`
+  invariant test that keeps OpenCode-native present-and-unsupported and withholds any
+  cell missing either evidence class, the new dependency-completeness check in the
+  static portable contract, and the reconciled Claude model default. No decision was
+  reversed; the deterministic-only oracle and provenance rules are unchanged.
+
 ## 2026-07-24
 
 - **Update** of [install.sh — development-links install wizard](/specs/install-sh.md) —

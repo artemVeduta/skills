@@ -2,7 +2,7 @@
 type: Decision
 title: Skill testing and benchmark architecture
 description: Test skills with a repo-owned harness in tools/ driving headless harness CLIs, graded by deterministic state assertions, with central per-skill case dirs and paired with/without-skill benchmarks.
-timestamp: 2026-07-24
+timestamp: 2026-07-25
 ---
 
 # Skill testing and benchmark architecture
@@ -253,3 +253,49 @@ central cases, out-of-repo fixtures, provenance):
 "deliberate contrast to the always-advisory docs validator and skill linter"
 now holds only for the skill linter's default invocation. The grading
 architecture itself is unchanged.
+
+## 2026-07-25 — Acceptance-matrix parity gate (#63)
+
+The capstone closes the
+[OKF documentation skill-suite v2](/specs/okf-docs-skill-suite-v2.md) delivery
+contract that [Deliver one portable OKF skill pack through deletion-safe
+adapters](/decisions/okf-docs-portability-and-distribution.md) requires ("each
+advertised cell remains unsupported until its deterministic packaging tests and
+live outcome test pass"). It does so without changing the decisions above
+(deterministic-only oracle, central cases, out-of-repo profile-isolated
+fixtures, model+version provenance):
+
+- **The acceptance matrix is a committed source of truth** (`tools/acceptance/
+  matrix.mjs`) mapping every (channel × harness) distribution cell — portable,
+  native, and checkout across Claude Code, Codex, and OpenCode — to its
+  evidence. Each cell names its DETERMINISTIC packaging evidence as references
+  into the committed `*.test.mjs` suite (`scripts/install.test.mjs`,
+  `manifests.test.mjs`, `managed-channels.test.mjs`, and the static portable
+  contract), which the invariant test verifies all resolve.
+- **Live evidence is a genuine recorded attestation.** `tools/acceptance/
+  live-attestations.json` holds only real `npm run test:case` provenance
+  (harness id, model, CLI version, commit, verdict). A passing behavioral
+  attestation proves the pack — placed at that harness's canonical discovery
+  path and driven headless — is discovered and produces the semantic outcome;
+  it is the behavioral half every supported cell for that harness needs, paired
+  with the per-cell deterministic packaging half. A harness with no passing
+  attestation has its cells recorded as pending and WITHHELD.
+- **The invariant test is CI-gated and never runs a harness** (`tools/
+  acceptance/matrix.test.mjs`, added to the `npm test` globs). It asserts the
+  advertised surface — the harness registry that generates the README install
+  blocks — is EXACTLY the set of cells with both evidence classes recorded
+  (advertised == proven), that OpenCode-native is present and marked
+  `unsupported` (never silently skipped, proven absent deterministically), and
+  that no unsupported cell is advertised. CI stays deterministic and green while
+  genuinely gating live-verified parity.
+- **Static portable contract gains dependency completeness.** `checkPortable
+  Contract` now rejects a projected pack that omits a declared `## Required
+  skills` dependency (spec §Acceptance / AC1), reusing the linter's single
+  dependency grammar.
+- **Model drift reconciled.** The Claude driver's pinned default became the
+  canonical hyphenated `claude-opus-4-8` (the dotted id was drift); Codex
+  (`gpt-5.6-sol`) and OpenCode (`opencode-go/qwen3.7-max`) defaults verified
+  against the installed CLIs. Any run overrides a default with
+  `--harness <id>=<model>`.
+
+Driven by #63.

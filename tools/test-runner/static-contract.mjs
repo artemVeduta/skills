@@ -8,6 +8,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { parseFrontmatter, lintCrossSkillPaths } from '../lint-skills.mjs';
+import { parseRequiredSkills } from '../skill-graph.mjs';
 
 // Codex's default project-doc budget: the whole root-to-working-directory
 // AGENTS.md chain must stay within it (spec §Portable semantic contract).
@@ -69,6 +70,25 @@ export function checkSupportPaths(skillName, body, knownSkillNames) {
   return errors;
 }
 
+// Dependency completeness (spec §Acceptance / AC1): every `## Required skills`
+// dependency a projected skill declares must itself be present in the projected
+// pack. The portable channel installs the WHOLE pack precisely so no required
+// capability is ever omitted; this gates that invariant over what was actually
+// projected. Pure over a map of {dirName -> SKILL.md body}. Reuses the linter's
+// single `parseRequiredSkills` implementation (DRY — one dependency grammar).
+export function checkDependencyCompleteness(bodiesByName) {
+  const present = new Set(Object.keys(bodiesByName));
+  const errors = [];
+  for (const [name, body] of Object.entries(bodiesByName)) {
+    for (const dep of parseRequiredSkills(body)) {
+      if (!present.has(dep)) {
+        errors.push(`${name}: requires "${dep}", which is not present in the projected pack`);
+      }
+    }
+  }
+  return errors;
+}
+
 // Project-memory routing (spec §Discovery and adapters): root CLAUDE.md is
 // exactly the `@AGENTS.md` shim and the routed-to AGENTS.md carries content.
 export function checkMemoryRouting({ claudeMd, agentsMd }) {
@@ -121,6 +141,8 @@ export async function checkPortableContract(rootDir, { skillsSubdir = '.claude/s
   }
   const skillDirs = entries.map((e) => e.name);
   const knownSkillNames = new Set(skillDirs);
+  // Bodies of the skills that parsed — the dependency-completeness input.
+  const bodiesByName = {};
   for (const dirName of skillDirs) {
     const text = await readIf(join(skillsRoot, dirName, 'SKILL.md'));
     if (text === null) {
@@ -134,7 +156,9 @@ export async function checkPortableContract(rootDir, { skillsSubdir = '.claude/s
     }
     errors.push(...checkSkillMetadata({ dirName, name: fm.data.name, description: fm.data.description }));
     errors.push(...checkSupportPaths(dirName, fm.body, knownSkillNames));
+    bodiesByName[dirName] = fm.body;
   }
+  errors.push(...checkDependencyCompleteness(bodiesByName));
 
   errors.push(...checkMemoryRouting({
     claudeMd: await readIf(join(rootDir, 'CLAUDE.md')),
