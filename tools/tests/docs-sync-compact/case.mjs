@@ -65,8 +65,8 @@ const IDEM_BASELINE =
 // NEW intermediate amendment heading for 2026-07-23 recording the format change
 // (SENTINEL branch-local-amendment). Compaction must DROP the `## 2026-07-23`
 // heading and fold "on 2026-07-23 keys widened from 16-char tokens to 32-char
-// UUIDs" into the canonical prose (retaining the date and the new value), while
-// keeping the 2026-07-15 target amendment (AC4/AC5).
+// UUIDs" into the canonical prose (retaining the date and BOTH the old and new
+// values), while keeping the 2026-07-15 target amendment (AC4/AC5).
 const IDEM_BRANCH =
   '---\n' +
   'type: Decision\n' +
@@ -184,6 +184,18 @@ export default {
     { type: 'file-not-contains', path: 'docs/payments/log.md', value: 'webhooks-branch-update' },
     { type: 'file-contains', path: 'docs/payments/log.md', value: '**Creation**' },
     { type: 'file-contains', path: 'docs/payments/log.md', value: '**Update**' },
+    // AC1/AC2 POSITIVE discriminators — the `**Creation**`/`**Update**` markers
+    // above are also satisfied by the PRESERVED target-side 2026-07-10 Creation +
+    // 2026-07-15 Update, so on their own they cannot tell "compacted to one
+    // Creation + one Update" from "over-deleted the whole 2026-07-23 branch
+    // block". These pin the BRANCH's net entries specifically: the webhooks net
+    // Creation and the idempotency net Update must survive the fold. "webhook"
+    // never appears in the baseline payments log, so its presence proves the net
+    // Creation landed; `idem-branch-update` is the single idempotency Update the
+    // branch left (distinct from the preserved `target-log-update`).
+    { type: 'file-contains', path: 'docs/payments/log.md', value: 'webhooks-creation' },
+    { type: 'file-contains', path: 'docs/payments/log.md', value: 'webhook' },
+    { type: 'file-contains', path: 'docs/payments/log.md', value: 'idem-branch-update' },
 
     // AC3 — no operational `docs-sync ran`, `**Noted**`, or debt-marker entry is
     // written; the branch-local operational note is compacted away.
@@ -208,13 +220,23 @@ export default {
     { type: 'file-contains', path: IDEM_PATH, value: '## 2026-07-15' },
     { type: 'file-contains', path: IDEM_PATH, value: 'target-amendment' },
 
-    // AC5 — the branch-local amendment HEADING is removed, while the accepted
-    // dated old/new value fact is folded into canonical prose: the date remains
-    // (as prose, not a heading) and the new value (UUID) lands in a live section.
+    // AC5 — the branch-local amendment HEADING is removed while the accepted
+    // dated old/new value fact is folded into canonical prose. The fold-LOCATION
+    // is the substance of AC5, so each fact is pinned to appear BEFORE the
+    // `# Amendments` heading (i.e. inside the live Context/Consequences prose that
+    // precedes it), not left dangling in the now-heading-less Amendments region
+    // where it would corrupt the preserved 2026-07-15 target amendment. Ordered
+    // containment ("value before `# Amendments`") discriminates "folded into live
+    // prose" from "orphaned under Amendments"; it also fails if a fact is dropped.
     // `## 2026-07-23` present would mean the drafting heading was kept — forbidden.
     { type: 'file-not-contains', path: IDEM_PATH, value: '## 2026-07-23' },
-    { type: 'file-contains', path: IDEM_PATH, value: '2026-07-23' },
-    { type: 'file-contains', path: IDEM_PATH, value: 'UUID' },
+    // the date survives (as prose, not a heading), folded above `# Amendments`.
+    { type: 'file-contains-ordered', path: IDEM_PATH, values: ['2026-07-23', '# Amendments'] },
+    // BOTH the OLD (16-char tokens) and NEW (32-char UUID) values survive the
+    // fold — AC5 keeps the old/new delta, not just the new value — and both land
+    // in the live prose above `# Amendments`.
+    { type: 'file-contains-ordered', path: IDEM_PATH, values: ['16-char', '# Amendments'] },
+    { type: 'file-contains-ordered', path: IDEM_PATH, values: ['UUID', '# Amendments'] },
 
     // Live evidence the run engaged branch mode.
     { type: 'output-contains', value: 'branch' },

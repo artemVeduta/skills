@@ -4,12 +4,16 @@
 // semantic history while folding branch-local drafting residue down to the net
 // state that should survive review and merge. These tests are the CI-reachable
 // deterministic layer (run by `npm test`); they never run a model. The live
-// behavioural evidence comes from two sibling cases via the test-runner CLI:
+// behavioural evidence comes from three sibling cases via the test-runner CLI:
 // docs-sync-compact (a docs-only branch whose drafting churn folds to one net
 // Creation + one net Update, dated amendment heading folded into prose, no
-// operational entry) and docs-sync-supersede (a material reversal gated behind
-// confirmation that produces a linked supersession). Both project the real
-// docs-sync skill, so they extend #54's cases without touching them.
+// operational entry), docs-sync-supersede (a material reversal, after a bare
+// confirmation, produces a linked supersession the skill DERIVES), and
+// docs-sync-reversal-gate (a SINGLE-turn reconcile that names no supersession, so
+// the skill must recognize the reversal on its own and refuse a silent edit —
+// proving AC7's "requires confirmation" clause the write-path case cannot). All
+// three project the real docs-sync skill, so they extend #54's cases without
+// touching them.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
@@ -95,7 +99,7 @@ test('the compaction case loads, targets docs-sync, and proves the net-state fol
   // asserts git-uncommitted (HEAD at baseline, nothing staged, no remote), the
   // sibling of the gate case's git-unchanged.
   assert.ok(
-    c.assertions.some((a) => a.type === 'git-uncommitted'),
+    has((a) => a.type === 'git-uncommitted'),
     'the compaction case must assert git-uncommitted (a genuine write that leaves Git untouched)',
   );
 
@@ -105,6 +109,21 @@ test('the compaction case loads, targets docs-sync, and proves the net-state fol
   assert.ok(
     has((a) => a.type === 'file-not-contains' && a.path === 'docs/payments/log.md' && a.value === 'webhooks-branch-update'),
     'the compaction case must prove the spurious follow-up Update collapsed into one net Creation',
+  );
+
+  // AC1/AC2 POSITIVE discriminators: the weak `**Creation**`/`**Update**` markers
+  // are satisfiable by the preserved target-side history alone, so an
+  // over-deletion of the whole 2026-07-23 branch block would pass them falsely.
+  // The case must pin the BRANCH's net entries positively — the webhooks net
+  // Creation and the idempotency net Update — so "compacted to one Creation + one
+  // Update" is distinguishable from "deleted all branch lifecycle entries".
+  assert.ok(
+    has((a) => a.type === 'file-contains' && a.path === 'docs/payments/log.md' && a.value === 'webhooks-creation'),
+    'the compaction case must positively prove the webhooks net Creation survived',
+  );
+  assert.ok(
+    has((a) => a.type === 'file-contains' && a.path === 'docs/payments/log.md' && a.value === 'idem-branch-update'),
+    'the compaction case must positively prove the idempotency net Update survived',
   );
 
   // AC3 discriminator: the operational `docs-sync ran`/`**Noted**` line must be
@@ -125,16 +144,27 @@ test('the compaction case loads, targets docs-sync, and proves the net-state fol
   );
 
   // AC5 discriminator: the branch-local amendment HEADING is removed from the
-  // concept while the dated fact is folded into prose — `## 2026-07-23` must be
-  // absent from the concept, yet the date and the new value must remain.
+  // concept while the dated old/new value fact is folded into the live prose that
+  // PRECEDES `# Amendments` — `## 2026-07-23` must be absent, and the date, the
+  // OLD value (16-char) and the NEW value (UUID) must each appear before the
+  // `# Amendments` heading (ordered containment), proving "folded into canonical
+  // prose" rather than orphaned in the now-heading-less Amendments region.
   assert.ok(
     has((a) => a.type === 'file-not-contains' && a.path === 'docs/payments/decisions/idempotency.md' && a.value === '## 2026-07-23'),
     'the compaction case must prove the branch-local amendment heading is removed',
   );
-  assert.ok(
-    has((a) => a.type === 'file-contains' && a.path === 'docs/payments/decisions/idempotency.md' && a.value === '2026-07-23'),
-    'the compaction case must prove the dated value fact is retained (folded into prose)',
-  );
+  const foldedBeforeAmendments = (value) =>
+    has(
+      (a) =>
+        a.type === 'file-contains-ordered' &&
+        a.path === 'docs/payments/decisions/idempotency.md' &&
+        Array.isArray(a.values) &&
+        a.values[0] === value &&
+        a.values[a.values.length - 1] === '# Amendments',
+    );
+  assert.ok(foldedBeforeAmendments('2026-07-23'), 'the dated fact must be folded into prose above # Amendments');
+  assert.ok(foldedBeforeAmendments('16-char'), 'the OLD value must survive the fold, above # Amendments');
+  assert.ok(foldedBeforeAmendments('UUID'), 'the NEW value must survive the fold, above # Amendments');
   // AC4 discriminator on the concept: the target-side amendment survives untouched.
   assert.ok(
     has((a) => a.type === 'file-contains' && a.path === 'docs/payments/decisions/idempotency.md' && a.value === 'target-amendment'),
@@ -172,6 +202,17 @@ test('the supersession case loads, gates behind confirmation, and proves a linke
   // written after confirmation (the plan/approval seam).
   assert.equal(c.followUpPrompts.length, 1, 'the supersession must be gated behind one confirmation turn');
 
+  // The confirmation must be a BARE go-ahead: it may name the user-owned
+  // replacement PATH but must NOT dictate the supersession MECHANISM, so the
+  // linked-supersession assertions test what the skill DERIVED, not a procedure
+  // the user spelled out. (Undoing the fixed-point wording that said "mark the
+  // old one superseded and linked ... record the deprecation ... keep content
+  // intact".)
+  const confirm = c.followUpPrompts[0];
+  assert.doesNotMatch(confirm, /supersed/i, 'confirm.md must not dictate the supersession mechanism');
+  assert.doesNotMatch(confirm, /deprecat/i, 'confirm.md must not dictate logging a Deprecation');
+  assert.doesNotMatch(confirm, /\blink/i, 'confirm.md must not dictate the supersede link');
+
   // AC8 on the write path: the confirmed supersession dirties the tree but leaves
   // Git otherwise untouched.
   assert.ok(c.assertions.some((a) => a.type === 'git-uncommitted'));
@@ -200,6 +241,67 @@ test('the supersession case loads, gates behind confirmation, and proves a linke
   // buildFixture projects docs-sync with its docs-validate closure over the
   // branch's unstaged source reversal.
   const fixtureRoot = await mkdtemp(join(tmpdir(), 'dsync-supersede-'));
+  try {
+    const { closure } = await buildFixture({
+      skillName: c.skill,
+      skillsRoot,
+      driver: { discoverySubdir: '.claude/skills' },
+      fixtureRoot,
+      inputs: c.inputs,
+    });
+    assert.deepEqual(closure, ['docs-sync', 'docs-validate']);
+    const { errors } = await checkPortableContract(fixtureRoot, { skillsSubdir: '.claude/skills' });
+    assert.deepEqual(errors, []);
+  } finally {
+    await rm(fixtureRoot, { recursive: true, force: true });
+  }
+});
+
+test('the reversal-gate case loads single-turn and proves autonomous recognition without a silent edit', async () => {
+  const c = await loadCase('docs-sync-reversal-gate', { casesRoot });
+  assert.equal(c.skill, 'docs-sync');
+
+  const has = (pred) => c.assertions.some(pred);
+
+  // Autonomy: this case must be SINGLE-turn — no follow-up may script the pause.
+  // The prompt must merely ask to reconcile (same framing as docs-sync-reconcile)
+  // and must NOT name "supersede", "reversal", or ask the model to "wait"/pause,
+  // so any supersession the run surfaces is the skill's own recognition.
+  assert.equal(c.followUpPrompts.length, 0, 'the reversal gate must be a single autonomous turn');
+  assert.doesNotMatch(c.prompt, /supersed/i, 'the gate prompt must not name supersession');
+  assert.doesNotMatch(c.prompt, /reversal/i, 'the gate prompt must not name the reversal');
+  assert.doesNotMatch(c.prompt, /wait for|go-ahead|do not change|confirm/i, 'the gate prompt must not script the pause');
+
+  // Shares the write-path baseline (same accepted PostgreSQL decision + unstaged
+  // Redis reversal), so the only difference is prompt + assertions.
+  const storage = 'docs/payments/decisions/token-store.md';
+  const replacement = 'docs/payments/decisions/token-store-redis.md';
+
+  // AC7 (no silent edit) — the accepted decision is UNCHANGED without
+  // confirmation: original selected alternative retained, not superseded.
+  assert.ok(
+    has((a) => a.type === 'file-contains' && a.path === storage && a.value === 'selected-postgres'),
+    'the gate must prove the accepted decision was not silently rewritten',
+  );
+  assert.ok(has((a) => a.type === 'file-not-contains' && a.path === storage && a.value === 'status: superseded'));
+
+  // AC7 (requires confirmation) — nothing belonging to the supersession is
+  // written before the user confirms: no replacement decision, no Deprecation.
+  assert.ok(
+    has((a) => a.type === 'file-absent' && a.path === replacement),
+    'the gate must prove no replacement is filed before confirmation',
+  );
+  assert.ok(has((a) => a.type === 'file-not-contains' && a.path === 'docs/payments/log.md' && a.value === '**Deprecation**'));
+
+  // Autonomous recognition — single-turn output shows the skill surfaced the
+  // supersession though the prompt never named it.
+  assert.ok(has((a) => a.type === 'output-contains' && a.value === 'supersed'));
+
+  assert.ok(has((a) => a.type === 'portable-contract'));
+
+  // buildFixture projects docs-sync with its docs-validate closure over the same
+  // unstaged source reversal the write-path case uses.
+  const fixtureRoot = await mkdtemp(join(tmpdir(), 'dsync-gate-'));
   try {
     const { closure } = await buildFixture({
       skillName: c.skill,

@@ -158,9 +158,8 @@ supersession**: file a replacement Decision, mark the old one `status: supersede
 `superseded_by:` linking the replacement, and log one `Deprecation`. Never rewrite or
 delete the accepted choice in place.
 
-Compaction is **idempotent**: it recomputes from the merge-base and writes the net state
-rather than appending, so a second sync from the same boundary re-derives the same
-accepted net state and writes nothing more.
+Compaction is **idempotent** — it writes the net state rather than appending, so a re-run
+from the same merge-base re-derives it and changes nothing (see **Idempotence** below).
 
 ## Contradictions block precisely — never guess
 
