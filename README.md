@@ -13,6 +13,12 @@ the capability.
 - [`docs-validate`](skills/docs-validate/SKILL.md) — run a repository's strict
   `docs:validate` script through its own package manager and interpret the
   result: clean/warnings-only, hard bundle errors, or validator malfunction.
+- [`docs-sync`](skills/docs-sync/SKILL.md) — reconcile an OKF `docs/` bundle
+  with a branch's work: pick the mode and a target branch, scope from the
+  merge-base through the whole working state, fan out to disjoint concept
+  owners with one reconciler for indexes/logs/timestamps, verify, and run the
+  validator — all in the working tree, never touching Git state; declares
+  `docs-validate` as a required skill.
 - [`docs-setup`](skills/docs-setup/SKILL.md) — install, upgrade, reinstall, or
   repair the OKF v0.1 docs machinery in a repository (validator + tests, package
   scripts, seed policy/reference, marked `AGENTS.md` router, exact `CLAUDE.md`
