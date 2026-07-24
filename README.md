@@ -6,6 +6,10 @@ the capability.
 
 ## Skills
 
+- [`docs-add`](skills/docs-add/SKILL.md) — file one OKF concept (Decision,
+  Specification, Convention, Glossary, Reference, or subsystem index) into a
+  `docs/` bundle — frontmatter, body, parent `index.md` entry, and `log.md`
+  lifecycle entry — under a single approval, then validate and read it back.
 - [`docs-validate`](skills/docs-validate/SKILL.md) — run a repository's strict
   `docs:validate` script through its own package manager and interpret the
   result: clean/warnings-only, hard bundle errors, or validator malfunction.
