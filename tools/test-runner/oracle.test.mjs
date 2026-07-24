@@ -420,6 +420,107 @@ test('portable-contract defaults to the executing driver subdir from ctx and fai
   });
 });
 
+// --- trace-round-search-cap (v2 #59 seam): rounds 2 and 3 reject more than five
+// targeted searches. The observable proof is the execution-trace: for every round
+// at or past `fromRound`, the SUM of its workers' searchCount must stay within
+// `max`. This is a real budget check (the oracle sums and compares), not the trace
+// asserting itself — a round that ran six searches fails loudly. ---
+
+const BUDGET_TRACE = {
+  rounds: [
+    { round: 1, kind: 'breadth', workers: [{ searchCount: 3 }, { searchCount: 3 }, { searchCount: 2 }] },
+    { round: 2, kind: 'gaps', targetedSearchLimit: 5, workers: [{ searchCount: 3 }, { searchCount: 2 }] },
+    { round: 3, kind: 'verification', targetedSearchLimit: 5, workers: [{ searchCount: 4 }] },
+  ],
+};
+
+test('trace-round-search-cap passes when rounds 2 and 3 stay within five targeted searches', async () => {
+  await withDirs(async ({ workdir, repoRoot }) => {
+    const r = await evaluateAssertions(
+      [{ type: 'trace-round-search-cap', fromRound: 2, max: 5 }],
+      { workdir, repoRoot, output: fenced(BUDGET_TRACE) },
+    );
+    assert.equal(r[0].pass, true, r[0].detail);
+  });
+});
+
+test('trace-round-search-cap CATCHES a round 2 that ran more than five targeted searches', async () => {
+  await withDirs(async ({ workdir, repoRoot }) => {
+    const over = structuredClone(BUDGET_TRACE);
+    over.rounds[1].workers = [{ searchCount: 3 }, { searchCount: 4 }]; // 7 > 5
+    const r = await evaluateAssertions(
+      [{ type: 'trace-round-search-cap', fromRound: 2, max: 5 }],
+      { workdir, repoRoot, output: fenced(over) },
+    );
+    assert.equal(r[0].pass, false);
+    assert.match(r[0].detail, /round 2 ran 7 targeted searches/);
+  });
+  // Round 1 breadth (8 searches across three workers) is NOT capped at five — the
+  // limit applies only from round 2, so the same trace still passes.
+  await withDirs(async ({ workdir, repoRoot }) => {
+    const r = await evaluateAssertions(
+      [{ type: 'trace-round-search-cap', fromRound: 2, max: 5 }],
+      { workdir, repoRoot, output: fenced(BUDGET_TRACE) },
+    );
+    assert.equal(r[0].pass, true, r[0].detail);
+  });
+  // A missing rounds array fails loudly rather than passing vacuously.
+  await withDirs(async ({ workdir, repoRoot }) => {
+    const r = await evaluateAssertions(
+      [{ type: 'trace-round-search-cap', fromRound: 2, max: 5 }],
+      { workdir, repoRoot, output: fenced({ coordinator: {} }) },
+    );
+    assert.equal(r[0].pass, false);
+    assert.match(r[0].detail, /rounds/);
+  });
+});
+
+// --- trace-fetch-within-cap (v2 #59 seam): fetch attempts never exceed the run's
+// cap, and the run's cap never exceeds the hard ceiling (45). Proves the 20/45
+// invariant is observable — a run that fetched past its cap, or raised its cap
+// past the ceiling, fails. ---
+
+test('trace-fetch-within-cap passes a default (20) and an approved (45) run', async () => {
+  await withDirs(async ({ workdir, repoRoot }) => {
+    const def = fenced({ fetch: { cap: 20, ceiling: 45, raisedByApproval: false, attempts: 12 } });
+    const approved = fenced({ fetch: { cap: 45, ceiling: 45, raisedByApproval: true, attempts: 40 } });
+    const r = await evaluateAssertions(
+      [{ type: 'trace-fetch-within-cap' }],
+      { workdir, repoRoot, output: def },
+    );
+    assert.equal(r[0].pass, true, r[0].detail);
+    const r2 = await evaluateAssertions(
+      [{ type: 'trace-fetch-within-cap' }],
+      { workdir, repoRoot, output: approved },
+    );
+    assert.equal(r2[0].pass, true, r2[0].detail);
+  });
+});
+
+test('trace-fetch-within-cap CATCHES attempts over the cap and a cap over the 45 ceiling', async () => {
+  await withDirs(async ({ workdir, repoRoot }) => {
+    const overAttempts = await evaluateAssertions(
+      [{ type: 'trace-fetch-within-cap' }],
+      { workdir, repoRoot, output: fenced({ fetch: { cap: 20, ceiling: 45, attempts: 21 } }) },
+    );
+    assert.equal(overAttempts[0].pass, false);
+    assert.match(overAttempts[0].detail, /attempts 21 exceed the run cap 20/);
+    const overCeiling = await evaluateAssertions(
+      [{ type: 'trace-fetch-within-cap' }],
+      { workdir, repoRoot, output: fenced({ fetch: { cap: 46, ceiling: 45, attempts: 10 } }) },
+    );
+    assert.equal(overCeiling[0].pass, false);
+    assert.match(overCeiling[0].detail, /cap 46 exceeds the hard ceiling 45/);
+    // No fetch block at all fails loudly rather than passing vacuously.
+    const missing = await evaluateAssertions(
+      [{ type: 'trace-fetch-within-cap' }],
+      { workdir, repoRoot, output: fenced({ coordinator: {} }) },
+    );
+    assert.equal(missing[0].pass, false);
+    assert.match(missing[0].detail, /fetch/);
+  });
+});
+
 test('output-contains checks captured harness output; unknown type fails', async () => {
   await withDirs(async ({ workdir, repoRoot }) => {
     const r = await evaluateAssertions(

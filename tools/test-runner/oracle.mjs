@@ -74,6 +74,8 @@ async function evaluateOne(a, { workdir, repoRoot, output, baselineSha, skillsSu
     case 'trace-field':
     case 'trace-every':
     case 'trace-disjoint':
+    case 'trace-round-search-cap':
+    case 'trace-fetch-within-cap':
       return evaluateTrace(a, output);
     case 'git-unchanged':
       return evaluateGitUnchanged(workdir, baselineSha);
@@ -234,6 +236,46 @@ function evaluateTrace(a, output) {
           }
           seen.set(item, i);
         }
+      }
+      return { pass: true, detail: '' };
+    }
+    case 'trace-round-search-cap': {
+      // Round-budget check (spec §Fanout and budgets): every round at or past
+      // `fromRound` (rounds 2 and 3) may run at most `max` targeted searches in
+      // total. Sum each such round's workers' searchCount and fail if it exceeds
+      // the limit — a real comparison, so a six-search round-2 fails loudly.
+      const rounds = traceGet(trace, 'rounds');
+      if (!Array.isArray(rounds)) return { pass: false, detail: 'trace rounds is not an array' };
+      const from = a.fromRound ?? 2;
+      const max = a.max ?? 5;
+      for (const r of rounds) {
+        if (typeof r?.round !== 'number' || r.round < from) continue;
+        const workers = Array.isArray(r.workers) ? r.workers : [];
+        const total = workers.reduce((sum, w) => sum + (Number(w?.searchCount) || 0), 0);
+        if (total > max) {
+          return { pass: false, detail: `round ${r.round} ran ${total} targeted searches, exceeding the limit of ${max}` };
+        }
+      }
+      return { pass: true, detail: '' };
+    }
+    case 'trace-fetch-within-cap': {
+      // Fetch-cap invariant (spec §Fanout and budgets): a run never fetches past
+      // its own cap, and the cap itself never exceeds the hard ceiling (45). Both
+      // the 20 default and an approved 45 run satisfy it; only a run that overran
+      // its cap, or raised the cap past the ceiling, fails.
+      const fetch = traceGet(trace, 'fetch');
+      if (fetch == null || typeof fetch !== 'object') {
+        return { pass: false, detail: 'trace has no fetch accounting block' };
+      }
+      const { cap, ceiling, attempts } = fetch;
+      if (typeof cap !== 'number' || typeof attempts !== 'number') {
+        return { pass: false, detail: 'trace fetch block must carry numeric cap and attempts' };
+      }
+      if (attempts > cap) {
+        return { pass: false, detail: `fetch attempts ${attempts} exceed the run cap ${cap}` };
+      }
+      if (typeof ceiling === 'number' && cap > ceiling) {
+        return { pass: false, detail: `run cap ${cap} exceeds the hard ceiling ${ceiling}` };
       }
       return { pass: true, detail: '' };
     }

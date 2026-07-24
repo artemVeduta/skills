@@ -1,0 +1,1 @@
+Yes — write the reconnaissance brief to `research/2026-07-24-semver-precedence-recon.md` now. Only that one file, outside the bundle; do not touch any `docs/` index, log, or concept. Persist summaries and citations only. Do not stage, commit, push, or open a pull request.

@@ -13,6 +13,25 @@ optional `docs/conventions/research.md`; it can never raise a budget past a hard
 ceiling or weaken a safety rule. When that override file is absent, the values
 below apply and the run **announces** that it used shipped defaults.
 
+## What a repository override may refine or lower
+
+A `docs/conventions/research.md` override may **refine** these fields and
+**lower** budgets — nothing else:
+
+- **objectives** — what a run should prioritise;
+- **source preferences** — refinements to the hierarchy below (no override
+  promotes unsourced material to high confidence);
+- **confidence definitions** — the wording of the high/medium/low bar;
+- **freshness** — the recency window;
+- **exclusions** — sources or domains to skip;
+- **output style** — prose conventions for the filed concept; and
+- **budgets** — only **downward** (a lower fetch cap or per-round split).
+
+Fixed mechanics, safety rules, and the hard ceilings live in `SKILL.md` and are
+**not** refinable here. `SKILL.md` resolves a partially invalid override
+field-by-field: valid settings are kept, rejected ones fall back to the values
+below.
+
 ## Default write mode
 
 **Reference enrichment.** Create or materially enrich exactly one curated

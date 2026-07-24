@@ -40,18 +40,25 @@ the capability.
 - [`docs-autoresearch`](skills/docs-autoresearch/SKILL.md) — run **explicit,
   bounded, safe** research and file the result as durable OKF knowledge. Given an
   explicit topic (or a user-selected frontier candidate — generic research never
-  invokes it), the default mode produces exactly **one curated multi-source
-  `Reference`**: read-only workers fan out behind a per-round barrier (3–5 in
-  round 1, then targeted gap/verification rounds) and never delegate; a single
-  coordinator is the only writer; fetches are metered against a hard cap
-  (failures and retries counted) and only public HTTP(S) URLs are fetched, with
-  fetched content treated as untrusted data and raw bodies never persisted. Every
-  durable write waits behind one complete filing plan; on approval new concepts
-  are filed through `docs-add` (existing ones updated directly, at most three per
-  run), then validated through `docs-validate` and read back — a denied plan
-  leaves the bundle unchanged. Ships only its portable workflow plus one flat
-  `RESEARCH-DEFAULTS.md`; declares `docs-add` and `docs-validate` as required
-  skills.
+  invokes it), it runs in one of **three explicit write modes**: **Reference
+  enrichment** (default) files exactly one curated multi-source `Reference`;
+  **Specification resolution** answers a target Specification's question in place
+  (adding a Reference only when the evidence is independently reusable); and
+  **pre-work reconnaissance** writes one dated brief under `research/` outside the
+  bundle with no OKF ceremony. Read-only workers fan out behind a per-round
+  barrier (3–5 in round 1, then gap/verification rounds capped at five targeted
+  searches) and never delegate; a single coordinator is the only writer; fetches
+  are metered against a cap that counts failures and retries (normal 20, one
+  approved run up to a hard ceiling of 45, reset next run), only public HTTP(S)
+  URLs are fetched, and raw bodies are never persisted. Shipped
+  `RESEARCH-DEFAULTS.md` supplies the tunable defaults; an optional
+  `docs/conventions/research.md` may refine fields and lower budgets but never
+  override fixed mechanics, safety, or ceilings. Every durable write waits behind
+  one filing plan; on approval concepts are filed through `docs-add` (at most
+  three per run, all modes), validated through `docs-validate`, and read back.
+  Collision, cap exhaustion, failed fetch, unsafe URL, concept ceiling, denied
+  approval, mid-write failure, and insufficient fanout each follow a distinct
+  stop contract. Declares `docs-add` and `docs-validate` as required skills.
 - [`okf-docs-setup`](skills/okf-docs-setup/SKILL.md) — set up or standardize a
   repository's documentation as an OKF (Open Knowledge Format) v0.1 bundle:
   validator, docs-add/docs-validate skills, rules, frontmatter taxonomy.

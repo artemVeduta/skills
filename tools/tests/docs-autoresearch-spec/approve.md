@@ -1,0 +1,1 @@
+Yes — that plan is right. Apply it now: update the target Specification in place so its open question is resolved, add the one consolidated lifecycle entry, then validate the bundle and read the concept back. Persist summaries and citations only — no raw source bodies. Do not stage, commit, push, or open a pull request.
