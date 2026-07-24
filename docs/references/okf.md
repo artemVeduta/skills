@@ -3,7 +3,7 @@ type: Reference
 title: Open Knowledge Format (OKF) v0.1
 description: Summary of the OKF v0.1 draft spec that this bundle conforms to.
 resource: https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md
-timestamp: 2026-07-10
+timestamp: 2026-07-24
 ---
 
 # Open Knowledge Format (OKF) v0.1
@@ -41,7 +41,9 @@ are no typed relations — relationship kind lives in prose. Broken links are no
 
 There is no manifest, schema registry, or required validator. "If you can `cat` a file,
 you can read OKF; if you can `git clone` a repo, you can ship it." This repo's
-`npm run docs:validate` is an optional, advisory backstop, not an OKF requirement.
+`npm run docs:validate` is a house convention layered on top, not an OKF requirement —
+it enforces the OKF conformance floor strictly (exit `1` on hard errors, `2` on
+malfunction) while everything beyond the floor stays a non-blocking warning.
 
 # Citations
 

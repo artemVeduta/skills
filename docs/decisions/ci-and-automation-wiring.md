@@ -2,7 +2,7 @@
 type: Decision
 title: CI and automation wiring
 description: Push/PR CI runs only the free static checks and goes red solely on linter ERRORs; all inference-bearing runs stay local with no API keys or schedules in CI; the release script warns on stale benchmark summaries but proceeds.
-timestamp: 2026-07-11
+timestamp: 2026-07-24
 ---
 
 # CI and automation wiring
@@ -83,3 +83,13 @@ baselines.
 ## YYYY-MM-DD — <short title>
 <what changed and why; link the driving work>
 -->
+
+## 2026-07-24 — Docs validator became a strict gate
+
+[Enforce minimal OKF errors through one strict validator contract](/decisions/okf-docs-strict-validation.md)
+(#49) replaced the always-exit-0 docs validator with strict exits (`0`
+clean/warnings-only, `1` hard errors, `2` malfunction), so the CI docs-validate
+step now fails the job on hard bundle errors. Decision 1's "red means linter
+ERRORs" widens to "red means linter ERRORs or docs-validate hard errors"; CI
+remains static-only, free, and deterministic, so the cost rationale is
+unchanged. The linter's own default advisory invocation is untouched.

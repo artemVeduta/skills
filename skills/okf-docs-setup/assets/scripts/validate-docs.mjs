@@ -1,8 +1,15 @@
 #!/usr/bin/env node
-// Report-only OKF v0.1 conformance validator for the docs/ bundle.
-// ALWAYS exits 0 (advisory, never blocks — see docs/conventions/documentation.md).
-// Hard ERRORS: every non-reserved .md under docs/ (excluding docs/superpowers/) has a
-// parseable frontmatter block with a non-empty `type`. Everything else is a soft WARNING.
+// Strict OKF v0.1 conformance validator for the docs/ bundle.
+// Exit contract (no flags, no alternate strict entrypoint):
+//   0 — clean, or warnings only;
+//   1 — one or more hard bundle errors;
+//   2 — validator malfunction (e.g. missing/unreadable docs root).
+// Hard ERRORS are exactly the OKF conformance floor: unparseable frontmatter
+// (a YAML 1.2 mapping between standalone `---` delimiters, opening delimiter on
+// the first line) and a missing/empty/non-scalar `type`. Everything else is a
+// non-blocking WARNING. Every .md file under the bundle root is validated
+// uniformly; non-Markdown sidecars are ignored; there is no exclusion or
+// suppression grammar. See docs/conventions/documentation.md.
 
 import { readdir, readFile } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
@@ -10,41 +17,310 @@ import { fileURLToPath } from 'node:url';
 
 export const reservedFiles = new Set(['index.md', 'log.md']);
 export const recommendedFields = ['title', 'description', 'timestamp'];
-const excludedTopLevelDirs = new Set(['superpowers']);
 const isoRe = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:\d{2})?)?$/;
-const isoDateRe = /^\d{4}-\d{2}-\d{2}$/;
+const logHeadingRe = /^## \d{4}-\d{2}-\d{2}$/;
+const amendmentHeadingRe = /^## (\d{4}-\d{2}-\d{2})(?: — \S.*)?$/;
 
-function stripInlineComment(value) {
-  let inSingle = false;
-  let inDouble = false;
-  for (let i = 0; i < value.length; i += 1) {
-    const c = value[i];
-    if (c === "'" && !inDouble) inSingle = !inSingle;
-    else if (c === '"' && !inSingle) inDouble = !inDouble;
-    else if (
-      c === '#' &&
-      !inSingle &&
-      !inDouble &&
-      (i === 0 || /\s/.test(value[i - 1]))
-    ) {
-      return value.slice(0, i);
+// ---------------------------------------------------------------------------
+// Frontmatter oracle — a self-contained parser for the YAML 1.2 subset used by
+// concept frontmatter: block/flow mappings and sequences, plain/quoted/block
+// scalars, comments. Anything outside the subset (anchors, aliases, tags,
+// multi-line flow collections) is rejected as unparseable — deliberately, so
+// the oracle stays dependency-free while still rejecting invalid YAML,
+// duplicate keys, and non-mapping documents.
+// ---------------------------------------------------------------------------
+
+class YamlError extends Error {}
+
+function isBlankOrComment(line) {
+  return /^[ \t]*(#.*)?$/.test(line);
+}
+
+function indentOf(line) {
+  let i = 0;
+  while (i < line.length && line[i] === ' ') i += 1;
+  if (line[i] === '\t') throw new YamlError('tab indentation is not allowed');
+  return i;
+}
+
+function skipSpaces(s, i) {
+  while (i < s.length && (s[i] === ' ' || s[i] === '\t')) i += 1;
+  return i;
+}
+
+function resolvePlain(raw) {
+  if (/^(~|null|Null|NULL)$/.test(raw)) return null;
+  if (/^(true|True|TRUE)$/.test(raw)) return true;
+  if (/^(false|False|FALSE)$/.test(raw)) return false;
+  if (/^[-+]?[0-9]+$/.test(raw)) return parseInt(raw, 10);
+  if (/^0o[0-7]+$/.test(raw)) return parseInt(raw.slice(2), 8);
+  if (/^0x[0-9a-fA-F]+$/.test(raw)) return parseInt(raw.slice(2), 16);
+  if (
+    /^[-+]?([0-9]+\.[0-9]*|\.[0-9]+)([eE][-+]?[0-9]+)?$/.test(raw) ||
+    /^[-+]?[0-9]+[eE][-+]?[0-9]+$/.test(raw)
+  ) {
+    return parseFloat(raw);
+  }
+  if (/^[-+]?\.(inf|Inf|INF)$/.test(raw)) return raw.startsWith('-') ? -Infinity : Infinity;
+  if (/^\.(nan|NaN|NAN)$/.test(raw)) return NaN;
+  return raw;
+}
+
+function parseQuoted(s, i) {
+  const q = s[i];
+  let out = '';
+  let j = i + 1;
+  while (j < s.length) {
+    const ch = s[j];
+    if (q === "'") {
+      if (ch === "'") {
+        if (s[j + 1] === "'") {
+          out += "'";
+          j += 2;
+          continue;
+        }
+        return [out, j + 1];
+      }
+      out += ch;
+      j += 1;
+    } else {
+      if (ch === '\\') {
+        const esc = s[j + 1];
+        if (esc === undefined) throw new YamlError('bad escape in double-quoted scalar');
+        const map = { n: '\n', t: '\t', r: '\r', '"': '"', '\\': '\\', 0: '\0' };
+        out += map[esc] ?? esc;
+        j += 2;
+        continue;
+      }
+      if (ch === '"') return [out, j + 1];
+      out += ch;
+      j += 1;
     }
   }
+  throw new YamlError('unterminated quoted scalar');
+}
+
+function parseFlowValue(s, i, inFlow) {
+  i = skipSpaces(s, i);
+  const c = s[i];
+  if (c === undefined) throw new YamlError('missing value');
+  if (c === '[') return parseFlowSeq(s, i);
+  if (c === '{') return parseFlowMap(s, i);
+  if (c === '"' || c === "'") {
+    const [v, next] = parseQuoted(s, i);
+    return [v, next];
+  }
+  if ('&*!@`%'.includes(c)) {
+    throw new YamlError(`unsupported YAML indicator "${c}"`);
+  }
+  let end = i;
+  while (end < s.length) {
+    const ch = s[end];
+    if (inFlow && (ch === ',' || ch === ']' || ch === '}')) break;
+    if (ch === '#' && end > i && /[ \t]/.test(s[end - 1])) break;
+    if (
+      ch === ':' &&
+      (end + 1 === s.length ||
+        /[ \t]/.test(s[end + 1]) ||
+        (inFlow && ',]}'.includes(s[end + 1])))
+    ) {
+      throw new YamlError('unexpected ":" inside a plain scalar (quote the value)');
+    }
+    end += 1;
+  }
+  const raw = s.slice(i, end).trim();
+  if (raw === '') throw new YamlError('empty plain scalar');
+  return [resolvePlain(raw), end];
+}
+
+function parseFlowSeq(s, i) {
+  const out = [];
+  let j = skipSpaces(s, i + 1);
+  if (s[j] === ']') return [out, j + 1];
+  for (;;) {
+    const [v, next] = parseFlowValue(s, j, true);
+    out.push(v);
+    j = skipSpaces(s, next);
+    if (s[j] === ',') {
+      j = skipSpaces(s, j + 1);
+      if (s[j] === ']') return [out, j + 1];
+      continue;
+    }
+    if (s[j] === ']') return [out, j + 1];
+    throw new YamlError('unterminated flow sequence');
+  }
+}
+
+function parseFlowMap(s, i) {
+  const out = {};
+  let j = skipSpaces(s, i + 1);
+  if (s[j] === '}') return [out, j + 1];
+  for (;;) {
+    let key;
+    if (s[j] === '"' || s[j] === "'") {
+      [key, j] = parseQuoted(s, j);
+    } else {
+      let e = j;
+      while (e < s.length && !':,}'.includes(s[e])) e += 1;
+      key = s.slice(j, e).trim();
+      if (key === '') throw new YamlError('empty flow mapping key');
+      j = e;
+    }
+    j = skipSpaces(s, j);
+    if (s[j] !== ':') throw new YamlError('missing ":" in flow mapping');
+    j = skipSpaces(s, j + 1);
+    const [v, next] = parseFlowValue(s, j, true);
+    if (Object.prototype.hasOwnProperty.call(out, key)) {
+      throw new YamlError(`duplicate key "${key}"`);
+    }
+    out[key] = v;
+    j = skipSpaces(s, next);
+    if (s[j] === ',') {
+      j = skipSpaces(s, j + 1);
+      if (s[j] === '}') return [out, j + 1];
+      continue;
+    }
+    if (s[j] === '}') return [out, j + 1];
+    throw new YamlError('unterminated flow mapping');
+  }
+}
+
+function nextSignificant(ctx) {
+  while (ctx.pos < ctx.lines.length && isBlankOrComment(ctx.lines[ctx.pos])) ctx.pos += 1;
+  return ctx.pos < ctx.lines.length ? ctx.lines[ctx.pos] : null;
+}
+
+function readBlockScalar(ctx, indent) {
+  const collected = [];
+  while (ctx.pos < ctx.lines.length) {
+    const line = ctx.lines[ctx.pos];
+    if (/^[ \t]*$/.test(line)) {
+      collected.push('');
+      ctx.pos += 1;
+      continue;
+    }
+    const li = indentOf(line);
+    if (li <= indent) break;
+    collected.push(line.slice(li));
+    ctx.pos += 1;
+  }
+  while (collected.length && collected[collected.length - 1] === '') collected.pop();
+  return collected.join('\n');
+}
+
+function parseInlineValue(ctx, rest, indent) {
+  const trimmed = rest.trim();
+  if (/^[|>][+-]?[0-9]?$/.test(trimmed)) {
+    ctx.pos += 1;
+    return readBlockScalar(ctx, indent);
+  }
+  const [value, next] = parseFlowValue(rest, 0, false);
+  const tail = rest.slice(next);
+  if (!/^[ \t]*(#.*)?$/.test(tail)) {
+    throw new YamlError(`trailing content after value: "${tail.trim()}"`);
+  }
+  ctx.pos += 1;
   return value;
 }
 
-function unquote(value) {
-  return value.replace(/^['"]|['"]$/g, '');
+function parseChildBlock(ctx, parentIndent) {
+  const line = nextSignificant(ctx);
+  if (line === null) return null;
+  const li = indentOf(line);
+  if (li > parentIndent) return parseBlock(ctx, li);
+  if (li === parentIndent) {
+    const content = line.slice(li);
+    // YAML permits a block sequence at the same indent as its mapping key.
+    if (content === '-' || content.startsWith('- ')) return parseSequence(ctx, li);
+  }
+  return null;
+}
+
+const KEY_RE = /^([^\s'"#][^:]*?|'[^']*'|"[^"]*")[ \t]*:(?:[ \t]+(.*))?$/;
+
+function parseMapping(ctx, indent) {
+  const out = {};
+  for (;;) {
+    const line = nextSignificant(ctx);
+    if (line === null) break;
+    const li = indentOf(line);
+    if (li < indent) break;
+    if (li > indent) throw new YamlError(`bad indentation: "${line.trim()}"`);
+    const content = line.slice(li);
+    if (content === '-' || content.startsWith('- ')) {
+      throw new YamlError('sequence entry in mapping context');
+    }
+    const m = content.match(KEY_RE);
+    if (!m) throw new YamlError(`invalid mapping entry: "${content}"`);
+    let key = m[1];
+    if (/^['"]/.test(key)) key = key.slice(1, -1);
+    if (Object.prototype.hasOwnProperty.call(out, key)) {
+      throw new YamlError(`duplicate key "${key}"`);
+    }
+    const rest = m[2];
+    if (rest === undefined || rest.trim() === '' || rest.trim().startsWith('#')) {
+      ctx.pos += 1;
+      out[key] = parseChildBlock(ctx, indent);
+    } else {
+      out[key] = parseInlineValue(ctx, rest, indent);
+    }
+  }
+  return out;
+}
+
+function parseSequence(ctx, indent) {
+  const out = [];
+  for (;;) {
+    const line = nextSignificant(ctx);
+    if (line === null) break;
+    const li = indentOf(line);
+    if (li < indent) break;
+    if (li > indent) throw new YamlError(`bad indentation: "${line.trim()}"`);
+    const content = line.slice(li);
+    if (content !== '-' && !content.startsWith('- ')) break;
+    if (content === '-') {
+      ctx.pos += 1;
+      const child = nextSignificant(ctx);
+      out.push(child !== null && indentOf(child) > indent ? parseBlock(ctx, indentOf(child)) : null);
+    } else {
+      const rest = content.slice(2);
+      if (KEY_RE.test(rest.trimEnd())) {
+        // "- key: value" — a mapping nested in a sequence entry.
+        ctx.lines[ctx.pos] = ' '.repeat(indent + 2) + rest;
+        out.push(parseMapping(ctx, indent + 2));
+      } else {
+        out.push(parseInlineValue(ctx, rest, indent));
+      }
+    }
+  }
+  return out;
+}
+
+function parseBlock(ctx, indent) {
+  const line = ctx.lines[ctx.pos];
+  const content = line.slice(indent);
+  if (content === '-' || content.startsWith('- ')) return parseSequence(ctx, indent);
+  return parseMapping(ctx, indent);
+}
+
+function parseYamlDocument(text) {
+  const ctx = { lines: text.split(/\r?\n/), pos: 0 };
+  const first = nextSignificant(ctx);
+  if (first === null) return null;
+  const value = parseBlock(ctx, indentOf(first));
+  const trailing = nextSignificant(ctx);
+  if (trailing !== null) throw new YamlError(`unexpected content: "${trailing.trim()}"`);
+  return value;
 }
 
 export function parseFrontmatter(text) {
   const lines = text.split(/\r?\n/);
-  if (lines[0].trim() !== '---') {
-    return { ok: false, reason: 'no opening --- frontmatter fence' };
+  if (!/^---\s*$/.test(lines[0] ?? '')) {
+    return { ok: false, reason: 'missing opening --- delimiter on the first line' };
   }
   let end = -1;
   for (let i = 1; i < lines.length; i += 1) {
-    if (lines[i].trim() === '---') {
+    if (/^---\s*$/.test(lines[i])) {
       end = i;
       break;
     }
@@ -52,17 +328,39 @@ export function parseFrontmatter(text) {
   if (end === -1) {
     return { ok: false, reason: 'unterminated frontmatter (no closing ---)' };
   }
-  // Extract scalar `key: value` pairs only. No validation rule consumes a
-  // list-valued field, so unrecognized lines (list items, blanks, comments)
-  // are ignored rather than rejected — deliberately tolerant for an advisory
-  // validator.
-  const data = {};
-  for (let i = 1; i < end; i += 1) {
-    const m = lines[i].match(/^([A-Za-z0-9_]+):\s*(.*)$/);
-    if (!m) continue;
-    data[m[1]] = unquote(stripInlineComment(m[2]).trim());
+  let doc;
+  try {
+    doc = parseYamlDocument(lines.slice(1, end).join('\n'));
+  } catch (err) {
+    return { ok: false, reason: `invalid YAML frontmatter: ${err.message}` };
   }
-  return { ok: true, data, body: lines.slice(end + 1).join('\n') };
+  if (doc === null || typeof doc !== 'object' || Array.isArray(doc)) {
+    return { ok: false, reason: 'frontmatter is not a YAML mapping' };
+  }
+  return { ok: true, data: doc, body: lines.slice(end + 1).join('\n') };
+}
+
+// ---------------------------------------------------------------------------
+// Concept and reserved-file checks
+// ---------------------------------------------------------------------------
+
+// Newest exact `## YYYY-MM-DD` / `## YYYY-MM-DD — <title>` heading inside the
+// region opened by an exact level-one `# Amendments` heading and closed by the
+// next level-one heading or EOF. Lookalike headings outside the region are
+// ignored.
+function newestAmendmentDate(body) {
+  let inRegion = false;
+  let newest = null;
+  for (const line of body.split(/\r?\n/)) {
+    if (/^#(?:[ \t]|$)/.test(line)) {
+      inRegion = line === '# Amendments';
+      continue;
+    }
+    if (!inRegion) continue;
+    const m = line.match(amendmentHeadingRe);
+    if (m && (newest === null || m[1] > newest)) newest = m[1];
+  }
+  return newest;
 }
 
 export function validateConcept(relPath, text) {
@@ -75,18 +373,33 @@ export function validateConcept(relPath, text) {
   }
   const type = fm.data.type;
   if (typeof type !== 'string' || type.trim() === '') {
-    errors.push(`${relPath}: missing or empty required \`type\` field`);
+    errors.push(`${relPath}: \`type\` must be a non-empty scalar string`);
   }
   for (const field of recommendedFields) {
-    if (!(field in fm.data) || String(fm.data[field]).trim() === '') {
-      warnings.push(`${relPath}: missing recommended field \`${field}\``);
+    const v = fm.data[field];
+    const present =
+      typeof v === 'string' ? v.trim() !== '' : v !== undefined && v !== null;
+    if (!present) warnings.push(`${relPath}: missing recommended field \`${field}\``);
+  }
+  const ts = fm.data.timestamp;
+  if (ts !== undefined && ts !== null) {
+    if (typeof ts !== 'string' || !isoRe.test(ts)) {
+      warnings.push(`${relPath}: \`timestamp\` "${ts}" is not ISO 8601`);
+    } else {
+      const newest = newestAmendmentDate(fm.body);
+      const day = ts.slice(0, 10);
+      if (newest !== null && day < newest) {
+        warnings.push(
+          `${relPath}: \`timestamp\` ${day} is older than the newest \`# Amendments\` entry ${newest}`
+        );
+      }
     }
   }
-  if (fm.data.timestamp && !isoRe.test(String(fm.data.timestamp))) {
-    warnings.push(`${relPath}: \`timestamp\` "${fm.data.timestamp}" is not ISO 8601`);
-  }
-  if (fm.data.status === 'superseded' && !fm.data.superseded_by) {
-    warnings.push(`${relPath}: status superseded but no \`superseded_by\``);
+  if (fm.data.status === 'superseded') {
+    const sb = fm.data.superseded_by;
+    if (typeof sb !== 'string' || sb.trim() === '') {
+      warnings.push(`${relPath}: status superseded but no \`superseded_by\``);
+    }
   }
   return { errors, warnings };
 }
@@ -97,23 +410,26 @@ export function validateReserved(relPath, text, isRoot) {
   const errors = [];
   const warnings = [];
   const base = relPath.split('/').pop();
-  const hasFm = text.split('\n')[0].trim() === '---';
+  const hasFm = /^---\s*$/.test(text.split(/\r?\n/)[0] ?? '');
   if (base === 'index.md') {
     if (hasFm && !isRoot) {
       warnings.push(`${relPath}: non-root index.md must not carry frontmatter (OKF §6)`);
     }
     if (isRoot && hasFm) {
       const fm = parseFrontmatter(text);
-      if (fm.ok && fm.data.okf_version !== '0.1') {
-        warnings.push(`${relPath}: root index.md should declare okf_version: "0.1"`);
+      if (!fm.ok || fm.data.okf_version !== '0.1') {
+        warnings.push(
+          `${relPath}: root index.md frontmatter must declare string okf_version: "0.1"`
+        );
       }
     }
   }
   if (base === 'log.md') {
-    for (const h of text.split('\n').filter((l) => /^##\s+/.test(l))) {
-      const d = h.replace(/^##\s+/, '').trim();
-      if (!isoDateRe.test(d)) {
-        warnings.push(`${relPath}: log.md date heading "${d}" is not ISO YYYY-MM-DD`);
+    for (const line of text.split(/\r?\n/)) {
+      if (/^##(?!#)/.test(line) && !logHeadingRe.test(line)) {
+        warnings.push(
+          `${relPath}: log.md heading "${line.replace(/^##[ \t]*/, '').trim()}" is not exact \`## YYYY-MM-DD\``
+        );
       }
     }
   }
@@ -157,7 +473,6 @@ export async function walkDocs(rootDir) {
     for (const e of entries) {
       const full = join(dir, e.name);
       if (e.isDirectory()) {
-        if (excludedTopLevelDirs.has(toPosixRel(rootDir, full))) continue;
         await walk(full);
       } else if (e.isFile() && e.name.endsWith('.md')) {
         out.push(full);
@@ -168,29 +483,29 @@ export async function walkDocs(rootDir) {
   return out;
 }
 
-// Warnings for concepts in `concepts` not linked (by exact basename) from an index's text.
-export function indexCoverageWarnings(indexRel, indexText, dir, concepts) {
-  const warnings = [];
-  const linkedBasenames = new Set();
-  for (const m of indexText.matchAll(/\]\((\/[^)\s#]+)(#[^)\s]*)?\)/g)) {
-    const target = m[1].replace(/^\//, '');
-    if (target.endsWith('.md')) {
-      linkedBasenames.add(target.split('/').pop());
-    }
+// One aggregated warning per index: concepts in the same directory that the
+// index does not link by exact bundle-relative path — total count plus the
+// first three omitted paths in lexicographic order. A cross-directory link to
+// a same-basename concept does not satisfy coverage.
+export function indexCoverageWarnings(indexRel, indexText, conceptRelPaths) {
+  const linked = new Set();
+  for (const m of stripCode(indexText).matchAll(/\]\((\/[^)\s#]+)(#[^)\s]*)?\)/g)) {
+    linked.add(m[1].replace(/^\//, ''));
   }
-  for (const base of concepts) {
-    if (!linkedBasenames.has(base)) {
-      warnings.push(
-        `${indexRel}: missing index entry for ${dir ? `${dir}/` : ''}${base}`
-      );
-    }
-  }
-  return warnings;
+  const missing = conceptRelPaths.filter((p) => !linked.has(p)).sort();
+  if (missing.length === 0) return [];
+  const shown = missing
+    .slice(0, 3)
+    .map((p) => `/${p}`)
+    .join(', ');
+  return [
+    `${indexRel}: ${missing.length} concept(s) not linked by exact bundle path (first ${Math.min(3, missing.length)}: ${shown})`,
+  ];
 }
 
 async function checkIndexCoverage(rootDir, conceptDirs) {
   const warnings = [];
-  for (const [dir, concepts] of conceptDirs) {
+  for (const [dir, rels] of conceptDirs) {
     const indexRel = dir ? `${dir}/index.md` : 'index.md';
     let indexText;
     try {
@@ -199,7 +514,7 @@ async function checkIndexCoverage(rootDir, conceptDirs) {
       warnings.push(`${dir || '(root)'}: directory has concepts but no index.md`);
       continue;
     }
-    warnings.push(...indexCoverageWarnings(indexRel, indexText, dir, concepts));
+    warnings.push(...indexCoverageWarnings(indexRel, indexText, rels));
   }
   return warnings;
 }
@@ -225,8 +540,8 @@ export async function validateBundle(rootDir) {
       errors.push(...r.errors);
       warnings.push(...r.warnings);
       const dir = posixDir(rel);
-      if (!conceptDirs.has(dir)) conceptDirs.set(dir, new Set());
-      conceptDirs.get(dir).add(base);
+      if (!conceptDirs.has(dir)) conceptDirs.set(dir, []);
+      conceptDirs.get(dir).push(rel);
     }
   }
   warnings.push(...(await checkIndexCoverage(rootDir, conceptDirs)));
@@ -249,18 +564,30 @@ export function formatReport({ errors, warnings }) {
     lines.push('');
   }
   lines.push(
-    `${errors.length} hard failure(s), ${warnings.length} warning(s). (Advisory — exit 0, never blocks.)`
+    `${errors.length} hard failure(s), ${warnings.length} warning(s). Exit: 0 clean/warnings-only, 1 hard errors, 2 malfunction.`
   );
   return lines.join('\n');
 }
 
 async function main() {
   const root = process.argv[2] || 'docs';
-  const result = await validateBundle(root);
+  let result;
+  try {
+    result = await validateBundle(root);
+  } catch (err) {
+    console.error(`docs:validate — validator malfunction: ${err?.message ?? err}`);
+    return 2;
+  }
   console.log(formatReport(result));
-  process.exit(0);
+  return result.errors.length > 0 ? 1 : 0;
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  main();
+  main().then(
+    (code) => process.exit(code),
+    (err) => {
+      console.error(`docs:validate — validator malfunction: ${err?.message ?? err}`);
+      process.exit(2);
+    }
+  );
 }

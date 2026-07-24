@@ -2,7 +2,7 @@
 type: Convention
 title: Byte-exact assets contract
 description: Rules for editing the okf-docs-setup skill's assets, its intentional placeholders, the package-manager substitution target, and the claude/ install rename.
-timestamp: 2026-07-10
+timestamp: 2026-07-24
 ---
 
 # Byte-exact assets contract
@@ -14,6 +14,12 @@ timestamp: 2026-07-10
   changes need a reason. When behaviour changes, update the matching test
   (`skills/okf-docs-setup/assets/scripts/validate-docs.test.mjs`) and keep the
   manifest table in `skills/okf-docs-setup/SKILL.md` in sync.
+- **The two validator mirror pairs are mechanically enforced.** A focused
+  repository-only test reached by `npm test`
+  (`scripts/validate-docs-mirror.test.mjs`) compares the asset and installed
+  copies of `validate-docs.mjs` and `validate-docs.test.mjs` as raw buffers; it
+  fails on missing files and any byte difference and never repairs. When
+  changing the validator, edit the asset and recopy it over `scripts/`.
 - **`<YYYY-MM-DD>`, `<PROJECT>`, and `<source-edit-path-glob>` are intentional
   placeholders** throughout `assets/` — they are filled per-install. Do not
   fill them in this source repo.

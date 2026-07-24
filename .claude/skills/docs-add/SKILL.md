@@ -48,8 +48,9 @@ After writing, run from the repo root:
 npm run docs:validate
 ```
 
-Confirm **zero hard ERRORS** for the new file. Triage warnings (missing recommended
-fields, broken links). The validator never blocks — a clean errors section is the bar.
+Confirm the run **exits `0`** with zero hard ERRORS for the new file. Triage warnings
+(missing recommended fields, broken links) — warnings never block, but a hard error
+exits `1` and must be fixed before the concept is conformant.
 
 ## Things to NEVER do
 

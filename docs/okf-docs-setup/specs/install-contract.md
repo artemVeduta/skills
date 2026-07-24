@@ -2,7 +2,7 @@
 type: Specification
 title: Install contract
 description: What an okf-docs-setup install delivers into a target repo — the manifest, the per-install substitutions, the claude/ rename, the phase structure, and what "done" means.
-timestamp: 2026-07-10
+timestamp: 2026-07-24
 ---
 
 # Install contract
@@ -32,6 +32,14 @@ root in four groups:
    leading-dot rename to `.claude/`.
 4. **Two `package.json` scripts** — `docs:validate` and `docs:validate:test`,
    wiring the validator into the target's package manager.
+
+A fifth, **optional** group is delivered only on request: the minimal GitHub
+Actions workflow (`assets/github/workflows/docs-validate.yml`, installed to
+`.github/workflows/docs-validate.yml`) that runs `docs:validate` on pull
+requests and fails the job on exit `1`. Pre-push enforcement is never
+installed — the plain-hook, husky v4, and husky v8/v9 recipes are documented in
+the `docs-validate` skill, and setup adds no husky dependency or `prepare`
+script.
 
 A partial install (skeleton plus a few concepts, without the tests, both rules,
 both skills, and the scripts) does not satisfy the contract.
@@ -74,8 +82,8 @@ The skill separates fixed machinery from authored content:
 
 ## Done criteria
 
-- The target's `docs:validate` reports **zero hard errors**. Soft warnings are
-  triaged, not chased; a clean install validates with zero warnings (see
+- The target's `docs:validate` **exits `0`** with zero hard errors. Soft warnings
+  are triaged, not chased; a completed install validates with zero warnings (see
   [/okf-docs-setup/specs/validator.md](/okf-docs-setup/specs/validator.md)).
 - The bundled test suite (`docs:validate:test`) passes.
 - The installed `scripts/validate-docs.mjs` is byte-identical to the skill's

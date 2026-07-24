@@ -48,6 +48,7 @@ Mind the **`assets/claude/` → target `.claude/`** rename (leading dot) on the 
 | `claude/rules/docs-maintenance.md`                | `.claude/rules/docs-maintenance.md`     | verbatim + set paths |
 | `claude/skills/docs-add/**`                       | `.claude/skills/docs-add/**`            | verbatim + pm        |
 | `claude/skills/docs-validate/SKILL.md`            | `.claude/skills/docs-validate/SKILL.md` | verbatim + pm        |
+| `github/workflows/docs-validate.yml` _(optional)_ | `.github/workflows/docs-validate.yml`   | verbatim, on request |
 
 **How legend** — _verbatim_: copy bytes unchanged; _date_: replace `<YYYY-MM-DD>` with
 today's date; _pm_: rewrite the literal `pnpm docs:validate` to the target's invocation
@@ -55,7 +56,10 @@ today's date; _pm_: rewrite the literal `pnpm docs:validate` to the target's inv
 with explicit source-edit path glob(s) gathered for the target repo. There is no default
 path because each project has different source roots. The two `scripts/` files are pure
 verbatim — never summarize, paraphrase, or route them through a subagent; that is where
-drift enters.
+drift enters. The GitHub Actions workflow row is **optional**: install it only when the
+user asks for PR-time validation; it fails the job on validator exit `1`. Never install
+husky or add package lifecycle (`prepare`) scripts — pre-push enforcement is documented
+as recipes in the `docs-validate` skill instead.
 
 Plus: add `"docs:validate": "node scripts/validate-docs.mjs"` and
 `"docs:validate:test": "node --test scripts/*.test.mjs"` to the target's `package.json`.
@@ -137,11 +141,13 @@ is a required step, not optional polish.
 1. The orchestrator — and only the orchestrator — merges every returned bullet into the
    right `index.md` (root + subsystem) and every returned line into `log.md`. This
    single-writer step is why Phase 2 agents never touch shared files.
-2. Run `<pm> docs:validate`. Triage to **zero hard ERRORS**. A clean install always emits
-   **one** soft warning — the policy file's own illustrative `/absolute/path.md` example
-   link, which ships in the verbatim policy and is benign; do not edit the policy to chase
-   it. Fix other cheap warnings (a populated dir missing its `index.md`, a missing
-   recommended field); leave broken links to not-yet-written concepts alone.
+2. Run `<pm> docs:validate`. It must **exit `0`** — the validator is strict: exit `1`
+   means hard ERRORS (unparseable frontmatter or a bad `type`) that must be fixed before
+   the setup is done; exit `2` means the validator itself malfunctioned (wrong root path,
+   unreadable directory). Warnings never block: fix the cheap ones (a populated dir
+   missing its `index.md`, a missing recommended field, the root index's `<subsystem>`
+   placeholder bullet once subsystems are seeded); leave broken links to not-yet-written
+   concepts alone.
 
 ### Phase 4 — Wire it into project memory
 
@@ -163,7 +169,8 @@ swapping `<pm>` for the chosen package-manager command:
   dispatched for non-trivial work MUST be given the relevant `docs/` concept files in its
   reading scope.
 - Scaffold a concept with the `docs-add` skill; check conformance with `docs-validate`
-  (`<pm> docs:validate` — advisory, never blocks).
+  (`<pm> docs:validate` — strict: exit `0` clean/warnings-only, `1` hard errors,
+  `2` malfunction; warnings never block).
 ```
 
 ## Who does what (the line you must not cross)
@@ -192,14 +199,19 @@ swapping `<pm>` for the chosen package-manager command:
   Agents return lines; the orchestrator merges them once.
 - **A populated dir with no `index.md`** — the validator warns; create the reserved index
   alongside every concept.
-- **Treating validator warnings as failures** — only the ERRORS section is the bar.
+- **Treating validator warnings as failures** — only exit `1` (the ERRORS section) is the
+  bar; warnings never block and there is no suppression grammar.
+- **Installing husky or a `prepare` script to enforce validation** — enforcement is
+  documented pre-push recipes (plain hook, husky v4, husky v8/v9) in the `docs-validate`
+  skill plus the optional PR workflow asset; setup never installs a hook manager.
 - **Forgetting to ask where existing docs live** — conversion is part of this flow, not an
   afterthought; gather the sources in Phase 0.
 
 ## Verification
 
-- `<pm> docs:validate` shows **zero hard ERRORS** (one benign warning from the policy's own
-  example link is expected — see Phase 3).
+- `<pm> docs:validate` **exits `0`** with zero hard ERRORS (a not-yet-replaced
+  `<subsystem>` placeholder bullet in the root index is the only expected warning on a
+  bare install with no subsystems seeded).
 - `<pm> docs:validate:test` (the bundled Node test suite) passes.
 - The copied `scripts/validate-docs.mjs` is byte-identical to this skill's
   `assets/scripts/validate-docs.mjs` (`diff` is empty).

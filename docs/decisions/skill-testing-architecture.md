@@ -245,3 +245,11 @@ central cases, out-of-repo fixtures, provenance):
   vacuous pass).
 
   Driven by #48.
+
+## 2026-07-24 — Docs validator no longer the advisory contrast
+
+[Enforce minimal OKF errors through one strict validator contract](/decisions/okf-docs-strict-validation.md)
+(#49) made `docs:validate` strict (exits `0`/`1`/`2`), so decision 2's
+"deliberate contrast to the always-advisory docs validator and skill linter"
+now holds only for the skill linter's default invocation. The grading
+architecture itself is unchanged.

@@ -2,7 +2,7 @@
 type: Decision
 title: Skill authoring conventions and quality bar
 description: Layer trigger-only descriptions, a minimal section skeleton, an invocation-axis frontmatter allowlist, role-named support subdirs, and an advisory two-tier linter on top of the portable Agent Skills floor.
-timestamp: 2026-07-11
+timestamp: 2026-07-24
 ---
 
 # Skill authoring conventions and quality bar
@@ -121,3 +121,13 @@ below is the **repo layer** this library adds on top.
 ## YYYY-MM-DD — <short title>
 <what changed and why; link the driving work>
 -->
+
+## 2026-07-24 — The docs:validate advisory precedent no longer exists
+
+[Enforce minimal OKF errors through one strict validator contract](/decisions/okf-docs-strict-validation.md)
+(#49) made `docs:validate` strict (exits `0`/`1`/`2`), so decision 7's "like
+`docs:validate`, the run always exits 0" comparison and the rejected
+"blocking linter" alternative's appeal to that precedent are historical. The
+linter's own bar is unchanged: its default invocation stays advisory (always
+exit 0) with `--strict` as the CI gate, per
+[CI and automation wiring](/decisions/ci-and-automation-wiring.md).

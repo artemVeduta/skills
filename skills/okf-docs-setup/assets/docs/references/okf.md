@@ -41,7 +41,9 @@ are no typed relations — relationship kind lives in prose. Broken links are no
 
 There is no manifest, schema registry, or required validator. "If you can `cat` a file,
 you can read OKF; if you can `git clone` a repo, you can ship it." This repo's
-`pnpm docs:validate` is an optional, advisory backstop, not an OKF requirement.
+`pnpm docs:validate` is a house convention layered on top, not an OKF requirement —
+it enforces the OKF conformance floor strictly (exit `1` on hard errors, `2` on
+malfunction) while everything beyond the floor stays a non-blocking warning.
 
 # Citations
 

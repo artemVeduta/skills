@@ -18,3 +18,4 @@ An Open Knowledge Format (OKF) v0.1 bundle. Lifecycle policy:
 ## Subsystems
 
 - [okf-docs-setup](/okf-docs-setup/index.md) - skill that bootstraps OKF v0.1 docs bundles in target repos, distributed by copy from `skills/okf-docs-setup/`
+- [superpowers](/superpowers/index.md) - process-meta records (session handoffs) retained from Superpowers-driven work

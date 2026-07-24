@@ -23,5 +23,5 @@ in `scripts/`.
   dispatched for non-trivial work MUST be given the relevant `docs/` concept files in its
   reading scope.
 - Scaffold a concept with the `docs-add` skill; check conformance with `docs-validate`
-  (`npm run docs:validate` — advisory, never blocks; validator tests:
-  `npm run docs:validate:test`).
+  (`npm run docs:validate` — strict: exit `0` clean/warnings-only, `1` hard errors,
+  `2` malfunction; warnings never block; validator tests: `npm run docs:validate:test`).

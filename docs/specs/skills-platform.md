@@ -440,7 +440,9 @@ deferred upgrade layers only.
   (filesystem, structured output, exact/containment/schema). Skill-selection evidence
   and LLM-judge rubric scores are recorded as advisory and never gate.
 - **Gating-capable runner.** The local test runner exits nonzero on assertion failure —
-  deliberately unlike the always-advisory docs validator and skill linter.
+  deliberately unlike the skill linter's advisory default invocation. (The docs
+  validator was also advisory when this spec was locked; it is strict since #49 — see
+  [/decisions/okf-docs-strict-validation.md](/decisions/okf-docs-strict-validation.md).)
 - **Central cases.** Cases live in central, skill-named case directories under the
   runner's home in `tools/` (scenario prompt + fixture inputs + expected-state
   assertions). Skill directories stay pure deliverables: no test material ships to

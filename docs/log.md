@@ -3,6 +3,25 @@
 ## 2026-07-24
 
 - **Update** of
+  [OKF validator behaviour and invocation](/okf-docs-setup/specs/validator.md),
+  [Install contract](/okf-docs-setup/specs/install-contract.md),
+  [Byte-exact assets contract](/okf-docs-setup/conventions/byte-exact-assets.md),
+  [Documentation lifecycle policy](/conventions/documentation.md), and
+  [OKF v0.1 reference](/references/okf.md) — implemented the strict validator
+  contract (#49): 0/1/2 exits, YAML 1.2 frontmatter oracle, exact-path index
+  coverage, stale-amendment warning, uniform no-exclusion walk, raw-byte mirror
+  test, gating CI step, documented pre-push recipes, and the optional PR
+  workflow asset. Amended
+  [CI and automation wiring](/decisions/ci-and-automation-wiring.md),
+  [Skill authoring conventions](/decisions/skill-authoring-conventions.md), and
+  [Skill testing architecture](/decisions/skill-testing-architecture.md) to
+  retire their advisory-validator claims.
+- **Creation** of [superpowers](/superpowers/index.md) subsystem index and
+  [handoffs index](/superpowers/handoffs/index.md), and conversion of the
+  [benchmark run flow handoff](/superpowers/handoffs/2026-07-17-benchmark-run-flow-handoff.md)
+  into a conformant concept — the bundle is now validated uniformly with no
+  exclusion grammar (#49).
+- **Update** of
   [Skill testing and benchmark architecture](/decisions/skill-testing-architecture.md)
   — amended with the v2 acceptance-harness seam (#48): plan/approval turns,
   git-state and execution-trace oracles, cross-harness outcome comparison, and

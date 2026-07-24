@@ -19,23 +19,30 @@ Run from the **repo root** (your Claude launch directory):
 pnpm docs:validate
 ```
 
-It walks `docs/` (excluding `docs/superpowers/**`) and prints a report. Do not pass flags
-— the script accepts only an optional root path argument and is not meant to take flags.
+It walks every `.md` file under `docs/` uniformly (non-Markdown sidecars are ignored;
+there is no exclusion or suppression grammar) and prints a report. Do not pass flags —
+the script accepts only an optional root path argument and has no flags or alternate
+strict entrypoint.
 
 ```
 "docs:validate": "node scripts/validate-docs.mjs"
 ```
 
+## The exit contract (strict)
+
+| Exit | Meaning                                                                  |
+| ---- | ------------------------------------------------------------------------ |
+| `0`  | Clean, or warnings only. Warnings never block.                           |
+| `1`  | One or more hard bundle errors (unparseable frontmatter; bad `type`).    |
+| `2`  | Validator malfunction — e.g. a missing or unreadable docs root.          |
+
 ## How to read the output
 
-The validator is **advisory and always exits 0** (it never blocks). Read the _output_,
-not the exit code:
-
-| Section                               | Meaning                                                                                                                       | Action                                                             |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| `ERRORS — OKF §9 conformance`         | A non-reserved file has unparseable frontmatter or an empty/missing `type`. **This is the hard bar.**                         | Fix the frontmatter before considering the bundle conformant.      |
-| `Warnings — recommended/soft`         | Missing `title`/`description`/`timestamp`, non-ISO timestamp, broken internal link, or a concept missing from its `index.md`. | Triage. Broken links may be not-yet-written knowledge (tolerated). |
-| `OKF bundle conformant; no warnings.` | Clean.                                                                                                                        | Report success.                                                    |
+| Section                               | Meaning                                                                                                                                                             | Action                                                             |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `ERRORS — OKF §9 conformance`         | A non-reserved file's frontmatter is not a parseable YAML mapping (missing/unterminated `---` delimiters, invalid YAML, duplicate keys, non-mapping) or `type` is missing, empty, or non-scalar. **This is the hard bar.** | Fix the frontmatter before considering the bundle conformant.      |
+| `Warnings — recommended/soft`         | Missing `title`/`description`/`timestamp`, malformed timestamp, `status: superseded` without `superseded_by`, broken internal link, reserved-file structure, missing local `index.md`, concepts not linked by exact bundle path from their local index, or a `timestamp` older than the newest dated `# Amendments` entry. | Triage. Broken links may be not-yet-written knowledge (tolerated). |
+| `OKF bundle conformant; no warnings.` | Clean.                                                                                                                                                                | Report success.                                                    |
 
 ## Resolution flow
 
@@ -43,13 +50,32 @@ not the exit code:
 2. **Errors** — for each, open the file and add/fix the `type` (and the `---` fences).
    Propose the edit; apply only after the user approves.
 3. **Warnings** — propose fixes (add recommended fields, fix the link target or remove
-   the link, add the missing `index.md` entry). Apply only after approval.
-4. Re-run `pnpm docs:validate` and confirm the ERRORS section is empty.
+   the link, add the missing `index.md` entry, bump a stale `timestamp`). Apply only
+   after approval.
+4. Re-run `pnpm docs:validate` and confirm it exits `0` with an empty ERRORS section.
+
+## Enforcement recipes (documented, never auto-installed)
+
+The strict exit makes the command hook- and CI-ready. Wire the **pre-push** hook with
+whichever recipe matches what the repo already uses — never install husky or add
+package lifecycle (`prepare`) scripts for this:
+
+- **Plain Git hook** (no dependencies): create `.git/hooks/pre-push` containing
+  `pnpm docs:validate` and mark it executable.
+- **husky v4** (only if the repo already uses husky v4): add to `package.json`:
+  `"husky": { "hooks": { "pre-push": "pnpm docs:validate" } }`.
+- **husky v8/v9** (only if the repo already uses husky v8/v9): append
+  `pnpm docs:validate` to `.husky/pre-push`.
+
+An optional minimal GitHub Actions workflow (shipped by setup as
+`github/workflows/docs-validate.yml`, installed to `.github/workflows/`) runs the same
+command on pull requests; exit `1` fails the job.
 
 ## Things to NEVER do
 
-- Never treat a warning as a failure — broken links and missing optional fields are
-  tolerated by OKF.
+- Never treat a warning as a failure — warnings never block and there is no suppression
+  grammar; broken links and missing optional fields are tolerated by OKF.
 - Never add frontmatter to a non-root `index.md` to "fix" it — that is itself a violation.
-- Never invent CLI flags (`--fix`, `--json`); there are none.
-- Never edit files under `docs/superpowers/**` — they are outside the bundle.
+- Never invent CLI flags (`--fix`, `--json`, `--strict`); there are none.
+- Never install husky (or any hook manager) just to enforce validation — use the recipe
+  matching what the repo already has.

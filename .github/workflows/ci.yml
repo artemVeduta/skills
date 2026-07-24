@@ -12,9 +12,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Skill linter (strict — the only gate)
+      - name: Skill linter (strict — gates on ERRORs)
         run: npm run lint:skills:strict
-      - name: Docs validator (advisory — never fails the job)
+      - name: Docs validator (strict — exit 1 on hard errors fails the job, 2 on malfunction)
         run: npm run docs:validate
       - name: Installer + repo tests (deterministic)
         run: npm test

@@ -1,3 +1,10 @@
+---
+type: Reference
+title: Benchmark and test run flow handoff
+description: Zero-context handoff mapping the end-to-end skills-library test and benchmark run flow (#24 harness, #25 bench) as of the 2026-07-17 green runs.
+timestamp: 2026-07-17
+---
+
 # Handoff — the full picture of what a benchmark/test run actually does
 
 > **For a fresh agent:** this is a zero-context handoff for the skills-library test +

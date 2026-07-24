@@ -13,8 +13,9 @@ the docs flow; CLAUDE.md and the `.claude` rules link here rather than restating
 
 ## The bundle
 
-- One bundle rooted at `docs/`. `docs/superpowers/**` is **excluded** (it holds design
-  specs and plans — process meta, not knowledge concepts).
+- One bundle rooted at `docs/`. Every retained `.md` file under it is validated
+  uniformly — there is no exclusion or suppression grammar; non-Markdown sidecars are
+  ignored by the validator.
 - Repo-wide knowledge lives at the top level (`conventions/`, `glossary/`, `references/`);
   subsystem knowledge nests under the subsystem (`<subsystem>/<area>/...`).
 - A concept = one markdown file = YAML frontmatter + markdown body. Concept ID = the
@@ -37,8 +38,11 @@ superseded_by: /path/to/replacement.md
 ---
 ```
 
-- Only `type` is hard-required (OKF §9). `title`, `description`, `timestamp` are
-  recommended — `pnpm docs:validate` warns (never fails) when they are missing.
+- Frontmatter must be a parseable YAML mapping between standalone `---` delimiters
+  (opening delimiter on the first line); duplicate keys, invalid YAML, missing or
+  unterminated delimiters, and non-mapping documents are hard errors, as is a missing,
+  empty, or non-scalar `type` (OKF §9). `title`, `description`, `timestamp` are
+  recommended — `pnpm docs:validate` warns (never blocks) when they are missing.
 - `status` / `superseded_by` are our extension keys for the deprecation flow; OKF
   requires consumers to tolerate unknown keys, so they are spec-safe.
 
@@ -122,4 +126,7 @@ truth everywhere outside it.
 The mechanical bookkeeping of any `docs/**` edit — bump `timestamp`, append a `log.md`
 entry, amend-don't-rewrite `Decision`s, set supersede keys — is surfaced automatically by
 the always-on `docs-authoring` rule (it fires on every `docs/**` edit). `pnpm docs:validate`
-is the backstop (advisory; it never blocks).
+is the strict backstop: exit `0` for a clean or warnings-only bundle, `1` for hard
+errors, `2` for validator malfunction. Warnings never block (a stale `timestamp` older
+than the newest dated `# Amendments` entry is one of them), and there is no suppression
+grammar.

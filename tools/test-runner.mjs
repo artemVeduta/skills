@@ -3,8 +3,8 @@
 // its `## Required skills` closure into a disposable per-harness fixture, drives
 // each harness's headless CLI against the case's scenario prompt, and decides
 // pass/fail from deterministic state assertions ONLY. Exits NONZERO on assertion
-// failure or source mutation — deliberately unlike the always-advisory docs
-// validator and skill linter. Runs LOCALLY ONLY; never invoked by CI.
+// failure or source mutation — deliberately unlike the skill linter's advisory
+// default invocation. Runs LOCALLY ONLY; never invoked by CI.
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
