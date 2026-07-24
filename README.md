@@ -82,7 +82,7 @@ Supported harnesses:
 
 - **Claude Code** (`claude-code`)
 - **Codex** (`codex`)
-- **Shared agents directory** (`agents`)
+- **OpenCode** (`opencode`)
 
 Update path: `git pull` (no reinstall).
 <!-- END dev-install -->

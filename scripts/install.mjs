@@ -6,12 +6,13 @@ import { REGISTRY } from './install/registry.mjs';
 import { discoverSkills } from './install/discovery.mjs';
 import { createInterface } from 'node:readline';
 import { findEntry } from './install/registry.mjs';
-import { resolveProfile, resolveSkillDir } from './install/profiles.mjs';
-import { planTarget, selfSymlinkGuard } from './install/planner.mjs';
+import { resolveProfile, resolveSkillDir, reduceSelections } from './install/profiles.mjs';
+import { planTarget, selfSymlinkGuard, managedShapeGuard } from './install/planner.mjs';
 import { renderPreview } from './install/preview.mjs';
 import { applyTarget } from './install/linker.mjs';
 import { buildGraph, validateGraph } from './install/graph.mjs';
 import { validateReadme, writeReadme } from './install/readme.mjs';
+import { checkoutProvenance, formatProvenance } from './install/provenance.mjs';
 
 const EXIT = { OK: 0, HARD: 1, USAGE: 2, NOTHING: 3, GRAPH: 4 };
 const REPO_DEFAULT = resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -104,8 +105,8 @@ function parseArgs(argv) {
   return o;
 }
 
-function printInspect(skills, registry) {
-  const lines = ['Discovered skills:'];
+function printInspect(skills, registry, provenance) {
+  const lines = [formatProvenance(provenance), '', 'Discovered skills:'];
   for (const s of skills) lines.push(`  ${s.name}`);
   lines.push('', 'Known harnesses:');
   for (const e of registry) {
@@ -138,16 +139,6 @@ function resolveSelections(registry, o) {
     for (const d of entry.configRoot.defaults) add(entry, d.id);
   }
   return out;
-}
-
-function buildWarnings(targets) {
-  const warnings = [];
-  for (const t of targets) {
-    if (t.sharedStorage) {
-      warnings.push(`${t.skillDir} doubles as the portable CLI's own storage; linking here mixes the development and portable channels.`);
-    }
-  }
-  return warnings;
 }
 
 // One lazy line reader over a single readline interface. readline's async
@@ -224,8 +215,10 @@ async function main(argv) {
     return EXIT.HARD;
   }
 
+  const provenance = checkoutProvenance(checkout);
+
   if (o.inspect) {
-    printInspect(skills, registry);
+    printInspect(skills, registry, provenance);
     return EXIT.OK;
   }
 
@@ -253,23 +246,36 @@ async function main(argv) {
     }
     throw err;
   }
+  // Deduplicate coincident directories and drop redundant OpenCode placements.
+  selections = reduceSelections(selections);
   if (selections.length === 0) {
     stdin.close();
     process.stderr.write('nothing to do: select a harness profile (--harness/--profile) or use --inspect\n');
     return EXIT.NOTHING;
   }
 
-  const targets = [];
+  // Refuse before any mutation: a target resolving into the checkout, or a profile
+  // already holding a managed portable/native shape.
   for (const sel of selections) {
-    const guard = await selfSymlinkGuard(sel.skillDir, checkout);
-    if (guard) {
+    const self = await selfSymlinkGuard(sel.skillDir, checkout);
+    if (self) {
       stdin.close();
-      process.stderr.write(`error: ${guard.message}\n`);
+      process.stderr.write(`error: ${self.message}\n`);
       return EXIT.HARD;
     }
-    targets.push(await planTarget(sel.entry, sel.profile, sel.scope, skills, sel.skillDir));
+    const managed = await managedShapeGuard(sel.skillDir);
+    if (managed) {
+      stdin.close();
+      process.stderr.write(`error: ${managed.message}\n`);
+      return EXIT.HARD;
+    }
   }
-  const plan = { skills, targets, warnings: buildWarnings(targets) };
+
+  const targets = [];
+  for (const sel of selections) {
+    targets.push(await planTarget(sel.entry, sel.profile, sel.scope, skills, sel.skillDir, checkout));
+  }
+  const plan = { skills, targets, provenance: formatProvenance(provenance) };
   process.stdout.write(renderPreview(plan) + '\n');
   if (o.dryRun) {
     stdin.close();

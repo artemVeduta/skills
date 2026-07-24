@@ -1,5 +1,17 @@
 // Declarative harness registry — the single source of truth for the wizard and
-// the README development-links guidance. Entries carry installation metadata only.
+// the README development-links guidance. It models the three harness products
+// (Claude Code, Codex, OpenCode) and their exact supported project/global skill
+// paths. Entries carry installation metadata only; the wizard grows no per-harness
+// branch for anything expressible here.
+//
+// Canonical checkout placements (OKF docs skill-suite v2):
+//   Claude Code  project .claude/skills   global <CLAUDE_CONFIG_DIR>/skills (default ~/.claude/skills)
+//   Codex        project .agents/skills    global ~/.agents/skills
+//   OpenCode     project .agents/skills    global ~/.agents/skills
+//
+// OpenCode also discovers Claude's and the shared .agents locations, so `readsSkillDirs`
+// records the directories a Claude or Codex placement already exposes to it; a selected
+// OpenCode target that would only re-expose one of those adds no placement.
 export const REGISTRY = [
   {
     id: 'claude-code',
@@ -15,31 +27,31 @@ export const REGISTRY = [
     scopes: ['global', 'project'],
     channels: ['development', 'portable', 'native'],
     customProfileValidation: { allowHomeRelative: true },
-    sharedStorage: false,
   },
   {
     id: 'codex',
     displayName: 'Codex',
-    // NOTE: confirm Codex's actual skill directory before relying on it in anger.
-    skillDirs: { global: 'skills' },
-    configRoot: {
-      env: 'CODEX_HOME',
-      defaults: [{ id: 'default', dir: '.codex' }],
-    },
-    scopes: ['global'],
+    // Codex discovers the cross-client .agents/skills tree (project and global).
+    skillDirs: { global: 'skills', project: '.agents/skills' },
+    configRoot: { env: null, defaults: [{ id: 'default', dir: '.agents' }] },
+    scopes: ['global', 'project'],
     channels: ['development', 'portable', 'native'],
     customProfileValidation: { allowHomeRelative: true },
-    sharedStorage: false,
   },
   {
-    id: 'agents',
-    displayName: 'Shared agents directory',
-    skillDirs: { global: 'skills' },
-    configRoot: { env: null, defaults: [{ id: 'shared', dir: '.agents' }] },
-    scopes: ['global'],
-    channels: ['development', 'portable'],
+    id: 'opencode',
+    displayName: 'OpenCode',
+    skillDirs: { global: 'skills', project: '.agents/skills' },
+    configRoot: { env: null, defaults: [{ id: 'default', dir: '.agents' }] },
+    scopes: ['global', 'project'],
+    channels: ['development', 'portable'], // no native aggregate plugin for OpenCode
+    // Directories OpenCode also reads, so a Claude/Codex placement there already
+    // exposes the pack and OpenCode contributes no redundant placement.
+    readsSkillDirs: {
+      project: ['.claude/skills', '.agents/skills'],
+      global: ['~/.claude/skills', '~/.agents/skills'],
+    },
     customProfileValidation: { allowHomeRelative: true },
-    sharedStorage: true, // ~/.agents/skills doubles as the portable CLI's own storage
   },
 ];
 

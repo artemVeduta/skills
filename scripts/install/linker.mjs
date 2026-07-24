@@ -17,5 +17,6 @@ export async function linkSkill(src, dest) {
 
 export async function applyTarget(target) {
   await mkdir(target.skillDir, { recursive: true });
+  for (const p of target.prunes ?? []) await unlink(p.dest); // remove stale checkout-owned links
   for (const l of target.links) await linkSkill(l.src, l.dest);
 }
