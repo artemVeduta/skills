@@ -235,11 +235,11 @@
   `~/.claude/skills`, `~/.claude-work/skills`), symlink-not-copy mechanics, re-run
   safety, and exit semantics. Adds the reserved `/specs/index.md`.
 - **Creation** of [/docs-setup/specs/install-contract.md](/docs-setup/specs/install-contract.md)
-  — the okf-docs-setup install contract: what an install delivers (docs bundle, validator
+  — the docs-setup install contract: what an install delivers (docs bundle, validator
   scripts, `.claude` rules and helper skills, package.json scripts), the per-install
   substitutions, the `claude/` → `.claude/` rename, the machinery-vs-content phase
   structure, and the zero-hard-errors done criteria.
-- **Creation** Added the `okf-docs-setup` subsystem index node (`/docs-setup/index.md`)
+- **Creation** Added the `docs-setup` subsystem index node (`/docs-setup/index.md`)
   covering the skill that bootstraps OKF v0.1 docs bundles in target repos.
 - **Creation** of [/docs-setup/conventions/byte-exact-assets.md](/docs-setup/conventions/byte-exact-assets.md)
   — byte-exact assets contract, intentional placeholders, the `pnpm docs:validate`

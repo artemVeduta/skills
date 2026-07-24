@@ -22,7 +22,7 @@ test('the case includes the byte-identity assertion on validate-docs.mjs', async
   const eq = c.assertions.find(
     (a) => a.type === 'file-equals' && a.path === 'scripts/validate-docs.mjs',
   );
-  assert.equal(eq.path, 'scripts/validate-docs.mjs');
+  assert.ok(eq, 'the approve case must carry a file-equals on scripts/validate-docs.mjs');
   assert.equal(eq.against, 'skills/docs-setup/assets/scripts/validate-docs.mjs');
 });
 
