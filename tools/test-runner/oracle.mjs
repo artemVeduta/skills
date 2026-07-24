@@ -40,6 +40,27 @@ async function evaluateOne(a, { workdir, repoRoot, output, baselineSha, skillsSu
       const pass = c !== null && !c.includes(a.value);
       return { pass, detail: pass ? '' : `${a.path} still contains ${JSON.stringify(a.value)}` };
     }
+    case 'file-contains-ordered': {
+      // Ordered containment: every value present, and every occurrence of
+      // values[i] precedes the first occurrence of values[i+1] — e.g. all
+      // "ERROR: " lines before any "WARNING: " line in a report.
+      const c = await readIf(join(workdir, a.path));
+      if (c === null) return { pass: false, detail: `missing ${a.path}` };
+      for (const value of a.values) {
+        if (!c.includes(value)) {
+          return { pass: false, detail: `${a.path} does not contain ${JSON.stringify(value)}` };
+        }
+      }
+      for (let i = 0; i < a.values.length - 1; i++) {
+        if (c.lastIndexOf(a.values[i]) > c.indexOf(a.values[i + 1])) {
+          return {
+            pass: false,
+            detail: `${a.path} has ${JSON.stringify(a.values[i])} after ${JSON.stringify(a.values[i + 1])}`,
+          };
+        }
+      }
+      return { pass: true, detail: '' };
+    }
     case 'file-equals': {
       const actual = await readIf(join(workdir, a.path));
       const expected = await readIf(join(repoRoot, a.against));

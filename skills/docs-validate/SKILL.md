@@ -42,7 +42,7 @@ validator; this skill runs and explains it.
 
 | Exit | Meaning                                                                 | Report as                                                                          |
 | ---- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `0`  | Clean, or warnings only. Warnings never block.                          | Success. Triage any warnings; none is a failure.                                    |
+| `0`  | Clean, or warnings only. Warnings never block.                          | Success. Triage any warnings; a warning is never a failure.                         |
 | `1`  | One or more hard bundle errors (unparseable frontmatter; missing/empty/non-scalar `type`). | Failure of the bundle. The ERRORS section is the conformance bar.  |
 | `2`  | Validator malfunction — e.g. a missing or unreadable docs root.         | Failure of the tooling, NOT a content verdict; nothing was validated.               |
 
@@ -64,21 +64,13 @@ package scripts, hooks, or CI — however broken the report looks. Propose
 fixes; apply them only after the user explicitly approves, then re-run the
 script and confirm the new exit code.
 
-## Enforcement recipes (documented only — installing them is separate work)
+## Enforcement wiring (owned by setup, not this skill)
 
-The strict exit makes the plain command hook- and CI-ready. The documented
-portable hook is **pre-push** running the plain `docs:validate` script. Match
-the recipe to what the repository already uses — never install husky or add
-package lifecycle (`prepare`) scripts for this:
-
-- **Plain Git hook** (no dependencies): create `.git/hooks/pre-push` running
-  the `docs:validate` script and mark it executable.
-- **husky v4** (only if already present): add to `package.json`:
-  `"husky": { "hooks": { "pre-push": "npm run docs:validate" } }`.
-- **husky v8/v9** (only if already present): append `npm run docs:validate`
-  to `.husky/pre-push`.
-- **Pull requests**: an optional minimal GitHub Actions workflow running the
-  same command; exit `1` fails the job.
+The strict exit makes the plain `docs:validate` script hook- and CI-ready: the
+documented portable hook is **pre-push**, and an optional GitHub Actions
+workflow fails a pull request on exit `1`. Installing that wiring — hook
+recipes, workflow asset — is the docs-setup skill's managed surface. This
+skill only interprets the failures such wiring produces.
 
 ## Common Mistakes
 

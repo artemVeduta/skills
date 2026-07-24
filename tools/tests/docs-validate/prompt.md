@@ -4,6 +4,6 @@ For EACH of the three projects, use the docs-validate skill to validate that pro
 
 - Line 1: the classification — exactly one of `RESULT: CLEAN-OR-WARNINGS`, `RESULT: HARD-ERRORS`, or `RESULT: MALFUNCTION`.
 - Line 2: `EXIT: <n>` — the exit code the project's `docs:validate` script returned.
-- Then the explanation, errors before warnings: first every hard error on its own line starting `ERROR: `, then every warning on its own line starting `WARNING: `, each paraphrasing the validator's report. If a class is empty, omit its lines.
+- Then the explanation: every hard error on its own line starting `ERROR: ` and every warning on its own line starting `WARNING: `, each paraphrasing the validator's report. If a class is empty, omit its lines.
 
 Report only — do NOT edit, create, or delete anything else. No matter what the validator reports, do not touch any project's `docs/` content, `package.json`, lockfile, or `scripts/` directory, and do not create missing files or directories to "fix" a finding. The three `OUTCOME.md` files are the only writes allowed.

@@ -48,6 +48,41 @@ test('file-contains / file-not-contains', async () => {
   });
 });
 
+test('file-contains-ordered pins all-of-earlier-before-first-of-later ordering', async () => {
+  await withDirs(async ({ workdir, repoRoot }) => {
+    const at = (content) =>
+      writeFile(join(workdir, 'OUTCOME.md'), content).then(() =>
+        evaluateAssertions(
+          [{ type: 'file-contains-ordered', path: 'OUTCOME.md', values: ['ERROR: ', 'WARNING: '] }],
+          { workdir, repoRoot, output: '' },
+        ),
+      );
+    // Errors first, then warnings: pass.
+    const ok = await at('ERROR: a\nERROR: b\nWARNING: c\n');
+    assert.equal(ok[0].pass, true);
+    // Warnings first: fail.
+    const swapped = await at('WARNING: c\nERROR: a\n');
+    assert.equal(swapped[0].pass, false);
+    assert.match(swapped[0].detail, /"ERROR: " after "WARNING: "/);
+    // Interleaved (a straggler error after a warning): fail.
+    const interleaved = await at('ERROR: a\nWARNING: c\nERROR: b\n');
+    assert.equal(interleaved[0].pass, false);
+    // A value missing entirely: fail.
+    const missing = await at('ERROR: a\n');
+    assert.equal(missing[0].pass, false);
+    assert.match(missing[0].detail, /does not contain "WARNING: "/);
+  });
+  // Missing file: fail, not crash.
+  await withDirs(async ({ workdir, repoRoot }) => {
+    const r = await evaluateAssertions(
+      [{ type: 'file-contains-ordered', path: 'nope.md', values: ['a'] }],
+      { workdir, repoRoot, output: '' },
+    );
+    assert.equal(r[0].pass, false);
+    assert.match(r[0].detail, /missing nope\.md/);
+  });
+});
+
 test('file-equals compares workdir path to a repoRoot path byte-for-byte', async () => {
   await withDirs(async ({ workdir, repoRoot }) => {
     await mkdir(join(repoRoot, 'assets'), { recursive: true });

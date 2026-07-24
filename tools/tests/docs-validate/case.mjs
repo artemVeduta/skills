@@ -1,15 +1,22 @@
 // Central test case for docs-validate (issue #50, spec §docs-validate).
 // One fixture holds three independent projects, each carrying this repo's
-// REAL validator bytes and the package-manager-neutral docs:validate script:
-//   warn-repo/   — warnings only            → exit 0, RESULT: CLEAN-OR-WARNINGS
-//   error-repo/  — hard errors + warnings   → exit 1, RESULT: HARD-ERRORS
-//   broken-repo/ — no docs root at all      → exit 2, RESULT: MALFUNCTION
+// REAL validator bytes and the package-manager-neutral docs:validate script.
+// SCENARIOS is the single source of truth for the classification matrix; the
+// per-repo RESULT/EXIT assertions are generated from it.
 // Deterministic assertions are the ONLY pass/fail oracle: the three OUTCOME.md
-// classifications, plus proof that the skill repaired NOTHING (the broken
-// bundles are bait — a "helpful" fix fails the case).
+// classifications (errors ordered before warnings in the mixed bundle), plus
+// proof that the skill repaired NOTHING (the broken bundles and the machinery
+// are bait — a "helpful" fix fails the case).
 import { readFile } from 'node:fs/promises';
 
 const validator = await readFile(new URL('../../../scripts/validate-docs.mjs', import.meta.url), 'utf8');
+
+// The classification matrix: one row per fixture project.
+export const SCENARIOS = [
+  { repo: 'warn-repo', exit: 0, result: 'CLEAN-OR-WARNINGS' }, // warnings only
+  { repo: 'error-repo', exit: 1, result: 'HARD-ERRORS' }, // hard errors + warnings
+  { repo: 'broken-repo', exit: 2, result: 'MALFUNCTION' }, // no docs root at all
+];
 
 // One fixture project: package.json with the neutral script, an npm lockfile
 // (the package-manager detection signal), and the real validator bytes.
@@ -33,7 +40,7 @@ function project(name, docs) {
   ];
 }
 
-const ROOT_INDEX = '---\nokf_version: "0.1"\n---\n\n# Fixture bundle\n\n- [notes.md](/notes.md)\n';
+const rootIndex = (file) => `---\nokf_version: "0.1"\n---\n\n# Fixture bundle\n\n- [${file}](/${file})\n`;
 const LOG = '## 2026-07-24\n\n- **Creation** — fixture baseline.\n';
 
 export default {
@@ -50,14 +57,14 @@ export default {
     // warn-repo: conformant bundle, but notes.md misses every recommended
     // field → warnings only, exit 0.
     ...project('warn-repo', [
-      { path: 'docs/index.md', content: ROOT_INDEX },
+      { path: 'docs/index.md', content: rootIndex('notes.md') },
       { path: 'docs/log.md', content: LOG },
       { path: 'docs/notes.md', content: '---\ntype: Reference\n---\n\n# Notes\n\nWarning-only concept: no recommended fields.\n' },
     ]),
     // error-repo: broken.md has no frontmatter at all (hard error) and
     // extra.md is unindexed with no recommended fields (warnings) → exit 1.
     ...project('error-repo', [
-      { path: 'docs/index.md', content: ROOT_INDEX.replace('notes.md](/notes.md', 'broken.md](/broken.md') },
+      { path: 'docs/index.md', content: rootIndex('broken.md') },
       { path: 'docs/log.md', content: LOG },
       { path: 'docs/broken.md', content: '# Broken concept\n\nNo frontmatter here at all.\n' },
       { path: 'docs/extra.md', content: '---\ntype: Reference\n---\n\n# Extra\n\nUnindexed warning bait.\n' },
@@ -67,23 +74,31 @@ export default {
     ...project('broken-repo', []),
   ],
   assertions: [
-    // Scenario classifications (the live warning/error/malfunction evidence).
-    { type: 'file-contains', path: 'warn-repo/OUTCOME.md', value: 'RESULT: CLEAN-OR-WARNINGS' },
-    { type: 'file-contains', path: 'warn-repo/OUTCOME.md', value: 'EXIT: 0' },
-    { type: 'file-contains', path: 'error-repo/OUTCOME.md', value: 'RESULT: HARD-ERRORS' },
-    { type: 'file-contains', path: 'error-repo/OUTCOME.md', value: 'EXIT: 1' },
-    { type: 'file-contains', path: 'broken-repo/OUTCOME.md', value: 'RESULT: MALFUNCTION' },
-    { type: 'file-contains', path: 'broken-repo/OUTCOME.md', value: 'EXIT: 2' },
-    // Errors are explained before warnings — the mixed bundle must surface
-    // both classes in its report.
-    { type: 'file-contains', path: 'error-repo/OUTCOME.md', value: 'ERROR: ' },
-    { type: 'file-contains', path: 'error-repo/OUTCOME.md', value: 'WARNING: ' },
-    // The skill never edits concepts or machinery: every planted defect must
-    // survive the run untouched.
+    // Scenario classifications (the live warning/error/malfunction evidence),
+    // generated from the SCENARIOS matrix.
+    ...SCENARIOS.flatMap(({ repo, exit, result }) => [
+      { type: 'file-contains', path: `${repo}/OUTCOME.md`, value: `RESULT: ${result}` },
+      { type: 'file-contains', path: `${repo}/OUTCOME.md`, value: `EXIT: ${exit}` },
+    ]),
+    // Success still triages warnings: the warning-only report surfaces them.
+    { type: 'file-contains', path: 'warn-repo/OUTCOME.md', value: 'WARNING: ' },
+    // Errors are explained BEFORE warnings: the mixed bundle must surface both
+    // classes, every ERROR line preceding the first WARNING line. The prompt
+    // does not dictate this order — the skill body carries it.
+    { type: 'file-contains-ordered', path: 'error-repo/OUTCOME.md', values: ['ERROR: ', 'WARNING: '] },
+    // The skill never edits concepts: every planted defect must survive the
+    // run untouched.
     { type: 'file-not-contains', path: 'warn-repo/docs/notes.md', value: 'title:' },
     { type: 'file-not-contains', path: 'error-repo/docs/broken.md', value: '---' },
     { type: 'file-not-contains', path: 'error-repo/docs/index.md', value: 'extra.md' },
     { type: 'file-absent', path: 'broken-repo/docs/index.md' },
+    // ... and never edits machinery: each project's validator stays
+    // byte-identical to this repo's real validator.
+    ...SCENARIOS.map(({ repo }) => ({
+      type: 'file-equals',
+      path: `${repo}/scripts/validate-docs.mjs`,
+      against: 'scripts/validate-docs.mjs',
+    })),
     // Static shared-reader contract over the projected pack (spec §Parity).
     { type: 'portable-contract' },
   ],
