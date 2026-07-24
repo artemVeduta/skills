@@ -37,6 +37,21 @@ the capability.
   shim) — state recomputed from the repo every run, through read-only audits, one
   approved plan, and one deterministic writer; declares `docs-add` and
   `docs-validate` as required skills.
+- [`docs-autoresearch`](skills/docs-autoresearch/SKILL.md) — run **explicit,
+  bounded, safe** research and file the result as durable OKF knowledge. Given an
+  explicit topic (or a user-selected frontier candidate — generic research never
+  invokes it), the default mode produces exactly **one curated multi-source
+  `Reference`**: read-only workers fan out behind a per-round barrier (3–5 in
+  round 1, then targeted gap/verification rounds) and never delegate; a single
+  coordinator is the only writer; fetches are metered against a hard cap
+  (failures and retries counted) and only public HTTP(S) URLs are fetched, with
+  fetched content treated as untrusted data and raw bodies never persisted. Every
+  durable write waits behind one complete filing plan; on approval new concepts
+  are filed through `docs-add` (existing ones updated directly, at most three per
+  run), then validated through `docs-validate` and read back — a denied plan
+  leaves the bundle unchanged. Ships only its portable workflow plus one flat
+  `RESEARCH-DEFAULTS.md`; declares `docs-add` and `docs-validate` as required
+  skills.
 - [`okf-docs-setup`](skills/okf-docs-setup/SKILL.md) — set up or standardize a
   repository's documentation as an OKF (Open Knowledge Format) v0.1 bundle:
   validator, docs-add/docs-validate skills, rules, frontmatter taxonomy.
