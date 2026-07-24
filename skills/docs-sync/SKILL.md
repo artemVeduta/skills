@@ -88,9 +88,8 @@ Reconcile every concept the branch affected to the current repository state:
   update the matching `Specification`/concept so it points at the new source (name the
   symbol/file; never paste executable truth verbatim) and bump its `timestamp`.
 - **Explanatory truth** — intent, terminology, constraints, decisions the branch changed:
-  amend the affected `Decision`/`Convention`/`Glossary` concept in place; a material
-  reversal of a decision's chosen alternative, boundary, or hard constraint is a
-  supersession, not an edit — if unclear, ask.
+  amend the affected `Decision`/`Convention`/`Glossary` concept in place. A material
+  reversal is not an ordinary edit — see **Compaction** below.
 
 Content affected by a source change is updated in the **same** working step as the review
 that found it.
@@ -113,12 +112,55 @@ repairs into a branch sync; that is bundle-wide work.
   **sole writer** of indexes, logs, and timestamps — so no two workers race a shared file,
   and a concept's body edit (by its owning worker) never collides with its timestamp stamp
   (by the reconciler).
-- **Lifecycle bookkeeping is one net entry per concept:** a concept created and then edited
-  on the branch gets one `Creation` entry; an existing concept changed gets one `Update`;
-  a retired one gets one `Deprecation`. Never write a `docs-sync ran` or `Noted`
-  operational entry, and never rewrite previously merged lifecycle history.
+- **Lifecycle bookkeeping collapses to one concise net entry per concept** — the reconciler
+  writes it during the compaction pass below (`Creation`/`Update`/`Deprecation`), never an
+  operational entry.
 - A concept reaching **300 physical lines** gets a semantic keep-or-split review in the
   conversational report; 300 is a review cue, not a validator rule or an automatic split.
+
+## Compaction — fold branch drafting into the accepted net state
+
+Branch work leaves **drafting residue** — many small edits, extra log lines, intermediate
+amendment headings, a "the sync ran" note. Compaction folds that residue down to the
+**accepted net state**: the durable knowledge that should survive review and merge. It is
+not a separate mode — it is how branch sync writes lifecycle and history.
+
+**The accepted-state boundary is the merge-base.** Only drafting introduced *after* the
+merge-base is eligible for compaction. Everything present *at* the boundary is
+already-merged history and is protected: target-side amendments remain **unchanged**,
+historical rationale and dated value facts stay intact, and merged `log.md` entries are
+never rewritten. Use the boundary to separate branch-local residue from accepted history;
+never guess across it.
+
+**Collapse lifecycle entries to one concise net entry per concept:**
+
+- a created concept **remains `Creation`** after any number of later branch edits — never
+  a `Creation` plus a follow-up `Update`;
+- an existing changed concept becomes **one net `Update`**;
+- a retired concept becomes **one net `Deprecation`**.
+
+An **operational** line is never a lifecycle entry: a `docs-sync ran` note, a `**Noted**`
+marker, or any debt marker is drafting exhaust. Compaction **removes** such residue and
+never writes it.
+
+**Fold branch-local amendment drafting into the canonical body.** A branch-local dated
+`# Amendments` **heading** is residue: remove the amendment heading and **fold** its
+accepted dated old/new value fact into the canonical `Context` or `Consequences` prose
+(keep the date and the values; drop the heading). A target-side amendment present at the
+merge-base is left exactly as it is. An **ordinary refinement** — a value or wording
+change that does not cross the boundary — updates the accepted live section **in place**.
+
+**A reversal is never a silent edit.** A change to a Decision's **selected alternative**,
+an **ownership boundary**, a **hard constraint**, or a **material consequence** is a
+reversal, not a refinement — and if it is unclear whether a change is a reversal, ask. A
+reversal **requires explicit user confirmation**. On confirmation, create a **linked
+supersession**: file a replacement Decision, mark the old one `status: superseded` with
+`superseded_by:` linking the replacement, and log one `Deprecation`. Never rewrite or
+delete the accepted choice in place.
+
+Compaction is **idempotent**: it recomputes from the merge-base and writes the net state
+rather than appending, so a second sync from the same boundary re-derives the same
+accepted net state and writes nothing more.
 
 ## Contradictions block precisely — never guess
 

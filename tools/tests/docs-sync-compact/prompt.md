@@ -1,0 +1,5 @@
+This repository has an OKF v0.1 documentation bundle under `docs/`, including a `payments` subsystem. On this branch I did a lot of documentation drafting and no source changes at all — it is a docs-only branch. I created a new "Webhook delivery retries" decision, and I refined the existing "Idempotency keys" decision, editing the concepts and the payments log several times as I went.
+
+That drafting left churn behind: an extra follow-up log line for the new decision, an intermediate dated amendment heading on the idempotency decision, and a bookkeeping note that the sync ran. The previously merged history from before this branch should stay exactly as it is.
+
+Use the docs-sync skill in branch mode. The target branch to compare against is `master`. Reconcile my branch's documentation down to the accepted net state — I want the durable knowledge that should survive review and merge, not my drafting residue. Do the whole thing in the working tree; do not stage, commit, push, or open a pull request.

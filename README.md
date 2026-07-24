@@ -16,9 +16,11 @@ the capability.
 - [`docs-sync`](skills/docs-sync/SKILL.md) — reconcile an OKF `docs/` bundle
   with a branch's work: pick the mode and a target branch, scope from the
   merge-base through the whole working state, fan out to disjoint concept
-  owners with one reconciler for indexes/logs/timestamps, verify, and run the
-  validator — all in the working tree, never touching Git state; declares
-  `docs-validate` as a required skill.
+  owners with one reconciler for indexes/logs/timestamps, compact branch-local
+  drafting down to the accepted net state (one net lifecycle entry per concept,
+  merged history preserved, a material reversal gated behind a linked
+  supersession), verify, and run the validator — all in the working tree, never
+  touching Git state; declares `docs-validate` as a required skill.
 - [`docs-setup`](skills/docs-setup/SKILL.md) — install, upgrade, reinstall, or
   repair the OKF v0.1 docs machinery in a repository (validator + tests, package
   scripts, seed policy/reference, marked `AGENTS.md` router, exact `CLAUDE.md`
