@@ -46,8 +46,7 @@ Mind the **`assets/claude/` → target `.claude/`** rename (leading dot) on the 
 | `docs/{conventions,glossary,references}/index.md` | same paths                              | verbatim             |
 | `claude/rules/docs-authoring.md`                  | `.claude/rules/docs-authoring.md`       | verbatim             |
 | `claude/rules/docs-maintenance.md`                | `.claude/rules/docs-maintenance.md`     | verbatim + set paths |
-| `claude/skills/docs-add/**`                       | `.claude/skills/docs-add/**`            | verbatim + pm        |
-| `claude/skills/docs-validate/SKILL.md`            | `.claude/skills/docs-validate/SKILL.md` | verbatim + pm        |
+| `claude/skills/**` (both helper skills)           | `.claude/skills/**`                     | verbatim + pm        |
 | `github/workflows/docs-validate.yml` _(optional)_ | `.github/workflows/docs-validate.yml`   | verbatim, on request |
 
 **How legend** — _verbatim_: copy bytes unchanged; _date_: replace `<YYYY-MM-DD>` with
@@ -106,8 +105,8 @@ editing it in place trips the harness read-gate (the copy was never read at its 
    if source edit paths are missing, stop and ask for them before applying the setup.
 5. **Package manager** — replace the **literal** string `pnpm docs:validate` with the
    target's invocation (`npm run docs:validate`, `yarn docs:validate`, or no-op for pnpm).
-   It occurs in `documentation.md`, `okf.md`, `.claude/skills/docs-add/SKILL.md`, and
-   `.claude/skills/docs-validate/SKILL.md`. Match the full literal `pnpm docs:validate` —
+   It occurs in `documentation.md`, `okf.md`, and both helper skills' `SKILL.md` files
+   under `.claude/skills/`. Match the full literal `pnpm docs:validate` —
    **never** the bare `docs:validate`: the package.json line
    `"docs:validate": "node scripts/validate-docs.mjs"` (and the identical line quoted in the
    docs-validate skill) is a pm-agnostic script _definition_ and must stay unchanged.

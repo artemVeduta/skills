@@ -6,6 +6,9 @@ the capability.
 
 ## Skills
 
+- [`docs-validate`](skills/docs-validate/SKILL.md) — run a repository's strict
+  `docs:validate` script through its own package manager and interpret the
+  result: clean/warnings-only, hard bundle errors, or validator malfunction.
 - [`okf-docs-setup`](skills/okf-docs-setup/SKILL.md) — set up or standardize a
   repository's documentation as an OKF (Open Knowledge Format) v0.1 bundle:
   validator, docs-add/docs-validate skills, rules, frontmatter taxonomy.
