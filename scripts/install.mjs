@@ -198,7 +198,7 @@ async function main(argv) {
       process.stderr.write(`error: ${res.reason}\n`);
       return EXIT.HARD;
     }
-    process.stdout.write('README dev-install block matches the registry.\n');
+    process.stdout.write('README managed-install blocks match the registry.\n');
     return EXIT.OK;
   }
   if (o.writeReadme) {

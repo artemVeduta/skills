@@ -63,7 +63,8 @@ the capability.
 ## Install
 
 The library ships through three channels — alternative package shapes, not harness
-categories. Pick one shape per harness profile (see the warnings below).
+categories. Pick exactly one shape per harness profile; each managed channel below
+carries an explicit warning against mixing shapes.
 
 <!-- BEGIN dev-install (generated from registry) -->
 ### Development links
@@ -87,26 +88,44 @@ Supported harnesses:
 Update path: `git pull` (no reinstall).
 <!-- END dev-install -->
 
-### Portable pure skills
+<!-- BEGIN portable-install (generated from registry) -->
+### Portable pure skills (managed whole-pack)
 
 Managed, updatable skill copies without cloning the repository, via the upstream
-`skills` CLI:
+`skills` CLI. Install the complete five-skill pack — the whole pack, never a
+per-skill selection — into any supported harness (Claude Code, Codex, and OpenCode):
 
 ```bash
 npx skills@latest add artemVeduta/skills --skill '*'
 ```
 
-The upstream CLI owns skill and harness selection, project vs. global scope, its
-own storage, lock state, and updates (`skills update`). Until that CLI understands
-the `## Required skills` dependency convention, install the whole library with
-`--skill '*'`: selective installs cannot guarantee that a skill's dependencies
-come along.
+`--skill '*'` installs the whole pack, so every skill's `## Required skills`
+dependency ships with it. There is no supported per-skill picker: a partial
+selection could omit a required capability. The upstream CLI owns project vs.
+global scope, its own storage, lock state, and updates (`skills update`).
 
-### Native aggregate plugins
+Provenance: portable copies are installed from the `artemVeduta/skills` Git
+repository, so their provenance is a Git commit/ref — the source ref the `skills`
+CLI recorded — not a plugin version.
 
-Install the whole library as one native plugin; the harness CLI owns install,
-namespacing, enablement, and updates, per configuration root
-(`CLAUDE_CONFIG_DIR` / `CODEX_HOME`).
+Updating the managed pack refreshes only these managed skill copies; it never mutates a repository
+you previously configured with `docs-setup`. Upgrade a repository's docs tooling
+by running `docs-setup` again, and reconcile its bundle with `docs-sync` — never
+through a pack update.
+
+> **Do not mix package shapes in one profile.** A harness profile that installs
+> the pack through the portable channel must not also install it as a native plugin (or overlay checkout
+> links) — the harness would then expose duplicate namespaced and unnamespaced
+> capabilities. Pick exactly one package shape per profile.
+<!-- END portable-install -->
+
+<!-- BEGIN native-install (generated from registry) -->
+### Native aggregate plugins (managed whole-pack)
+
+Install the complete five-skill pack as one native plugin; the harness CLI owns
+install, caching, namespacing, enablement, and updates, per configuration root
+(`CLAUDE_CONFIG_DIR` / `CODEX_HOME`). Native plugins are available for Claude Code and Codex
+only. There is no OpenCode native plugin; use the portable channel above for OpenCode.
 
 **Claude Code:**
 
@@ -116,7 +135,7 @@ claude plugin install skills@artemveduta
 ```
 
 Skills install namespaced (e.g. `/skills:docs-setup`). Update path:
-`claude plugin marketplace update artemveduta` (the harness plugin updater).
+`claude plugin marketplace update artemveduta`.
 
 **Codex:**
 
@@ -125,14 +144,25 @@ codex plugin marketplace add artemVeduta/skills
 codex plugin add skills@artemveduta
 ```
 
-Update path: `codex plugin marketplace upgrade artemveduta` (the harness
-plugin updater).
+Update path: `codex plugin marketplace upgrade artemveduta`.
 
-## Warnings
+Provenance: native copies carry a plugin version/release — both plugin manifests
+mirror the release tag — so a `<harness> plugin` listing answers "what version is
+installed".
 
-- **Do not install this library through both the pure-skill and native-plugin
-  channels in one harness profile.** The harness would expose duplicate namespaced
-  and unnamespaced capabilities — pick one shape per profile.
+Updating the managed pack refreshes only the installed plugin; it never mutates a repository
+you previously configured with `docs-setup`. Upgrade a repository's docs tooling
+by running `docs-setup` again, and reconcile its bundle with `docs-sync` — never
+through a pack update.
+
+> **Do not mix package shapes in one profile.** A harness profile that installs
+> the pack as a native plugin must not also install it through the portable channel (or overlay checkout
+> links) — the harness would then expose duplicate namespaced and unnamespaced
+> capabilities. Pick exactly one package shape per profile.
+<!-- END native-install -->
+
+## Notes
+
 - **`~/.agents/skills` doubles as the portable CLI's own storage.** It is both a
   development symlink target and where `npx skills` keeps its managed copies; do
   not point both channels at the same directory.

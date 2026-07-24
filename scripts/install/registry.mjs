@@ -28,6 +28,17 @@ export const REGISTRY = [
     },
     scopes: ['global', 'project'],
     channels: ['development', 'portable', 'native'],
+    // Native aggregate-plugin adapter (Claude Code marketplace CLI). Present only on
+    // harnesses that ship a native plugin; the command verbs and manifest paths are
+    // the single source of truth the README native guidance and its tests both read.
+    native: {
+      cli: 'claude',
+      installVerb: 'install',
+      updateVerb: 'update',
+      pluginManifest: '.claude-plugin/plugin.json',
+      marketplaceManifest: '.claude-plugin/marketplace.json',
+      namespaced: true, // installs as /skills:<skill>
+    },
     customProfileValidation: { allowHomeRelative: true },
   },
   {
@@ -38,6 +49,15 @@ export const REGISTRY = [
     configRoot: { env: null, defaults: [{ id: 'default', dir: '.agents' }] },
     scopes: ['global', 'project'],
     channels: ['development', 'portable', 'native'],
+    native: {
+      cli: 'codex',
+      installVerb: 'add',
+      updateVerb: 'upgrade',
+      pluginManifest: '.codex-plugin/plugin.json',
+      // Not the Claude catalog path, which would collide with the Claude marketplace.
+      marketplaceManifest: '.agents/plugins/marketplace.json',
+      namespaced: false,
+    },
     customProfileValidation: { allowHomeRelative: true },
   },
   {
@@ -58,4 +78,41 @@ export const REGISTRY = [
 
 export function findEntry(registry, id) {
   return registry.find((e) => e.id === id) || null;
+}
+
+// The one managed-pack identity shared by both managed channels. The portable CLI
+// installs from the `repo` slug; the native plugin is `pluginId` in marketplace
+// `marketplaceId`. Keeping these in one place lets the README guidance, the plugin
+// manifests, and their tests agree on a single set of ids.
+export const MANAGED_PACKAGE = {
+  repo: 'artemVeduta/skills',
+  pluginId: 'skills',
+  marketplaceId: 'artemveduta',
+};
+
+// The supported portable install: the whole pack, never a per-skill picker.
+export function portableCommand(pkg = MANAGED_PACKAGE) {
+  return `npx skills@latest add ${pkg.repo} --skill '*'`;
+}
+
+// Derive a native harness's exact marketplace add / install / update operations from
+// its adapter verbs and the shared package identity. This is the definition the
+// README documents and the manifest tests verify against the real manifest ids.
+export function nativeCommands(entry, pkg = MANAGED_PACKAGE) {
+  const { cli, installVerb, updateVerb } = entry.native;
+  return {
+    marketplaceAdd: `${cli} plugin marketplace add ${pkg.repo}`,
+    install: `${cli} plugin ${installVerb} ${pkg.pluginId}@${pkg.marketplaceId}`,
+    update: `${cli} plugin marketplace ${updateVerb} ${pkg.marketplaceId}`,
+  };
+}
+
+// Harnesses offered the portable whole-pack channel (all three products).
+export function portableHarnesses(registry) {
+  return registry.filter((e) => e.channels.includes('portable'));
+}
+
+// Harnesses that ship a native aggregate plugin (Claude Code and Codex only).
+export function nativeHarnesses(registry) {
+  return registry.filter((e) => e.channels.includes('native') && e.native);
 }
