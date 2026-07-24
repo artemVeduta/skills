@@ -190,6 +190,25 @@ test('the approve case projects docs-setup and proves the fresh install produces
   );
   assert.ok(c.assertions.some((a) => a.type === 'portable-contract'));
 
+  // AC8 on the WRITE path: the fresh install left staging, commits, and remotes
+  // unchanged. git-unchanged is unusable here (the write dirties the tree), so
+  // the case must carry its write-path counterpart, git-uncommitted.
+  assert.ok(
+    c.assertions.some((a) => a.type === 'git-uncommitted'),
+    'the approve case must assert git-uncommitted (AC8: no staging/commit/remote on the write path)',
+  );
+  // AC8 validation success: the produced bundle validates fully clean. The
+  // dropped `<subsystem>` placeholder removes the only broken-link warning
+  // source, and the verifier reports the validator's "conformant" headline.
+  assert.ok(
+    c.assertions.some((a) => a.type === 'file-not-contains' && a.path === 'docs/index.md' && a.value === '<subsystem>'),
+    'the approve case must assert the <subsystem> placeholder bullet was dropped',
+  );
+  assert.ok(
+    c.assertions.some((a) => a.type === 'output-contains' && a.value === 'conformant'),
+    'the approve case must assert the verifier reported a conformant bundle (AC8 validation success)',
+  );
+
   // The declared skill projects with the full suite closure — exactly what the
   // CLI would run for this case.
   const fixtureRoot = await mkdtemp(join(tmpdir(), 'ds-approve-'));

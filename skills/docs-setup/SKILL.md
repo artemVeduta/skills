@@ -57,12 +57,11 @@ file. Cover, in parallel, all six surfaces:
 
 ### 2. Classify
 
-Consolidate one dry-run plan and classify the state as **fresh**, upgrade, or partial
-repair. Fresh = no managed machinery present. If managed machinery already exists, this is
-an upgrade/partial-repair (separate slice): recompute, propose conservatively, and never
-blindly overwrite — a differing managed file gets an explicit review proposal, recognized
-legacy wiring gets a proposed replacement, and ambiguous lookalike prose is preserved and
-blocks completion. A current, already-set-up target produces a **no-change** plan.
+Consolidate one dry-run plan and classify the state. **Fresh** = no managed machinery
+present — the only path this slice performs. A target that already carries current managed
+machinery produces a **no-change** plan (the idempotent rerun). Upgrade and partial repair
+— a target whose managed machinery exists but differs — are the same skill's
+responsibility in a separate slice (#53) and are out of scope here.
 
 ### 3. Plan (present every action + every ambiguity, then STOP)
 
@@ -123,9 +122,10 @@ editing in place trips the read-gate; `sed` keeps verbatim files byte-exact). Su
 - **project** — `<PROJECT>` → the project name in `docs/index.md`, and drop the
   placeholder subsystem bullet when there are no subsystems;
 - **package manager** — the router block's `<pm>` → the invocation prefix (`npm run`,
-  `yarn`, `bun run`, or empty for pnpm), and the full literal `pnpm docs:validate` → the
-  target invocation in `documentation.md` and `okf.md`. Never touch the bare
-  `docs:validate` script _definition_ in `package.json`.
+  `yarn`, `bun run`, or `pnpm`), and the full literal `pnpm docs:validate` → the target
+  invocation in `documentation.md` and `okf.md` (a no-op for a pnpm target, where the
+  literal is already correct). Never touch the bare `docs:validate` script _definition_ in
+  `package.json`.
 
 Write `CLAUDE.md` as exactly `@AGENTS.md` only after existing memory is classified;
 splice the router between its markers into `AGENTS.md`, creating the file if absent and
@@ -153,8 +153,9 @@ tests pass, no validation error introduced) and **bundle validates cleanly**.
   with validation success and leaves all of them unchanged.
 - **Never install helper-skill copies** under `.claude/skills/` — depend on discovery.
 - **Never convert existing documentation** — no semantic conversion here; that is sync work.
-- **Never blindly overwrite** a differing managed file — propose a review; preserve
-  ambiguous prose and let it block.
+- **Only ever create on a fresh install** — never overwrite pre-existing content. A
+  differing managed file means the target is not fresh; upgrade/repair is a separate slice
+  (#53), not this path.
 - **Never install husky or a `prepare` script** — enforcement is the optional PR workflow
   plus the documented pre-push recipes owned by docs-validate.
 

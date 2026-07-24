@@ -77,6 +77,8 @@ async function evaluateOne(a, { workdir, repoRoot, output, baselineSha, skillsSu
       return evaluateTrace(a, output);
     case 'git-unchanged':
       return evaluateGitUnchanged(workdir, baselineSha);
+    case 'git-uncommitted':
+      return evaluateGitUncommitted(workdir, baselineSha);
     case 'portable-contract': {
       // Static shared-reader contract over the projected pack in the fixture
       // (skill metadata, relative support references, project-memory routing,
@@ -126,6 +128,49 @@ function evaluateGitUnchanged(workdir, baselineSha) {
   const headSha = head.stdout.trim();
   if (headSha !== baselineSha) {
     return { pass: false, detail: `history moved off the fixture baseline commit: HEAD is ${headSha}, baseline was ${baselineSha}` };
+  }
+  return { pass: true, detail: '' };
+}
+
+// --- git-uncommitted (v2 acceptance seam) ---
+// The WRITE-path counterpart to git-unchanged. A successful fresh install
+// LEGITIMATELY dirties the working tree (new and edited files), so a fully
+// clean tree cannot be required here — git-unchanged would reject the very
+// outcome we want. This proves the install left Git *otherwise* untouched, i.e.
+// AC8 "leaves staging, commits, remotes, and pull requests unchanged" on the
+// path that actually writes: HEAD still equals the baseline commit (no commit
+// was made), the index has NOTHING staged (`git diff --cached --quiet`), and no
+// remote was added (the fixture baseline has none, so "unchanged" == still
+// none — a PR is impossible without a remote). Untracked/modified working-tree
+// files are allowed and expected; only staging/commits/remotes are forbidden. A
+// non-git workdir or a missing recorded baseline FAILS rather than passing
+// vacuously, exactly like git-unchanged.
+
+function evaluateGitUncommitted(workdir, baselineSha) {
+  const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: workdir, encoding: 'utf8' });
+  if (head.status !== 0) {
+    return { pass: false, detail: `git rev-parse failed in workdir: ${(head.stderr || '').trim() || 'not a git repository'}` };
+  }
+  if (!baselineSha) {
+    return { pass: false, detail: 'no baseline commit sha recorded for this fixture — cannot prove Git state unchanged' };
+  }
+  const headSha = head.stdout.trim();
+  if (headSha !== baselineSha) {
+    return { pass: false, detail: `a commit was made past the baseline: HEAD is ${headSha}, baseline was ${baselineSha}` };
+  }
+  const staged = spawnSync('git', ['diff', '--cached', '--quiet'], { cwd: workdir, encoding: 'utf8' });
+  if (staged.status === 1) {
+    return { pass: false, detail: 'changes are staged in the index (git diff --cached is non-empty)' };
+  }
+  if (staged.status !== 0) {
+    return { pass: false, detail: `git diff --cached failed in workdir: ${(staged.stderr || '').trim()}` };
+  }
+  const remotes = spawnSync('git', ['remote'], { cwd: workdir, encoding: 'utf8' });
+  if (remotes.status !== 0) {
+    return { pass: false, detail: `git remote failed in workdir: ${(remotes.stderr || '').trim()}` };
+  }
+  if (remotes.stdout.trim() !== '') {
+    return { pass: false, detail: `a remote was added: ${remotes.stdout.trim().split('\n').join(', ')}` };
   }
   return { pass: true, detail: '' };
 }

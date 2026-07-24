@@ -5,15 +5,19 @@
 // proves the GATE and the full Git guarantee on the no-op path; this case proves
 // the PRIMARY fresh install — AC5 (the target receives the verbatim validator +
 // tests, the two package scripts, seed policy/reference, a marked AGENTS.md
-// router, and the exact CLAUDE.md shim) and AC8 (validation success). Turn 1
-// (prompt.md) audits, classifies fresh, presents the plan, and pauses; the
-// follow-up (approve.md) approves, so the write happens only after approval.
+// router, and the exact CLAUDE.md shim) and both halves of AC8 (validation
+// success AND staging/commits/remotes/PRs left unchanged). Turn 1 (prompt.md)
+// audits, classifies fresh, presents the plan, and pauses; the follow-up
+// (approve.md) approves, so the write happens only after approval.
 //
-// The write legitimately dirties the working tree, so git-unchanged is NOT
-// asserted here (the deny case owns that guarantee). The fixture is a fresh repo
-// with NO CLAUDE.md, so the writer must CREATE the `@AGENTS.md` shim; the
-// pre-existing AGENTS.md and README carry sentinels proving unrelated content is
-// preserved when the marked router is spliced in.
+// The write legitimately dirties the working tree, so git-unchanged (which
+// demands a fully clean tree) cannot be used here; git-uncommitted is its
+// write-path counterpart — it permits the new/edited files while still proving
+// nothing was staged, committed, or pushed to a remote (AC8 on the path that
+// actually writes). The fixture is a fresh repo with NO CLAUDE.md, so the writer
+// must CREATE the `@AGENTS.md` shim; the pre-existing AGENTS.md and README carry
+// sentinels proving unrelated content is preserved when the marked router is
+// spliced in.
 
 const AGENTS = `# fixtureproj
 
@@ -70,8 +74,24 @@ export default {
     { type: 'file-contains', path: 'README.md', value: 'readme-keep-me' },
     // The project name was substituted; no placeholder survives.
     { type: 'file-not-contains', path: 'docs/index.md', value: '<PROJECT>' },
+    // ...and, with subsystems "none yet", the `<subsystem>` placeholder bullet
+    // was dropped (SKILL §5). This is the ONE thing that would otherwise leave a
+    // broken-link warning, so proving it gone makes the produced bundle validate
+    // fully clean ("conformant; no warnings"), not merely warnings-only.
+    { type: 'file-not-contains', path: 'docs/index.md', value: '<subsystem>' },
     // Live AC3 evidence: turn 1 named the skeleton path before the write.
     { type: 'output-contains', value: 'docs/index.md' },
+    // AC8, write path: the install left Git OTHERWISE untouched. The tree is
+    // legitimately dirtied by the writes, but nothing was staged, committed, or
+    // pushed to a remote (git-unchanged is unusable on a write path; this is its
+    // write-path counterpart). This is the observable-outcome proof that the
+    // no-Git boundary held during a real write, not just on the denial path.
+    { type: 'git-uncommitted' },
+    // AC8, validation success: the fresh verifier ran the strict validator and
+    // reported the bundle conformant ("conformant" is the validator's headline
+    // word on a clean bundle; the dropped-placeholder assertions above guarantee
+    // the bundle IS clean, so a run that reaches the verify step must say it).
+    { type: 'output-contains', value: 'conformant' },
     // Static shared-reader contract over the projected pack, now including the
     // shim the writer created (AC1 parity).
     { type: 'portable-contract' },

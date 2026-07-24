@@ -212,6 +212,66 @@ test('git-unchanged fails on a non-git workdir instead of passing vacuously', as
   });
 });
 
+// --- git-uncommitted (v2 acceptance seam): the WRITE-path guarantee. A
+// successful install dirties the tree, so this permits untracked/modified files
+// while still proving nothing was staged, committed, or pushed to a remote. ---
+
+test('git-uncommitted passes on a dirtied tree with nothing staged, no commit, no remote', async () => {
+  await withGitBaseline(async (workdir, baselineSha) => {
+    // Simulate a successful fresh install: a new untracked file AND an edit to
+    // a tracked baseline file, but no `git add`, commit, or remote.
+    await writeFile(join(workdir, 'scripts-validate-docs.mjs'), 'installed');
+    await writeFile(join(workdir, 'seed.txt'), 'router spliced in');
+    const r = await evaluateAssertions([{ type: 'git-uncommitted' }], { workdir, repoRoot: workdir, output: '', baselineSha });
+    assert.equal(r[0].pass, true, r[0].detail);
+  });
+});
+
+test('git-uncommitted fails when the install staged its writes', async () => {
+  await withGitBaseline(async (workdir, baselineSha) => {
+    await writeFile(join(workdir, 'new.txt'), 'x');
+    git(workdir, 'add', '-A');
+    const r = await evaluateAssertions([{ type: 'git-uncommitted' }], { workdir, repoRoot: workdir, output: '', baselineSha });
+    assert.equal(r[0].pass, false);
+    assert.match(r[0].detail, /staged/);
+  });
+});
+
+test('git-uncommitted fails when a commit was made past the baseline', async () => {
+  await withGitBaseline(async (workdir, baselineSha) => {
+    await writeFile(join(workdir, 'seed.txt'), 'changed');
+    git(workdir, 'add', '-A');
+    git(workdir, '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'sneaky commit');
+    const r = await evaluateAssertions([{ type: 'git-uncommitted' }], { workdir, repoRoot: workdir, output: '', baselineSha });
+    assert.equal(r[0].pass, false);
+    assert.match(r[0].detail, /commit/);
+  });
+});
+
+test('git-uncommitted fails when a remote was added', async () => {
+  await withGitBaseline(async (workdir, baselineSha) => {
+    git(workdir, 'remote', 'add', 'origin', 'https://example.invalid/repo.git');
+    const r = await evaluateAssertions([{ type: 'git-uncommitted' }], { workdir, repoRoot: workdir, output: '', baselineSha });
+    assert.equal(r[0].pass, false);
+    assert.match(r[0].detail, /remote/);
+  });
+});
+
+test('git-uncommitted fails without a recorded baseline sha instead of passing vacuously', async () => {
+  await withGitBaseline(async (workdir) => {
+    const r = await evaluateAssertions([{ type: 'git-uncommitted' }], { workdir, repoRoot: workdir, output: '' });
+    assert.equal(r[0].pass, false);
+    assert.match(r[0].detail, /no baseline commit sha/);
+  });
+});
+
+test('git-uncommitted fails on a non-git workdir instead of passing vacuously', async () => {
+  await withDirs(async ({ workdir, repoRoot }) => {
+    const r = await evaluateAssertions([{ type: 'git-uncommitted' }], { workdir, repoRoot, output: '', baselineSha: 'deadbeef' });
+    assert.equal(r[0].pass, false);
+  });
+});
+
 // --- execution-trace assertions (v2 acceptance seam): the harness output
 // carries a machine-readable fenced `execution-trace` block; cases assert its
 // fields and coordinator/worker ownership deterministically. ---
