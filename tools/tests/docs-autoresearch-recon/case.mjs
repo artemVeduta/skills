@@ -17,8 +17,17 @@ export default {
   assertions: [
     // The one dated brief was written OUTSIDE the bundle.
     { type: 'file-exists', path: RECON_BRIEF_PATH },
+    // ROBUST no-ceremony proof: relative to the baseline commit, the ONLY changed
+    // path is the dated brief. A stray write ANYWHERE — a lifecycle entry under
+    // any verb, a new concept under any slug, an index touch — is caught, unlike
+    // the keyword/verb substring proxies below (which stay as readable statements
+    // of the specific concern).
+    { type: 'git-only-paths', paths: [RECON_BRIEF_PATH] },
     // A genuine write that leaves Git otherwise untouched.
     { type: 'git-uncommitted' },
+    // Raw bodies do not persist (AC12): the brief carries summaries and citations,
+    // never a pasted raw fetched HTML body (`<!DOCTYPE` only appears if one was).
+    { type: 'file-not-contains', path: RECON_BRIEF_PATH, value: '<!DOCTYPE' },
     // NO OKF ceremony: the references index/log and the root log gained nothing.
     // (The baseline logs seed an `Update`, never a `Creation`, so a fresh
     // Creation would betray ceremony the recon mode must not perform.)

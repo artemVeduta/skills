@@ -81,6 +81,10 @@ async function evaluateOne(a, { workdir, repoRoot, output, baselineSha, skillsSu
       return evaluateGitUnchanged(workdir, baselineSha);
     case 'git-uncommitted':
       return evaluateGitUncommitted(workdir, baselineSha);
+    case 'git-only-paths':
+      return evaluateGitOnlyPaths(workdir, baselineSha, a.paths);
+    case 'file-unchanged':
+      return evaluateFileUnchanged(workdir, baselineSha, a.path);
     case 'portable-contract': {
       // Static shared-reader contract over the projected pack in the fixture
       // (skill metadata, relative support references, project-memory routing,
@@ -177,6 +181,80 @@ function evaluateGitUncommitted(workdir, baselineSha) {
   return { pass: true, detail: '' };
 }
 
+// --- git-only-paths (v2 #59 seam) ---
+// Proves the run changed EXACTLY the intended working-tree paths relative to the
+// baseline commit — nothing more, nothing less. A robust negative for "this mode
+// leaves everything else untouched" that a substring/slug proxy cannot give: a
+// stray write under ANY other name is caught. Uses
+// `git status --porcelain --ignored -uall` (`-uall` expands untracked
+// directories to individual files, so a brand-new `research/` dir does not
+// collapse to one entry) and requires the set of changed paths to equal a.paths
+// exactly. A non-git workdir, a missing baseline, or a non-array `paths` FAILS
+// rather than passing vacuously.
+function evaluateGitOnlyPaths(workdir, baselineSha, expected) {
+  if (!Array.isArray(expected)) {
+    return { pass: false, detail: 'git-only-paths requires a paths array' };
+  }
+  if (!baselineSha) {
+    return { pass: false, detail: 'no baseline commit sha recorded for this fixture — cannot prove which paths changed' };
+  }
+  const status = spawnSync('git', ['status', '--porcelain', '--ignored', '-uall'], { cwd: workdir, encoding: 'utf8' });
+  if (status.status !== 0) {
+    return { pass: false, detail: `git status failed in workdir: ${(status.stderr || '').trim() || 'not a git repository'}` };
+  }
+  // Each porcelain v1 line is "XY <path>" (status columns 0-1, path from column 3);
+  // a rename is "XY <old> -> <new>" — take the final path.
+  const changed = status.stdout
+    .split('\n')
+    .filter((l) => l.length > 3)
+    .map((l) => {
+      const p = l.slice(3);
+      const arrow = p.indexOf(' -> ');
+      return arrow === -1 ? p : p.slice(arrow + 4);
+    });
+  const changedSet = new Set(changed);
+  const expectedSet = new Set(expected);
+  const extra = [...changedSet].filter((p) => !expectedSet.has(p));
+  const missing = [...expectedSet].filter((p) => !changedSet.has(p));
+  if (extra.length > 0 || missing.length > 0) {
+    const parts = [];
+    if (extra.length) parts.push(`unexpected changes: ${extra.join(', ')}`);
+    if (missing.length) parts.push(`expected changes absent: ${missing.join(', ')}`);
+    return { pass: false, detail: parts.join('; ') };
+  }
+  return { pass: true, detail: '' };
+}
+
+// --- file-unchanged (v2 #59 seam) ---
+// Proves a SPECIFIC tracked file is byte-identical to its content at the baseline
+// commit — a robust negative for "this mode left file X untouched" that catches a
+// stray write under ANY slug or verb, unlike a substring proxy. Reads the
+// baseline blob with `git show <baseline>:<path>` (no need to thread baseline
+// bytes through repoRoot) and compares it to the current working-tree file. A
+// non-git workdir, a missing baseline, a path absent at baseline, or a now-missing
+// working-tree file FAILS rather than passing vacuously.
+async function evaluateFileUnchanged(workdir, baselineSha, path) {
+  if (typeof path !== 'string' || path === '') {
+    return { pass: false, detail: 'file-unchanged requires a path' };
+  }
+  if (!baselineSha) {
+    return { pass: false, detail: 'no baseline commit sha recorded for this fixture — cannot prove the file is unchanged' };
+  }
+  const base = spawnSync('git', ['show', `${baselineSha}:${path}`], { cwd: workdir, encoding: 'utf8' });
+  if (base.status !== 0) {
+    return {
+      pass: false,
+      detail: `git show ${baselineSha}:${path} failed: ${(base.stderr || '').trim() || 'path absent at baseline or not a git repository'}`,
+    };
+  }
+  const current = await readIf(join(workdir, path));
+  if (current === null) {
+    return { pass: false, detail: `file-unchanged: ${path} is missing in the working tree` };
+  }
+  const pass = current === base.stdout;
+  return { pass, detail: pass ? '' : `${path} differs from its baseline content` };
+}
+
 // --- execution-trace assertions (v2 acceptance seam) ---
 // The harness report carries a machine-readable fenced ```execution-trace
 // block (spec: the cross-harness observable contract for fanout workflows).
@@ -260,22 +338,40 @@ function evaluateTrace(a, output) {
     }
     case 'trace-fetch-within-cap': {
       // Fetch-cap invariant (spec §Fanout and budgets): a run never fetches past
-      // its own cap, and the cap itself never exceeds the hard ceiling (45). Both
-      // the 20 default and an approved 45 run satisfy it; only a run that overran
-      // its cap, or raised the cap past the ceiling, fails.
+      // its own cap, the cap itself never exceeds the hard ceiling (45), and any
+      // cap above the normal cap (20) must be flagged as an approved one-run
+      // raise. Both the 20 default and an approved 45 run satisfy it; a run that
+      // overran its cap, raised the cap past the ceiling, or raised it above the
+      // normal cap without approval fails.
+      //
+      // The ceiling (45) and normal cap (20) are CHECKER-OWNED constants, NEVER
+      // read from the trace under test — mirror trace-round-search-cap's `a.max ??
+      // 5`. Reading `fetch.ceiling` from the trace would make the bound
+      // self-satisfiable (a run reporting {cap:50, ceiling:50} would pass).
+      // Repository policy may only LOWER the normal cap, so any cap above 20 is by
+      // definition a one-run approved raise. Both are overridable per-assertion for
+      // future-proofing, but default to the spec's fixed values.
       const fetch = traceGet(trace, 'fetch');
       if (fetch == null || typeof fetch !== 'object') {
         return { pass: false, detail: 'trace has no fetch accounting block' };
       }
-      const { cap, ceiling, attempts } = fetch;
+      const { cap, attempts, raisedByApproval } = fetch;
       if (typeof cap !== 'number' || typeof attempts !== 'number') {
         return { pass: false, detail: 'trace fetch block must carry numeric cap and attempts' };
       }
+      const ceiling = a.ceiling ?? 45;
+      const normalCap = a.normalCap ?? 20;
       if (attempts > cap) {
         return { pass: false, detail: `fetch attempts ${attempts} exceed the run cap ${cap}` };
       }
-      if (typeof ceiling === 'number' && cap > ceiling) {
+      if (cap > ceiling) {
         return { pass: false, detail: `run cap ${cap} exceeds the hard ceiling ${ceiling}` };
+      }
+      if (cap > normalCap && raisedByApproval !== true) {
+        return {
+          pass: false,
+          detail: `run cap ${cap} exceeds the normal cap ${normalCap} without an approved one-run raise (fetch.raisedByApproval is ${JSON.stringify(raisedByApproval)})`,
+        };
       }
       return { pass: true, detail: '' };
     }

@@ -136,11 +136,13 @@ the recommended per-round split are the tunable defaults in
 [RESEARCH-DEFAULTS.md](RESEARCH-DEFAULTS.md). **Unused quota carries forward only
 at a round boundary**, never mid-round. The cap rules are fixed here:
 
-- **Normal cap: the tunable default (20).**
+- **Normal cap: the shipped tunable default** in
+  [RESEARCH-DEFAULTS.md](RESEARCH-DEFAULTS.md) (the numeric value lives there
+  alone; a repository override may lower it).
 - A **one-run increase** requires **explicit user approval** and is bounded by a
   **hard ceiling of 45 attempts** — a single run may raise the cap **no higher
   than 45**.
-- The **next run resets to the normal cap (20).** An approved raise is never
+- The **next run resets to the normal cap.** An approved raise is never
   persistent; repository policy may lower the cap but never raise it.
 
 **Stop early** only when the evidence is sufficient: the question is supported,
@@ -337,6 +339,16 @@ stopped before writing (collision, unsafe-url, concept-ceiling, unsupported-fano
 partially-applied write. `fetch.cap` is `45` only on an approved one-run increase
 with `raisedByApproval: true`.
 
+`stop.kind` records **why the run ended**, which is distinct from the notable
+**events during the run** in the Failure-handling table. An ordinary failed fetch
+or rejected unsafe URL is a per-source event: it is classified in that worker's
+`sourceOutcomes` (and, for a material gap, an Open Question) while the run
+continues. `stop.kind` is `fetch-failed` **only** when a decisive fetch failed and
+left an unrecoverable material gap that **ended** the run, and `unsafe-url`
+**only** when the sole viable lead was rejected as unsafe, leaving no way to
+proceed. A run that merely encountered — and recorded — some failed or rejected
+sources ends as `sufficient` or `cap-exhausted`, not on those kinds.
+
 ## Boundaries — never do these
 
 - **Never invoke on a generic research request** — explicit topic, selected
@@ -363,19 +375,6 @@ with `raisedByApproval: true`.
 - **Never roll back destructively** on a later failure — stop and report the
   exact partial state.
 
-## Red flags — stop and reconsider
-
-- "I'll just run fewer workers since I can't fan out" → **no** — stop with the
-  unsupported-capability failure.
-- "The cap is at 20 but one more fetch would clinch it" → **no** — stop at the
-  cap; an increase needs explicit approval and never exceeds 45.
-- "This slug is close enough, I'll enrich the existing file" → **no** — an
-  unrelated collision stops for confirmation.
-- "The evidence is thin but I'll mark it high confidence" → **no** — no override
-  or pressure promotes unsourced material to high confidence.
-- "Reconnaissance found something durable, I'll file it as a Reference too" →
-  **no** — recon writes only the brief; promotion is a separate curated step.
-
 ## Common Mistakes
 
 - **Treating a vague "research X" as an invocation** — without an explicit topic
@@ -389,6 +388,8 @@ with `raisedByApproval: true`.
 - **Counting only successful fetches** — the cap counts failures and retries too.
 - **Pasting source text into the concept** — persist summaries and citations, not
   raw bodies; cite, do not copy.
+- **Marking thin evidence high confidence** — no override or pressure promotes
+  unsourced, speculative, or single-informal material to high confidence.
 - **Filing without the one plan** — present the complete plan and wait; reuse that
   approval for docs-add rather than gating twice.
 - **Proceeding on hard-coded defaults** — a missing/unreadable shipped defaults

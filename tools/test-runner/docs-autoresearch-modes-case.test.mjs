@@ -31,6 +31,19 @@
 // four sibling cases via the test-runner CLI (docs-autoresearch-spec,
 // docs-autoresearch-spec-unresolved, docs-autoresearch-recon,
 // docs-autoresearch-collision).
+//
+// AC12 coverage note. "Without persisting secrets, sensitive inputs, fetched
+// instructions, or raw bodies" is enforced on two fronts:
+//   - RAW BODIES: a behavioural negative — the spec-success and reconnaissance
+//     live cases assert `file-not-contains '<!DOCTYPE'` on the written concept/
+//     brief (a raw fetched HTML body would carry that marker), and every live
+//     prompt instructs "Persist summaries and citations only".
+//   - UNSAFE URLs / fetched instructions: because CI excludes the network and the
+//     enumerated case list ships no unsafe-URL fixture, this half is carried by
+//     (1) SKILL.md prose (Source safety and web hygiene + the unsafe-URL failure
+//     contract), and (2) the oracle-checkable `unsafe-url` stop kind paired with a
+//     `rejected` source outcome and no write — asserted deterministically below.
+//     A live unsafe-URL run is out of scope for the CI-reachable layer.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
@@ -343,6 +356,40 @@ test('the unsupported-fanout stop is observable and never executed inline or wit
   assert.ok(allPassed(results), results.filter((r) => !r.pass).map((r) => r.detail).join('; '));
 });
 
+// An UNSAFE-URL stop: a source failed the safety filter, was classified
+// `rejected`, and — being the decisive/only viable lead — ended the run before
+// any write. Proves AC12's URL-safety half is observable in the trace: the
+// rejected source outcome is recorded and nothing was written.
+const UNSAFE_URL_TRACE = {
+  mode: 'reference-enrichment',
+  topic: 'anything',
+  rounds: [{ round: 1, kind: 'breadth', workers: [
+    { assignmentId: 'r1-a1', workerId: 'w1', role: 'research', delegated: false, searchQuota: 3, searchCount: 2, fetchQuota: 4, fetchCount: 0, sourceOutcomes: { fetched: 0, rejected: 2, failed: 0 }, packetReceived: true },
+  ] }],
+  fetch: { cap: 20, ceiling: 45, raisedByApproval: false, attempts: 0, failures: 0, retries: 0 },
+  coordinator: { soleWriter: true, writePhase: 'none', conceptsMutated: 0 },
+  stop: { kind: 'unsafe-url', detail: 'the only lead was a credential-bearing URL; classified rejected and never fetched' },
+};
+
+test('the unsafe-url stop is observable: rejected source outcome, pre-fetch rejection, no write (AC12)', async () => {
+  const results = await evaluateAssertions(
+    [
+      { type: 'trace-field', path: 'stop.kind', equals: 'unsafe-url' },
+      // The unsafe source was classified `rejected`, not `fetched`.
+      { type: 'trace-field', path: 'rounds.0.workers.0.sourceOutcomes.rejected', equals: 2 },
+      { type: 'trace-field', path: 'rounds.0.workers.0.sourceOutcomes.fetched', equals: 0 },
+      // A pre-fetch rejection is not a fetch attempt.
+      { type: 'trace-field', path: 'fetch.attempts', equals: 0 },
+      // Nothing written on this stop path.
+      { type: 'trace-field', path: 'coordinator.writePhase', equals: 'none' },
+      // The cap invariant still holds.
+      { type: 'trace-fetch-within-cap' },
+    ],
+    { output: traceOutput(UNSAFE_URL_TRACE) },
+  );
+  assert.ok(allPassed(results), results.filter((r) => !r.pass).map((r) => r.detail).join('; '));
+});
+
 test('every distinct stop kind is oracle-checkable via the trace stop descriptor', async () => {
   const kinds = ['sufficient', 'collision', 'cap-exhausted', 'fetch-failed', 'unsafe-url', 'concept-ceiling', 'denied', 'mid-write-failure', 'unsupported-fanout'];
   for (const kind of kinds) {
@@ -391,6 +438,22 @@ test('the Specification-resolution SUCCESS case edits the target in place after 
     has((a) => a.type === 'file-not-contains' && a.path === 'docs/references/index.md'),
     'must prove no extra Reference was created (evidence not independently reusable)',
   );
+  // ROBUST negative: the References index AND log are byte-preserved vs baseline,
+  // so a stray Reference under ANY slug or a lifecycle entry under ANY verb is
+  // caught — not just the single-slug substring proxy.
+  assert.ok(
+    has((a) => a.type === 'file-unchanged' && a.path === 'docs/references/index.md'),
+    'must byte-preserve the References index (no Reference filed under any slug)',
+  );
+  assert.ok(
+    has((a) => a.type === 'file-unchanged' && a.path === 'docs/references/log.md'),
+    'must byte-preserve the References log (no lifecycle entry under any verb)',
+  );
+  // AC12 raw-body non-persistence: the in-place edit carries no raw fetched body.
+  assert.ok(
+    has((a) => a.type === 'file-not-contains' && /specs\//.test(a.path) && /<!DOCTYPE/.test(a.value)),
+    'must prove no raw fetched HTML body was pasted into the target Specification',
+  );
   // Observable mode.
   assert.ok(
     has((a) => a.type === 'trace-field' && a.path === 'mode' && a.equals === 'specification-resolution'),
@@ -431,10 +494,22 @@ test('the reconnaissance case writes only the dated brief outside the bundle, wi
     has((a) => a.type === 'file-exists' && a.path.startsWith('research/') && a.path.endsWith('.md')),
     'must assert the dated brief exists under research/ (outside the bundle)',
   );
+  // ROBUST no-ceremony proof: the ONLY changed path vs baseline is the brief —
+  // any stray write anywhere in docs/ (under any slug/verb) is caught, not just
+  // the keyword substring proxies.
+  assert.ok(
+    has((a) => a.type === 'git-only-paths' && Array.isArray(a.paths) && a.paths.some((p) => p.startsWith('research/'))),
+    'must prove the ONLY changed path is the dated brief (no ceremony anywhere)',
+  );
   // NO OKF ceremony: no references index/log or root-log entry gained.
   assert.ok(
     has((a) => a.type === 'file-not-contains' && a.path === 'docs/references/log.md' && /Creation/.test(a.value)),
     'must prove reconnaissance performed no lifecycle ceremony',
+  );
+  // AC12 raw-body non-persistence: the brief carries no raw fetched body.
+  assert.ok(
+    has((a) => a.type === 'file-not-contains' && a.path.startsWith('research/') && /<!DOCTYPE/.test(a.value)),
+    'must prove no raw fetched HTML body was pasted into the brief',
   );
   assert.ok(has((a) => a.type === 'git-uncommitted'), 'must assert git-uncommitted');
   assert.ok(

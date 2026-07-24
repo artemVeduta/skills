@@ -3,38 +3,21 @@
 // collision failure). Mirrors _docs-autoresearch-assets.mjs (the #58 default
 // Reference-enrichment scaffold): this module carries NO assertions and NO
 // case-specific follow-ups — only the byte-identical OKF-bundle scaffolds each
-// case seeds verbatim. Extracting the shared copy-paste (Fowler: Duplicated
-// Code) keeps a change to the shared bundle shape a single-site edit and stops
-// the mode fixtures from drifting apart. The lifecycle policy and validator are
-// re-used from the #58 module so every fixture reads THIS repo's canonical
-// bytes.
-import { policy, validator } from './_docs-autoresearch-assets.mjs';
+// case seeds verbatim. The harness/validator machinery is IMPORTED as
+// `sharedMachinery` from the #58 module (single source of truth), so the
+// project-memory shim, package wiring, and validator path cannot drift between
+// the two fixture families (Fowler: Duplicated Code). Only the pieces that
+// legitimately DIVERGE per family live here: the routing AGENTS.md (this family
+// advertises all three modes) and the baseline LOG note.
+import { sharedMachinery } from './_docs-autoresearch-assets.mjs';
 
-// --- shared machinery (project-memory shim, routing AGENTS.md, runnable
-// validator) so an approved write can run docs:validate ---
+// --- per-family pieces that legitimately differ from the #58 fixtures ---
 
-const CLAUDE_MD = { path: 'CLAUDE.md', content: '@AGENTS.md\n' };
 const AGENTS_MD = {
   path: 'AGENTS.md',
   content:
     'Workspace with an OKF v0.1 docs/ bundle. Lifecycle policy: docs/conventions/documentation.md. Use docs-autoresearch for explicit bounded research: the default files one curated Reference; Specification-resolution answers a Specification question in place; pre-work reconnaissance writes one dated brief under research/.\n',
 };
-const PACKAGE_JSON = {
-  path: 'package.json',
-  content: `${JSON.stringify(
-    { name: 'fixtureproj', private: true, scripts: { 'docs:validate': 'node scripts/validate-docs.mjs' } },
-    null,
-    2,
-  )}\n`,
-};
-const PACKAGE_LOCK = { path: 'package-lock.json', content: '{\n  "lockfileVersion": 3\n}\n' };
-const VALIDATOR = { path: 'scripts/validate-docs.mjs', content: validator };
-
-const CONVENTIONS_INDEX = {
-  path: 'docs/conventions/index.md',
-  content: '# Conventions\n\n- [Documentation lifecycle policy](/conventions/documentation.md) - the docs flow\n',
-};
-const CONVENTIONS_POLICY = { path: 'docs/conventions/documentation.md', content: policy };
 
 // Baseline log entry (both logs). Uses a NON-`Creation` verb so a case can prove
 // a run added a NEW Creation entry rather than vacuously matching the baseline.
@@ -45,7 +28,9 @@ const REFERENCES_INDEX = {
 };
 const REFERENCES_LOG = { path: 'docs/references/log.md', content: LOG };
 
-const MACHINERY = [CLAUDE_MD, AGENTS_MD, PACKAGE_JSON, PACKAGE_LOCK, VALIDATOR, CONVENTIONS_INDEX, CONVENTIONS_POLICY];
+// The imported machinery plus this family's routing AGENTS.md. Order is
+// irrelevant — the fixture builder writes each entry by its distinct path.
+const MACHINERY = [...sharedMachinery, AGENTS_MD];
 
 // =====================================================================
 // Specification-resolution bundle: a target Specification carrying one

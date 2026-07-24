@@ -28,9 +28,20 @@ export default {
     // The Overview sentinel survives — the run edited the question, it did not
     // rewrite the whole concept.
     { type: 'file-contains', path: SPEC_PATH, value: 'SENTINEL spec-overview' },
+    // Raw bodies do not persist (AC12): the in-place edit carries summaries and
+    // citations, never a pasted raw fetched HTML body. `<!DOCTYPE` is an
+    // unambiguous raw-HTML-document marker that only appears if a full fetched
+    // page body was pasted into the concept.
+    { type: 'file-not-contains', path: SPEC_PATH, value: '<!DOCTYPE' },
     // Reference-only-when-reusable: the evidence (the SemVer spec answering one
     // in-place question) is not an independently reusable NEW subject here, so no
-    // curated Reference was spun up and the references index gained no bullet.
+    // curated Reference was spun up. The robust proof is byte-preservation of the
+    // References index AND log relative to the baseline commit — a stray Reference
+    // filed under ANY slug (or a lifecycle entry under ANY verb) is caught, unlike
+    // a single-slug substring proxy. The substring check below stays as a readable
+    // statement of the specific concern.
+    { type: 'file-unchanged', path: 'docs/references/index.md' },
+    { type: 'file-unchanged', path: 'docs/references/log.md' },
     { type: 'file-not-contains', path: 'docs/references/index.md', value: 'semver-precedence-policy' },
     // A genuine write that leaves Git otherwise untouched (AC: never touches Git).
     { type: 'git-uncommitted' },

@@ -69,17 +69,17 @@ const REFERENCES_INDEX = {
 };
 const REFERENCES_LOG = { path: 'docs/references/log.md', content: LOG };
 
-// The verbatim scaffold both cases seed before their own follow-up + assertions.
-export const scaffold = [
-  CLAUDE_MD,
-  AGENTS_MD,
-  PACKAGE_JSON,
-  PACKAGE_LOCK,
-  VALIDATOR,
-  ROOT_INDEX,
-  ROOT_LOG,
-  CONVENTIONS_INDEX,
-  CONVENTIONS_POLICY,
-  REFERENCES_INDEX,
-  REFERENCES_LOG,
-];
+// The harness/validator machinery shared VERBATIM with the #59 mode fixtures
+// (_docs-autoresearch-modes-assets.mjs): the project-memory shim, package
+// wiring, the runnable validator, and the conventions index + real lifecycle
+// policy. Exported as the SINGLE source so a change here (e.g. the validator
+// path or package script wiring) cannot drift between the two fixture families.
+// The routing AGENTS.md and the baseline LOG differ per family (each family
+// advertises its own modes and seeds its own baseline note), so they stay local
+// to each module — never part of this shared set.
+export const sharedMachinery = [CLAUDE_MD, PACKAGE_JSON, PACKAGE_LOCK, VALIDATOR, CONVENTIONS_INDEX, CONVENTIONS_POLICY];
+
+// The verbatim scaffold both #58 cases seed before their own follow-up +
+// assertions: the shared machinery plus this family's routing AGENTS.md,
+// baseline root index/log, and References area.
+export const scaffold = [...sharedMachinery, AGENTS_MD, ROOT_INDEX, ROOT_LOG, REFERENCES_INDEX, REFERENCES_LOG];

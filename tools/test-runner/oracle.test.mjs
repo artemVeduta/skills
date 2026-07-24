@@ -272,6 +272,126 @@ test('git-uncommitted fails on a non-git workdir instead of passing vacuously', 
   });
 });
 
+// --- git-only-paths (v2 #59 seam): proves the run changed EXACTLY the intended
+// paths relative to the baseline — a robust negative that catches a stray write
+// under ANY name, unlike a substring/slug proxy. ---
+
+test('git-only-paths passes when exactly the intended new file appeared (untracked dir expanded)', async () => {
+  await withGitBaseline(async (workdir, baselineSha) => {
+    // A brand-new nested dir + file: `-uall` must expand it so the exact file
+    // path is matched, not the collapsed `research/` directory entry.
+    await mkdir(join(workdir, 'research'), { recursive: true });
+    await writeFile(join(workdir, 'research/2026-07-24-brief.md'), '# brief\n');
+    const r = await evaluateAssertions(
+      [{ type: 'git-only-paths', paths: ['research/2026-07-24-brief.md'] }],
+      { workdir, repoRoot: workdir, output: '', baselineSha },
+    );
+    assert.equal(r[0].pass, true, r[0].detail);
+  });
+});
+
+test('git-only-paths passes for an in-place edit of one tracked file', async () => {
+  await withGitBaseline(async (workdir, baselineSha) => {
+    await writeFile(join(workdir, 'seed.txt'), 'edited in place');
+    const r = await evaluateAssertions(
+      [{ type: 'git-only-paths', paths: ['seed.txt'] }],
+      { workdir, repoRoot: workdir, output: '', baselineSha },
+    );
+    assert.equal(r[0].pass, true, r[0].detail);
+  });
+});
+
+test('git-only-paths CATCHES a stray write outside the intended set', async () => {
+  await withGitBaseline(async (workdir, baselineSha) => {
+    // The intended write plus a stray one under a different name (the exact
+    // "lifecycle entry under a different slug" the substring proxy would miss).
+    await mkdir(join(workdir, 'research'), { recursive: true });
+    await writeFile(join(workdir, 'research/2026-07-24-brief.md'), '# brief\n');
+    await writeFile(join(workdir, 'docs-references-log.md'), 'sneaky lifecycle entry');
+    const r = await evaluateAssertions(
+      [{ type: 'git-only-paths', paths: ['research/2026-07-24-brief.md'] }],
+      { workdir, repoRoot: workdir, output: '', baselineSha },
+    );
+    assert.equal(r[0].pass, false);
+    assert.match(r[0].detail, /unexpected changes:.*docs-references-log\.md/);
+  });
+});
+
+test('git-only-paths CATCHES an intended path that never changed', async () => {
+  await withGitBaseline(async (workdir, baselineSha) => {
+    const r = await evaluateAssertions(
+      [{ type: 'git-only-paths', paths: ['research/never-written.md'] }],
+      { workdir, repoRoot: workdir, output: '', baselineSha },
+    );
+    assert.equal(r[0].pass, false);
+    assert.match(r[0].detail, /expected changes absent:.*research\/never-written\.md/);
+  });
+});
+
+test('git-only-paths fails without a baseline, on a non-array paths, and on a non-git workdir', async () => {
+  await withGitBaseline(async (workdir) => {
+    const noBase = await evaluateAssertions([{ type: 'git-only-paths', paths: ['x'] }], { workdir, repoRoot: workdir, output: '' });
+    assert.equal(noBase[0].pass, false);
+    assert.match(noBase[0].detail, /no baseline commit sha/);
+    const badPaths = await evaluateAssertions([{ type: 'git-only-paths' }], { workdir, repoRoot: workdir, output: '', baselineSha: 'deadbeef' });
+    assert.equal(badPaths[0].pass, false);
+    assert.match(badPaths[0].detail, /requires a paths array/);
+  });
+  await withDirs(async ({ workdir, repoRoot }) => {
+    const nonGit = await evaluateAssertions([{ type: 'git-only-paths', paths: ['x'] }], { workdir, repoRoot, output: '', baselineSha: 'deadbeef' });
+    assert.equal(nonGit[0].pass, false);
+  });
+});
+
+// --- file-unchanged (v2 #59 seam): proves a SPECIFIC tracked file is
+// byte-identical to its baseline content — catches a stray edit under any slug/
+// verb that a substring proxy would miss. ---
+
+test('file-unchanged passes for a byte-preserved tracked file and fails for a modified one', async () => {
+  await withGitBaseline(async (workdir, baselineSha) => {
+    const ok = await evaluateAssertions(
+      [{ type: 'file-unchanged', path: 'seed.txt' }],
+      { workdir, repoRoot: workdir, output: '', baselineSha },
+    );
+    assert.equal(ok[0].pass, true, ok[0].detail);
+    await writeFile(join(workdir, 'seed.txt'), 'a lifecycle entry filed under a different verb');
+    const bad = await evaluateAssertions(
+      [{ type: 'file-unchanged', path: 'seed.txt' }],
+      { workdir, repoRoot: workdir, output: '', baselineSha },
+    );
+    assert.equal(bad[0].pass, false);
+    assert.match(bad[0].detail, /seed\.txt differs from its baseline content/);
+  });
+});
+
+test('file-unchanged fails when the path was absent at baseline, is missing now, or has no baseline', async () => {
+  await withGitBaseline(async (workdir, baselineSha) => {
+    // Absent at baseline (never committed) → fail loudly, not vacuous pass.
+    await writeFile(join(workdir, 'brand-new.md'), 'x');
+    const absentAtBase = await evaluateAssertions(
+      [{ type: 'file-unchanged', path: 'brand-new.md' }],
+      { workdir, repoRoot: workdir, output: '', baselineSha },
+    );
+    assert.equal(absentAtBase[0].pass, false);
+    assert.match(absentAtBase[0].detail, /git show/);
+    // Present at baseline but deleted from the working tree → fail.
+    await rm(join(workdir, 'seed.txt'));
+    const nowMissing = await evaluateAssertions(
+      [{ type: 'file-unchanged', path: 'seed.txt' }],
+      { workdir, repoRoot: workdir, output: '', baselineSha },
+    );
+    assert.equal(nowMissing[0].pass, false);
+    assert.match(nowMissing[0].detail, /missing in the working tree/);
+    // No recorded baseline → fail.
+    const noBase = await evaluateAssertions(
+      [{ type: 'file-unchanged', path: 'seed.txt' }],
+      { workdir, repoRoot: workdir, output: '' },
+    );
+    assert.equal(noBase[0].pass, false);
+    assert.match(noBase[0].detail, /no baseline commit sha/);
+  });
+});
+
 // --- execution-trace assertions (v2 acceptance seam): the harness output
 // carries a machine-readable fenced `execution-trace` block; cases assert its
 // fields and coordinator/worker ownership deterministically. ---
@@ -507,7 +627,7 @@ test('trace-fetch-within-cap CATCHES attempts over the cap and a cap over the 45
     assert.match(overAttempts[0].detail, /attempts 21 exceed the run cap 20/);
     const overCeiling = await evaluateAssertions(
       [{ type: 'trace-fetch-within-cap' }],
-      { workdir, repoRoot, output: fenced({ fetch: { cap: 46, ceiling: 45, attempts: 10 } }) },
+      { workdir, repoRoot, output: fenced({ fetch: { cap: 46, ceiling: 45, raisedByApproval: true, attempts: 10 } }) },
     );
     assert.equal(overCeiling[0].pass, false);
     assert.match(overCeiling[0].detail, /cap 46 exceeds the hard ceiling 45/);
@@ -518,6 +638,57 @@ test('trace-fetch-within-cap CATCHES attempts over the cap and a cap over the 45
     );
     assert.equal(missing[0].pass, false);
     assert.match(missing[0].detail, /fetch/);
+  });
+});
+
+test('trace-fetch-within-cap OWNS the 45 ceiling — a trace cannot vouch for its own bound', async () => {
+  await withDirs(async ({ workdir, repoRoot }) => {
+    // The self-satisfiability hole: a run that fetched 50 times and reported a
+    // matching ceiling of 50 must STILL fail. The checker owns 45; it never reads
+    // fetch.ceiling from the trace under test.
+    const selfVouch = await evaluateAssertions(
+      [{ type: 'trace-fetch-within-cap' }],
+      { workdir, repoRoot, output: fenced({ fetch: { cap: 50, ceiling: 50, raisedByApproval: true, attempts: 50 } }) },
+    );
+    assert.equal(selfVouch[0].pass, false, 'a trace claiming ceiling:50 must not satisfy the 45 hard ceiling');
+    assert.match(selfVouch[0].detail, /cap 50 exceeds the hard ceiling 45/);
+    // A trace that OMITS ceiling entirely is still bounded at 45 by the checker.
+    const noCeiling = await evaluateAssertions(
+      [{ type: 'trace-fetch-within-cap' }],
+      { workdir, repoRoot, output: fenced({ fetch: { cap: 46, raisedByApproval: true, attempts: 10 } }) },
+    );
+    assert.equal(noCeiling[0].pass, false, 'a missing ceiling must not skip the 45 bound');
+    assert.match(noCeiling[0].detail, /exceeds the hard ceiling 45/);
+  });
+});
+
+test('trace-fetch-within-cap enforces the approval gate — a cap above 20 needs raisedByApproval', async () => {
+  await withDirs(async ({ workdir, repoRoot }) => {
+    // cap 45 within the ceiling but NOT flagged as an approved raise: rejected.
+    const unapproved = await evaluateAssertions(
+      [{ type: 'trace-fetch-within-cap' }],
+      { workdir, repoRoot, output: fenced({ fetch: { cap: 45, ceiling: 45, raisedByApproval: false, attempts: 30 } }) },
+    );
+    assert.equal(unapproved[0].pass, false, 'a raised cap without approval must fail');
+    assert.match(unapproved[0].detail, /exceeds the normal cap 20 without an approved one-run raise/);
+    // Same cap, missing flag entirely: still rejected (only true satisfies it).
+    const missingFlag = await evaluateAssertions(
+      [{ type: 'trace-fetch-within-cap' }],
+      { workdir, repoRoot, output: fenced({ fetch: { cap: 45, ceiling: 45, attempts: 30 } }) },
+    );
+    assert.equal(missingFlag[0].pass, false);
+    // The same cap WITH approval passes.
+    const approved = await evaluateAssertions(
+      [{ type: 'trace-fetch-within-cap' }],
+      { workdir, repoRoot, output: fenced({ fetch: { cap: 45, ceiling: 45, raisedByApproval: true, attempts: 30 } }) },
+    );
+    assert.equal(approved[0].pass, true, approved[0].detail);
+    // A lowered repo cap (below the normal 20) needs no approval flag.
+    const lowered = await evaluateAssertions(
+      [{ type: 'trace-fetch-within-cap' }],
+      { workdir, repoRoot, output: fenced({ fetch: { cap: 12, ceiling: 45, raisedByApproval: false, attempts: 8 } }) },
+    );
+    assert.equal(lowered[0].pass, true, lowered[0].detail);
   });
 });
 
