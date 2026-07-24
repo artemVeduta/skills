@@ -12,8 +12,13 @@
 // and refund policy — each backed by its own source symbol. A read-only worker
 // classifies it as a SPLIT: it should become two concepts (a retries Specification
 // and a refunds Specification). What happens to the ORIGINAL path is the AC6
-// fork the two cases exercise: kept as a stable overview vs. removal recorded.
-import { scaffoldWithout, PAYMENTS_INDEX_PATH } from './_docs-sync-assets.mjs';
+// fork the two cases exercise: kept as a stable overview vs. removal recorded. The
+// empty-payments bundle shape (the empty-Specifications index and the two
+// subsystem-baseline logs) is the byte-identical delta this multi-topic baseline
+// shares with the single-topic import baseline, so it is imported from
+// `emptyPaymentsBaseline` rather than re-declared here; this file owns only the
+// multi-topic candidate guide and the two sources its subjects cite.
+import { emptyPaymentsBaseline } from './_docs-sync-assets.mjs';
 
 // The multi-topic ad-hoc doc (split candidate) and the two concept paths a split
 // would file. Both concepts are absent at baseline.
@@ -37,32 +42,17 @@ const GUIDE =
   'A refund may be issued within 30 days of capture; the window is the\n' +
   '`REFUND_WINDOW_DAYS` symbol in `src/refunds.js`. (SENTINEL guide-refunds)\n';
 
-// The payments subsystem index at baseline: conformant, Specifications section
-// EMPTY. A split registers BOTH new concepts here.
-const PAYMENTS_INDEX =
-  '# payments\n\n' +
-  'Payment processing subsystem.\n\n' +
-  '## Specifications\n';
-
-const ROOT_LOG = '## 2026-07-05\n\n- **Creation** — payments subsystem baseline.\n';
-const PAYMENTS_LOG =
-  '## 2026-07-06\n\n- **Creation** — payments subsystem index filed. (SENTINEL payments-baseline-log)\n';
-
 // The two sources the guide's subjects cite — a split must reconcile each concept
 // to its own symbol rather than pasting the guide's prose.
 const GATEWAY_SRC = 'export const MAX_RETRIES = 5;\n';
 const REFUNDS_SRC = 'export const REFUND_WINDOW_DAYS = 30;\n';
 
-// The full ordered input list both split cases spread verbatim. Everything is
+// The full ordered input list both split cases spread verbatim. The shared
+// empty-payments baseline and this file's candidate guide + sources are all
 // COMMITTED, so an approved split dirties the working tree without a commit
-// (git-uncommitted). The scaffold's default payments index is dropped and replaced
-// with the empty-Specifications one, so `inputs` never carries two committed
-// entries for one path.
+// (git-uncommitted).
 export const splitInputs = [
-  ...scaffoldWithout([PAYMENTS_INDEX_PATH]),
-  { path: PAYMENTS_INDEX_PATH, content: PAYMENTS_INDEX },
-  { path: 'docs/log.md', content: ROOT_LOG },
-  { path: 'docs/payments/log.md', content: PAYMENTS_LOG },
+  ...emptyPaymentsBaseline,
   { path: GUIDE_PATH, content: GUIDE },
   { path: 'src/gateway.js', content: GATEWAY_SRC },
   { path: 'src/refunds.js', content: REFUNDS_SRC },

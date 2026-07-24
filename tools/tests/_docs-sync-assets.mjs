@@ -94,3 +94,26 @@ export const scaffoldWithout = (paths) => {
   const drop = new Set(paths);
   return scaffold.filter((input) => !drop.has(input.path));
 };
+
+// The empty-payments migration baseline shared by the docs-sync EXISTING-SOURCE
+// MIGRATION fixtures — the single-topic import baseline (_docs-sync-migration.mjs)
+// and the multi-topic split baseline (_docs-sync-migration-split.mjs). Both seed
+// the IDENTICAL bundle delta: the scaffold with the default payments index
+// REPLACED by one whose Specifications section is EMPTY (an approved migration
+// must register the new concept here), plus a root log and a payments log that
+// record ONLY the subsystem baseline — so a migrated concept's Creation entry is
+// absent at baseline (the write-path discriminator), and the SENTINEL lets the
+// read-only cases prove these files were left byte-preserved. Each migration
+// fixture spreads this and appends only its own candidate doc (a single-topic
+// NOTE vs a multi-topic GUIDE) and the source(s) that doc cites. Extracting this
+// byte-identical shape (Fowler: Duplicated Code) keeps the shared baseline a
+// single-site edit so the two migration fixtures cannot silently drift apart.
+export const emptyPaymentsBaseline = [
+  ...scaffoldWithout([PAYMENTS_INDEX_PATH]),
+  { path: PAYMENTS_INDEX_PATH, content: '# payments\n\nPayment processing subsystem.\n\n## Specifications\n' },
+  { path: 'docs/log.md', content: '## 2026-07-05\n\n- **Creation** — payments subsystem baseline.\n' },
+  {
+    path: 'docs/payments/log.md',
+    content: '## 2026-07-06\n\n- **Creation** — payments subsystem index filed. (SENTINEL payments-baseline-log)\n',
+  },
+];

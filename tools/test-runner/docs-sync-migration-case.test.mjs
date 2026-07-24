@@ -138,11 +138,23 @@ test('the migration contract documents all nine #57 criteria (SKILL.md + referen
   assert.match(doc, /source-path disposition|source disposition|disposition/i);
 
   // AC3 — NO concept write, move, or deletion begins until the COMPLETE proposal
-  // is approved AND every ambiguity is resolved.
+  // is approved AND every ambiguity is resolved. Prove the gate as COHERENT
+  // clauses — the no-write-until-approved-and-every-ambiguity-resolved rule, and
+  // the resolve-ambiguity-first rule — not loose keyword hits that could be
+  // satisfied by unrelated sentences (the distinctive ambiguity-resolution gate
+  // has no live case, so this deterministic proof must be tight).
   assert.match(doc, /(no|nothing)[^.\n]*(write|move|deletion|delet)/i);
   assert.match(doc, /approv/i);
-  assert.match(doc, /every ambiguit|all ambiguit|each ambiguit/i);
-  assert.match(doc, /resolv/i);
+  assert.match(
+    doc,
+    /(nothing|no)[^.]*(written|write|moved|deleted|deletion)[^.]*until[^.]*approv[^.]*every[^.]*ambigu[^.]*resolv/i,
+    'AC3: nothing written/moved/deleted UNTIL the complete proposal is approved AND every ambiguity is resolved — as one clause',
+  );
+  assert.match(
+    doc,
+    /every[^.]*ambigu[^.]*(resolved first|resolved before|before[^.]*writ|does not begin writ)/i,
+    'AC3: every ambiguous candidate must be resolved BEFORE any write begins — as one rule',
+  );
 
   // AC4 — approved writers own NON-OVERLAPPING concepts; ONLY the reconciler
   // changes shared indexes, logs, and timestamps.
@@ -170,12 +182,19 @@ test('the migration contract documents all nine #57 criteria (SKILL.md + referen
   assert.match(doc, /resulting concept|the resulting|concepts/i);
   assert.match(doc, /validat/i);
 
-  // AC8 — denied approval leaves ALL source and bundle files unchanged; partial
-  // write failure reports the EXACT state without destructive rollback.
+  // AC8 — denied approval leaves ALL source and bundle files unchanged; a partial
+  // write failure reports the EXACT resulting state with NO destructive rollback.
   assert.match(doc, /denied|denial|declin/i);
   assert.match(doc, /unchanged/i);
-  assert.match(doc, /partial/i);
-  assert.match(doc, /(no|without|never)[^.\n]*(destructive )?rollback/i);
+  // The partial-failure clause has no live case (it is hard to simulate
+  // deterministically), so its deterministic proof must be ONE coherent rule —
+  // report the exact resulting state AND attempt no destructive rollback — not two
+  // keyword hits that unrelated sentences could satisfy.
+  assert.match(
+    doc,
+    /partial[^.]*fail[^.]*\bexact\b[^.]*state[^.]*\b(no|without|never|not)\b[^.]*destructive\s+rollback/i,
+    'AC8: a partial write failure must report the exact resulting state with no destructive rollback — as one clause',
+  );
 
   // AC9 — the migration workflow NEVER stages, commits, pushes, or opens a PR.
   assert.match(doc, /stage|staging/i);

@@ -221,8 +221,8 @@ The gate in one line: **read-only workers classify every candidate — `keep`,
 coordinator presents one complete proposal (every exact concept destination, type,
 outline, local-index entry, lifecycle entry, AND source-path disposition); nothing
 is written, moved, or deleted until that complete proposal is approved and every
-ambiguity is resolved.** An imported source **keeps its existing pointer** unless
-its deletion was explicitly approved.
+ambiguity is resolved.** Each imported source's path disposition — pointer,
+overview, or removal — is governed by Boundaries and the reference below.
 
 The full contract — the six classification labels, proposal completeness, the
 non-overlapping-writer / one-reconciler ownership rule, the keep-as-overview vs
