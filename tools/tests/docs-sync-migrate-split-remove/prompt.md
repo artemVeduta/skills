@@ -1,0 +1,3 @@
+This repository has an OKF v0.1 documentation bundle under `docs/`, including a `payments` subsystem. It also has older documentation OUTSIDE the bundle: `notes/payments-guide.md` covers two independent subjects — the gateway's retry policy and its refund policy — each backed by its own source symbol.
+
+Use the docs-sync skill to migrate this existing documentation into the `docs/` bundle. Before you write anything, walk me through your complete proposal — the concept destinations, their types, their outlines, the index and log entries, and what happens to the original file — and then wait for my go-ahead. Do not change any files yet, and do not stage, commit, push, or open a pull request.

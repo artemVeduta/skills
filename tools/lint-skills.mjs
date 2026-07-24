@@ -25,7 +25,12 @@ export const CANONICAL_HEADINGS = [
   '## Quick Reference',
 ];
 
-export const ROLE_SUBDIRS = new Set(['scripts', 'templates', 'assets']);
+// Role-named support subdirs a skill may carry. `references/` is the
+// progressive-disclosure home for heavy reference material pulled out of SKILL.md
+// (Anthropic/superpowers skill-authoring convention: SKILL.md summarizes, a
+// references/ file carries the detail) — a first-class support role alongside
+// executable scripts/, scaffolding templates/, and copied assets/.
+export const ROLE_SUBDIRS = new Set(['scripts', 'templates', 'assets', 'references']);
 
 export function parseFrontmatter(text) {
   const lines = text.split(/\r?\n/);

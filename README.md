@@ -22,9 +22,14 @@ the capability.
   audits the complete bundle and repairs every stale explanation, missing concept,
   omission, lifecycle drift, and shared-bookkeeping drift (no unrelated-drift
   category), preserving accepted history and blocking on any unknown acceptance
-  boundary rather than guessing. Both fan out to disjoint concept owners with one
-  reconciler for indexes/logs/timestamps, verify with a fresh checker, and run the
-  validator — all in the working tree, never touching Git state; declares
+  boundary rather than guessing. A gated **migration** subflow (see
+  `skills/docs-sync/references/migration.md`) converts durable documentation living
+  outside the bundle into concepts through read-only classification and one approved
+  proposal of exact concept destinations and source-path dispositions — an imported
+  source keeps its pointer unless deletion is approved, and a split source stays as a
+  concise overview or has its removal recorded. All three fan out to disjoint concept
+  owners with one reconciler for indexes/logs/timestamps, verify with a fresh checker,
+  and run the validator — all in the working tree, never touching Git state; declares
   `docs-validate` as a required skill.
 - [`docs-setup`](skills/docs-setup/SKILL.md) — install, upgrade, reinstall, or
   repair the OKF v0.1 docs machinery in a repository (validator + tests, package

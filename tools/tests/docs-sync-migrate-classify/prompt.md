@@ -1,0 +1,3 @@
+This repository has an OKF v0.1 documentation bundle under `docs/`, including a `payments` subsystem. It also has some older design documentation that lives OUTSIDE the bundle: `notes/retry-design.md` describes the payment gateway's retry policy, and `src/gateway.js` points at it.
+
+Use the docs-sync skill to migrate this existing documentation into the `docs/` bundle. For now, just look at the candidate, classify it, and show me your complete proposal — where the content would go, what type of concept it would become, its outline, and what would happen to the original file. Do NOT change anything yet: write no files, create no concepts, and do not stage, commit, push, or open a pull request.

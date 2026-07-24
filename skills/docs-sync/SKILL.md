@@ -1,6 +1,6 @@
 ---
 name: docs-sync
-description: Use when source or docs work is wrapping up and the OKF docs/ bundle must be reconciled with the code, in one of two modes chosen before any write. Branch sync — "sync the docs", "reconcile docs with my branch", "bring the bundle up to date before I merge", "make the docs match the code I changed". Bundle-wide audit — "audit the whole docs bundle", "reconcile the entire bundle against the code", "the docs have drifted everywhere, repair them". Covers branch-scoped reconciliation from a target branch's merge-base through the working state, and whole-bundle reconciliation of the complete current bundle. Not for adding one concept (docs-add), running the validator (docs-validate), or standing up the machinery (docs-setup).
+description: Use when source or docs work is wrapping up and the OKF docs/ bundle must be reconciled with the code, in one of two modes chosen before any write, or when documentation that lives outside the bundle must be migrated into it. Branch sync — "sync the docs", "reconcile docs with my branch", "make the docs match the code I changed". Bundle-wide audit — "audit the whole docs bundle", "the docs have drifted everywhere, repair them". Migration — "migrate my existing docs into the bundle", "convert these ad-hoc notes into concepts", "bring my README/design docs under docs/". Covers branch-scoped reconciliation from a target branch's merge-base through the working state, whole-bundle reconciliation of the complete current bundle, and a gated migration of durable outside-bundle documentation through explicit source disposition. Not for adding one concept (docs-add), running the validator (docs-validate), or standing up the machinery (docs-setup).
 ---
 
 # docs-sync
@@ -208,6 +208,32 @@ validation gating, and Git-state preservation are **the same as branch sync** �
 unchanged. Bundle-wide adds only the whole-bundle audit scope, the no-unrelated-drift rule,
 and the unknown-boundary blocker above.
 
+## Existing-source migration — a separate gated subflow
+
+When the user asks to convert existing ad-hoc documentation into the bundle, or a
+bundle-wide audit finds durable knowledge living **outside** `docs/`, sync runs a
+**gated migration subflow**. It is the **only** extra approval inside sync, because
+it authorizes **destructive source-path changes** (moving or removing an imported
+file) rather than the ordinary non-destructive reconciliation of the two modes above.
+
+The gate in one line: **read-only workers classify every candidate — `keep`,
+`normalize`, `split`, `move`, `remove`, or `ambiguous` — without writing, and the
+coordinator presents one complete proposal (every exact concept destination, type,
+outline, local-index entry, lifecycle entry, AND source-path disposition); nothing
+is written, moved, or deleted until that complete proposal is approved and every
+ambiguity is resolved.** An imported source **keeps its existing pointer** unless
+its deletion was explicitly approved.
+
+The full contract — the six classification labels, proposal completeness, the
+non-overlapping-writer / one-reconciler ownership rule, the keep-as-overview vs
+recorded-removal fork for a split source, verification of every source disposition,
+and the denied-approval and partial-failure behavior — lives in
+[references/migration.md](references/migration.md). **Read it before proposing or
+writing any migration.** The shared execution, contradiction-blocking, verification,
+validation, and Git-state contract in the rest of this skill is **reused unchanged**;
+migration adds only the read-only classification, the completed proposal, and the
+source-path dispositions.
+
 ## Contradictions block precisely — never guess
 
 When two authoritative executable sources contradict each other about a claim (e.g. code
@@ -284,6 +310,10 @@ identical docs after the first successful run.
   precise blocker with both sources and values.
 - **Never file or delete a user's temporary draft**, and never file ambiguous
   outside-bundle Markdown — block on it rather than guessing.
+- **Never move or delete an imported source without approval** — a migration write,
+  move, or deletion begins only after the complete proposal is approved and every
+  ambiguity resolved; an imported source keeps its existing pointer unless its
+  deletion was explicitly approved (see [references/migration.md](references/migration.md)).
 - **Never write an operational `docs-sync ran`/`Noted` entry** or rewrite merged lifecycle
   history — one net lifecycle entry per concept.
 - **Never accumulate across runs** — recompute scope from the merge-base every time so the

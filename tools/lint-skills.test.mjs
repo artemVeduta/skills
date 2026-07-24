@@ -135,6 +135,14 @@ test('lintSupportSubdirs warns on a non-role-named subdir', () => {
   assert.match(warnings[0], /helpers/);
 });
 
+test('lintSupportSubdirs accepts references/ as a role-named subdir', () => {
+  // references/ is the progressive-disclosure home for heavy reference material
+  // factored out of SKILL.md (e.g. docs-sync/references/migration.md); it must not
+  // warn like an ad-hoc subdir would.
+  const { warnings } = lintSupportSubdirs('a', ['scripts', 'templates', 'assets', 'references']);
+  assert.deepEqual(warnings, []);
+});
+
 test('lintReadmeInventory warns on a skill missing from the inventory', () => {
   const readme = '## Skills\n\n- [`a`](skills/a/SKILL.md) — does a thing.';
   const { warnings } = lintReadmeInventory(['a', 'b'], readme);
