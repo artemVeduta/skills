@@ -203,9 +203,9 @@ releases are no-contract snapshots
 
 ## 2026-07-24 — v2 acceptance-harness seam (#48)
 
-The harness gains the machinery the
-[OKF documentation skill-suite v2](/specs/okf-docs-skill-suite-v2.md) acceptance
-contract needs, without changing the decisions above (deterministic-only oracle,
+The harness gains the machinery the portable-pack acceptance obligation needs
+([Deliver one portable OKF skill pack through deletion-safe adapters](/decisions/okf-docs-portability-and-distribution.md)),
+without changing the decisions above (deterministic-only oracle,
 central cases, out-of-repo fixtures, provenance):
 
 - **Plan/approval turns.** A case may declare `followUps` — prompt files sent as
@@ -256,8 +256,7 @@ architecture itself is unchanged.
 
 ## 2026-07-25 — Acceptance-matrix parity gate (#63)
 
-The capstone closes the
-[OKF documentation skill-suite v2](/specs/okf-docs-skill-suite-v2.md) delivery
+The capstone closes the delivery
 contract that [Deliver one portable OKF skill pack through deletion-safe
 adapters](/decisions/okf-docs-portability-and-distribution.md) requires ("each
 advertised cell remains unsupported until its deterministic packaging tests and
@@ -365,3 +364,39 @@ version provenance.
   into its per-leg provenance record and for the matrix invariant to assert it; the
   limitation is recorded at the head of `tools/acceptance/matrix.mjs`. This BOUNDS
   the advertised == proven claim — it does not reverse it.
+
+## 2026-07-25 — Why this Decision stays whole at its length
+
+This concept is long — past the 300-physical-line mark that
+[bundle shape](/decisions/okf-docs-bundle-shape.md) makes a review cue — and it is retained
+whole, with every amendment. The review the cue calls for was run, and it came out keep on
+the substance the cue actually asks about: one subject (how a skill is exercised and
+graded), one lifecycle (each amendment revises that same architecture rather than an
+independent one), and no duplication of material a focused concept owns elsewhere. The
+amendments are accepted architectural history in dated sequence; splitting them across
+files would break the sequence and leave a reader reconstructing it from two indexes.
+
+The general rule this instance settles: crossing the line count triggers a semantic
+keep-or-split **review**, never a split and never a deletion. A concept splits when its
+parts have genuinely independent lifecycles, or when one part duplicates an owner
+elsewhere — not because a threshold was passed. A cohesive long concept survives at any
+length; a redundant monolith is normalized regardless of length. Driven by #65.
+
+## 2026-07-25 — Test at the CLI seam, never at internals
+
+The decisions above fix the oracle and the case home but never said where a test is allowed
+to attach. This repository's highest-value seams are its command-line entry points — the
+skill linter, the test runner, and the release script — and a good test asserts only what
+crosses one of them: the exit code, the findings emitted, and the artifacts produced. It
+never reaches into internal functions or private state. Deterministic components — the
+linter, the shared graph module, the fixture builder, the report generator, the release
+script's plumbing — get cheap unit tests at their own module boundary; only the runner's
+end-to-end path spends inference, and only locally.
+
+Two consequences are worth stating. The linter's two-tier bar is covered by exercising
+**every** ERROR and WARN class against fixture skill trees and asserting both the
+classification and the exit code, so a class cannot be lost silently. And the report
+generator is held to byte-identical output from identical committed summaries, which is what
+makes a comparison reproducible anywhere at zero inference cost. The established pattern is
+`scripts/validate-docs.test.mjs` — `node --test`, no external dependencies, asserting a
+CLI's external behavior over fixture inputs. Nothing above is reversed. Driven by #65.

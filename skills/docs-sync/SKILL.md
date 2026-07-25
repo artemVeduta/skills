@@ -1,6 +1,7 @@
 ---
 name: docs-sync
-description: Use when source or docs work is wrapping up and the OKF docs/ bundle must be reconciled with the code, in one of two modes chosen before any write, or when documentation that lives outside the bundle must be migrated into it. Branch sync — "sync the docs", "reconcile docs with my branch", "make the docs match the code I changed". Bundle-wide audit — "audit the whole docs bundle", "the docs have drifted everywhere, repair them". Migration — "migrate my existing docs into the bundle", "convert these ad-hoc notes into concepts", "bring my README/design docs under docs/". Covers branch-scoped reconciliation from a target branch's merge-base through the working state, whole-bundle reconciliation of the complete current bundle, and a gated migration of durable outside-bundle documentation through explicit source disposition. Not for adding one concept (docs-add), running the validator (docs-validate), or standing up the machinery (docs-setup).
+description: Invoke only when the user explicitly asks — never self-selected, and never implied by finishing a branch, a review, a validation run, pull-request preparation, or inferred intent. Reconciles an OKF docs/ bundle in one of two modes chosen before any write, plus a gated subflow for docs living outside it. Branch sync when the user says "sync the docs", "reconcile docs with my branch", "make the docs match the code I changed" — scoped from a target branch the user names through the working state. Bundle-wide audit when the user says "audit the whole docs bundle", "the docs have drifted everywhere, repair them" — the complete current bundle, no target branch. Migration when the user says "migrate my existing docs into the bundle", "convert these ad-hoc notes into concepts", "bring my README/design docs under docs/" — durable outside-bundle docs through explicit source disposition. Not for adding one concept (docs-add), running the validator (docs-validate), or standing up the machinery (docs-setup).
+disable-model-invocation: true
 ---
 
 # docs-sync
@@ -28,17 +29,27 @@ of either reconciliation mode.
 
 - docs-validate
 
-The validator is the target repository's own; docs-validate runs it and interprets the
-strict exit. docs-sync depends on it by canonical name — it must be discoverable at run
-time. New concepts are filed following the bundle's lifecycle policy the same way the
-docs-add skill files one; sync's own invocation authorizes that creation (see Boundaries).
+## Integration
+
+- **Required sub-skill:** Invoke `/docs-validate` to run the validator — the target
+  repository's own — and interpret the strict exit. docs-sync depends on it by canonical
+  name; it must be discoverable at run time.
+
+New concepts are filed following the bundle's lifecycle policy the same way the docs-add
+skill files one; sync's own invocation authorizes that creation (see Boundaries).
 
 ## When to Use
 
-- "Reconcile the docs with this branch", "sync the bundle before I merge", "the
-  Specifications are stale after my change", "update the ADRs/glossary for this work".
-- As the closing step of any branch that changed source or docs, before the work
-  concludes — so the explanatory truth ships current with the code.
+- **Only when the user explicitly asks.** docs-sync is **optional** and entirely
+  user-controlled: "reconcile the docs with this branch", "sync the bundle", "audit the
+  whole docs bundle", "migrate my notes into the bundle". It is **never** invoked
+  automatically — not from implementation, review, validation, pull-request preparation,
+  or inferred natural-language intent.
+- **At any point in the user's workflow.** Reconciliation is **not tied to a single
+  lifecycle stage** and is **not** a required pre-pull-request step; the user chooses when
+  the cost of whole-branch or whole-bundle reconciliation fanout is justified.
+- Keeping docs true does **not** require this skill: whoever changes behaviour updates the
+  affected concepts **directly in the same change**. That obligation stands on its own.
 - NOT for filing one brand-new concept in isolation (that is docs-add), interpreting a
   validator run (docs-validate), or installing/repairing the machinery (docs-setup).
 
@@ -119,8 +130,10 @@ repairs into a branch sync; that is bundle-wide work.
 - **Lifecycle bookkeeping collapses to one concise net entry per concept** — the reconciler
   writes it during the compaction pass below (`Creation`/`Update`/`Deprecation`), never an
   operational entry.
-- A concept reaching **300 physical lines** gets a semantic keep-or-split review in the
-  conversational report; 300 is a review cue, not a validator rule or an automatic split.
+- A concept reaching **300 physical lines** earns a semantic keep-or-split review in the
+  conversational report. 300 is a **review cue only** — never a validator rule, never an
+  automatic split, never a deletion rule. **Line count alone never mandates a split**: a
+  cohesive concept stays whole, and only redundancy or independent lifecycles split one.
 
 ## Compaction — fold branch drafting into the accepted net state
 

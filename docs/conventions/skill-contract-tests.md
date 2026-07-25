@@ -21,10 +21,10 @@ harness and spend no inference.
 The tier is easy to mistake for the behavioral oracle it deliberately is not. The
 [testing architecture](/decisions/skill-testing-architecture.md) fixes deterministic
 assertions on resulting repository state as the only pass/fail oracle for a *skill run*,
-and the v2 acceptance contract's cross-harness equivalence requirement compares observable
+and the acceptance contract's cross-harness equivalence requirement compares observable
 outcomes rather than prose (see
-[OKF documentation skill-suite v2](/specs/okf-docs-skill-suite-v2.md)). Neither statement
-is relaxed here. A recognition suite makes no claim about what a harness did; it claims
+[Skill testing and benchmark architecture](/decisions/skill-testing-architecture.md)). Neither
+statement is relaxed here. A recognition suite makes no claim about what a harness did; it claims
 only that the contract a live case is meant to exercise is still present to be exercised.
 
 ## Rules

@@ -323,6 +323,74 @@ test('amendment scan rejects non-exact heading forms', () => {
   assert.equal(validateConcept('a.md', doc).warnings.length, 0);
 });
 
+// The amendment scan sees a fences-only view: a real inline code span in an
+// amendment title survives, so the heading stays recognizable. Link and
+// index scanning keep removing inline spans too.
+test('an amendment title that is only an inline code span is recognized', () => {
+  const doc = [
+    '---',
+    'type: Decision',
+    'title: X',
+    'description: d',
+    'timestamp: 2026-07-01',
+    '---',
+    '# Amendments',
+    '## 2026-07-20 — `newestAmendmentDate()`',
+    'entry',
+  ].join('\n');
+  const { warnings } = validateConcept('a.md', doc);
+  assert.ok(warnings.some((w) => /2026-07-20/.test(w) && /older/.test(w)));
+});
+
+test('an amendment title beginning with an inline code span is recognized', () => {
+  const doc = [
+    '---',
+    'type: Decision',
+    'title: X',
+    'description: d',
+    'timestamp: 2026-07-01',
+    '---',
+    '# Amendments',
+    '## 2026-07-20 — `stripCode()` keeps fenced-only stripping for links',
+    'entry',
+  ].join('\n');
+  const { warnings } = validateConcept('a.md', doc);
+  assert.ok(warnings.some((w) => /2026-07-20/.test(w) && /older/.test(w)));
+});
+
+test('a timestamp equal to an inline-code amendment title date is not stale', () => {
+  const doc = [
+    '---',
+    'type: Decision',
+    'title: X',
+    'description: d',
+    'timestamp: 2026-07-20',
+    '---',
+    '# Amendments',
+    '## 2026-07-20 — `newestAmendmentDate()`',
+    'entry',
+  ].join('\n');
+  assert.equal(validateConcept('a.md', doc).warnings.length, 0);
+});
+
+test('a fenced amendment heading with an inline-code title stays ignored', () => {
+  const doc = [
+    '---',
+    'type: Decision',
+    'title: X',
+    'description: d',
+    'timestamp: 2026-07-01',
+    '---',
+    '```md',
+    '# Amendments',
+    '## 2026-07-20 — `newestAmendmentDate()`',
+    'entry',
+    '```',
+    '',
+  ].join('\n');
+  assert.equal(validateConcept('a.md', doc).warnings.length, 0);
+});
+
 // ---------------------------------------------------------------------------
 // Reserved files
 // ---------------------------------------------------------------------------

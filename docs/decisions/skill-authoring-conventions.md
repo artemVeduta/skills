@@ -146,9 +146,40 @@ reference documents may still sit flat, and any other subdir name is still a war
 
 The Consequences bullet's exemplar identity and line count are superseded by the shipped
 suite. `okf-docs-setup` was renamed completely to `docs-setup`
-([OKF docs skill suite v2](/specs/okf-docs-skill-suite-v2.md)), and that skill is now 259
+([Separate OKF documentation skills by lifecycle responsibility](/decisions/okf-docs-skill-boundaries.md)), and that skill is now 259
 body lines. Three of the five shipped skills sit in the soft-200 WARN band
 (`docs-autoresearch` 418, `docs-sync` 353, `docs-setup` 259) with none approaching the
 hard 500 — see `npm run lint:skills`. The bar itself is unchanged; what changed is that
 the WARN band is now the normal state for the library's larger workflow skills rather
 than a single nudge on one exemplar.
+
+## 2026-07-25 — WARN-band membership is a linter reading, not a documented number
+
+The entry above pins three shipped body-line counts. Exact counts are executable truth:
+they move with every edit, and all three were stale within days. This Decision therefore
+stops carrying them. What is durable is the *membership*: three of the five shipped skills
+— `docs-autoresearch`, `docs-sync`, and `docs-setup` — sit in decision 4's soft-200 WARN
+band, none is near the hard-500 ERROR, and that band is the normal state for the library's
+larger workflow skills rather than a nudge on one exemplar. The authority for the current
+counts and classifications is `npm run lint:skills`; a reader who needs a number runs it
+rather than reading one here. The numbers in the entry above stay intact as the dated
+observation they were, and are not current values. Driven by #65.
+
+## 2026-07-25 — A user-invoked description may keep its trigger phrases
+
+Decision 1 says a user-invoked skill's `description` is "a human-facing one-liner instead,
+since no model reads it for dispatch". Two shipped skills depart from the letter of that
+and are right to: `docs-setup` and `docs-sync` each declare
+`disable-model-invocation: true` and each carries a multi-sentence description enumerating
+the concrete phrases a user says, plus explicit "not for X, that is Y" boundaries. The
+reason is discovery rather than dispatch — a slash-command surface presents the
+description to a human, so the user-said phrasings are what make the right skill findable
+and the negative clauses are what keep it from being reached for the wrong job.
+
+The rule is restated as a floor plus latitude. A user-invoked `description` **must not**
+authorize implicit selection: it states up front that the skill runs only when the user
+explicitly asks, and it never reads as a condition an agent may satisfy on its own. Given
+that, it **may** carry concrete user-said trigger phrases and negative boundaries at
+whatever length serves discovery. Decision 1's "one-liner" is guidance for the simple
+case, not a rule. Nothing changes for a model-invoked `description`, which stays
+trigger-first and triggers-only. Driven by #65.

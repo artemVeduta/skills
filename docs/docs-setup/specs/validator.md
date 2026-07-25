@@ -56,7 +56,8 @@ their separate soft checks.
 - a valid frontmatter `timestamp` older than the newest exact dated heading
   under `# Amendments` (region: from an exact level-one `# Amendments` to the
   next level-one heading or EOF; recognized entries: exact `## YYYY-MM-DD` or
-  `## YYYY-MM-DD — <non-empty title>`; equal dates are not stale).
+  `## YYYY-MM-DD — <non-empty title>`; equal dates are not stale; inline code
+  in the title is heading text, not stripped).
 
 The validator does not infer duplicate identities from basenames, compare index
 blurbs, require log entries, recognize debt markers, weigh amendments, compare
@@ -67,11 +68,16 @@ sidecars.
 
 Every `.md` file under the bundle root is validated uniformly — there is no
 excluded-directory set and no per-project exclusion or suppression
-configuration. Non-Markdown files are ignored. Fenced code blocks (a closing
-fence may be longer than its opener; an unclosed fence runs to end of file) and
-inline code spans are stripped before link, index-coverage, and amendment
-scanning, so illustrative example links and amendment-grammar examples inside
-code do not warn.
+configuration. Non-Markdown files are ignored. Two scanning views share one fence
+pass. **Fenced code blocks** (a closing fence may be longer than its opener; an
+unclosed fence runs to end of file) are stripped before all three of link,
+index-coverage, and amendment scanning, so a fenced example link or a fenced
+example amendment heading never warns. Link and index-coverage scanning
+**additionally** strips **inline code spans**, because a span there may hold a
+placeholder path. Amendment scanning does **not** strip them: an inline code span
+is real heading text, so an amendment title containing code — say a backticked
+function name — stays recognized rather than silently disappearing from the
+stale-timestamp check.
 
 ## Invocation
 
@@ -87,14 +93,27 @@ code do not warn.
 
 - This repo's CI (`.github/workflows/ci.yml`) runs `npm run docs:validate` as a
   gating step — exit `1` or `2` fails the job.
-- For target repos, the documented portable hook is `pre-push` running plain
-  `npm run docs:validate`, named in the `docs-validate` skill's "Enforcement
-  wiring" section. Setup installs no hook, no husky dependency, and no package
-  lifecycle (`prepare`) script; no concrete plain-Git or husky recipe ships in
-  any skill yet.
-- An optional minimal GitHub Actions asset
-  (`skills/docs-setup/assets/github/workflows/docs-validate.yml`) runs the
-  same command on pull requests; exit `1` fails the job.
+- For target repos there are exactly two managed enforcement surfaces, both
+  owned by docs-setup. Ownership splits cleanly: docs-setup owns enforcement
+  discovery, planning, installation, upgrade, and verification; the
+  `docs-validate` skill owns running and interpreting the strict command. The
+  contract is
+  [/docs-setup/specs/install-contract.md](/docs-setup/specs/install-contract.md);
+  the mechanics live with the skill
+  (`skills/docs-setup/references/enforcement.md`).
+- **Local:** one marked managed block on an **already-active, repository-owned
+  Husky `pre-push`** path, running the plain `docs:validate` script over the
+  **complete bundle on every push** — never a diff-scoped subset. There is no
+  hook **recipe** in any skill, because the marked block *is* the wiring.
+  Detection needs an initialized hook manager; setup installs no hook manager,
+  no husky dependency, and no package lifecycle (`prepare`) script, and never
+  touches native Git hooks or the configured hooks path. No active Husky
+  configuration → a reported skip.
+- **Remote:** the managed GitHub Actions asset
+  (`skills/docs-setup/assets/github/workflows/docs-validate.yml`) runs the same
+  command on **both `push` and `pull_request`**; exit `1` **or** `2` fails the
+  job. It is installed on GitHub evidence when no equivalent invocation already
+  exists.
 
 ## Mirror enforcement
 

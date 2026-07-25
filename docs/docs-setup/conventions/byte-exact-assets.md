@@ -1,8 +1,8 @@
 ---
 type: Convention
 title: Byte-exact assets contract
-description: Rules for editing the docs-setup skill's assets, its intentional placeholders, the package-manager substitution target, and the claude/ install rename.
-timestamp: 2026-07-24
+description: Rules for editing the docs-setup skill's assets, its intentional placeholders, the package-manager substitution target, and the leading-dot install rename.
+timestamp: 2026-07-25
 ---
 
 # Byte-exact assets contract
@@ -30,8 +30,11 @@ timestamp: 2026-07-24
   that must stay unchanged. (This repo's own bundle is validated with
   `npm run docs:validate`; see
   [/docs-setup/specs/validator.md](/docs-setup/specs/validator.md).)
-- **`assets/claude/` ships as `claude/`** and is renamed to `.claude/` on
-  install (leading-dot rename).
+- **A dot-directory asset tree ships without its leading dot** and gains it on
+  install. The one surviving case is `assets/github/` → `.github/`. (The former
+  `assets/claude/` tree is gone: the Claude-only docs-authoring adapter is
+  retired from the suite contract — see
+  [/docs-setup/specs/install-contract.md](/docs-setup/specs/install-contract.md).)
 
 ## Rationale
 

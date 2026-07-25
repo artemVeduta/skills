@@ -93,9 +93,42 @@ test('lintDependencies errors on an undeclared runtime invocation', () => {
 });
 
 test('lintDependencies accepts a declared invocation', () => {
-  const body = '## Required skills\n\n- other\n\n## Overview\n\nInvoke `/other`.';
+  const body =
+    '## Required skills\n\n- other\n\n## Integration\n\nprose\n\n## Overview\n\nInvoke `/other`.';
   const known = new Map([['other', { userInvoked: false }]]);
   assert.equal(lintDependencies('a/SKILL.md', body, known).errors.length, 0);
+});
+
+test('lintDependencies errors when a non-empty required-skills list has no ## Integration', () => {
+  const body = '## Required skills\n\n- other\n\n## Overview\n\ntext';
+  const known = new Map([['other', { userInvoked: false }]]);
+  const { errors } = lintDependencies('a/SKILL.md', body, known);
+  assert.ok(errors.some((e) => /## Integration/.test(e)));
+});
+
+test('lintDependencies never parses Integration prose — presence is the whole contract', () => {
+  // No label grammar: unlabelled prose with no "Required sub-skill:" /
+  // "Required background:" is conformant, because the section's content is
+  // deliberately not a machine-readable language.
+  const body = '## Required skills\n\n- other\n\n## Integration\n\nthey work together.\n';
+  const known = new Map([['other', { userInvoked: false }]]);
+  assert.deepEqual(lintDependencies('a/SKILL.md', body, known).errors, []);
+});
+
+test('lintDependencies does not require Integration without declared dependencies', () => {
+  const none = '## Overview\n\nno dependencies at all.\n';
+  assert.deepEqual(lintDependencies('a/SKILL.md', none, new Map()).errors, []);
+  const empty = '## Required skills\n\n## Overview\n\nsection present, list empty.\n';
+  assert.deepEqual(lintDependencies('a/SKILL.md', empty, new Map()).errors, []);
+});
+
+test('lintDependencies ignores a fenced ## Integration example', () => {
+  // A heading inside a code example is documentation, not the skill's own
+  // section, so it must not satisfy the requirement.
+  const body = '## Required skills\n\n- other\n\n```md\n## Integration\n```\n';
+  const known = new Map([['other', { userInvoked: false }]]);
+  const { errors } = lintDependencies('a/SKILL.md', body, known);
+  assert.ok(errors.some((e) => /## Integration/.test(e)));
 });
 
 test('lintDependencies errors when a required skill is user-invoked', () => {

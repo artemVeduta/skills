@@ -392,6 +392,101 @@ test('file-unchanged fails when the path was absent at baseline, is missing now,
   });
 });
 
+// --- file-occurrences (#65 enforcement seam): exact multiplicity of a marker,
+// the only way to prove a managed block was appended EXACTLY ONCE — a hook
+// carrying the block twice satisfies file-contains just as well as one. ---
+
+test('file-occurrences passes on the exact count and CATCHES a duplicated managed block', async () => {
+  await withDirs(async ({ workdir, repoRoot }) => {
+    const marker = '# BEGIN OKF docs validation (managed by docs-setup)';
+    await writeFile(join(workdir, 'pre-push'), `npm test\n${marker}\nnpm run docs:validate\n`);
+    const once = await evaluateAssertions(
+      [{ type: 'file-occurrences', path: 'pre-push', value: marker, count: 1 }],
+      { workdir, repoRoot, output: '' },
+    );
+    assert.equal(once[0].pass, true, once[0].detail);
+
+    // The duplicate a second non-idempotent run would append.
+    await writeFile(join(workdir, 'pre-push'), `npm test\n${marker}\nnpm run docs:validate\n${marker}\nnpm run docs:validate\n`);
+    const twice = await evaluateAssertions(
+      [{ type: 'file-occurrences', path: 'pre-push', value: marker, count: 1 }],
+      { workdir, repoRoot, output: '' },
+    );
+    assert.equal(twice[0].pass, false);
+    assert.match(twice[0].detail, /2 time\(s\), expected 1/);
+  });
+});
+
+test('file-occurrences accepts count 0 and fails on a missing file or a malformed spec', async () => {
+  await withDirs(async ({ workdir, repoRoot }) => {
+    await writeFile(join(workdir, 'pre-push'), 'npm test\n');
+    const zero = await evaluateAssertions(
+      [{ type: 'file-occurrences', path: 'pre-push', value: 'BEGIN OKF docs validation', count: 0 }],
+      { workdir, repoRoot, output: '' },
+    );
+    assert.equal(zero[0].pass, true, zero[0].detail);
+
+    const missing = await evaluateAssertions(
+      [{ type: 'file-occurrences', path: 'no-such-hook', value: 'x', count: 1 }],
+      { workdir, repoRoot, output: '' },
+    );
+    assert.equal(missing[0].pass, false);
+    assert.match(missing[0].detail, /missing no-such-hook/);
+
+    // A malformed spec must fail loudly rather than pass vacuously.
+    for (const bad of [{ value: '', count: 1 }, { value: 'x' }, { value: 'x', count: -1 }, { value: 'x', count: 1.5 }]) {
+      const r = await evaluateAssertions(
+        [{ type: 'file-occurrences', path: 'pre-push', ...bad }],
+        { workdir, repoRoot, output: '' },
+      );
+      assert.equal(r[0].pass, false, JSON.stringify(bad));
+      assert.match(r[0].detail, /requires a non-empty value and a non-negative integer count/);
+    }
+  });
+});
+
+// --- git-hooks-untouched (#65 enforcement seam): enforcement must come from the
+// capability the repository already owns, never from native git plumbing. `.git/`
+// is outside the working tree and `core.hooksPath` is repository config, so a
+// native hook or a hooks-path switch passes every other git assertion. ---
+
+test('git-hooks-untouched passes on a fixture whose native hooks are untouched', async () => {
+  await withGitBaseline(async (workdir) => {
+    const r = await evaluateAssertions([{ type: 'git-hooks-untouched' }], { workdir, repoRoot: workdir, output: '' });
+    assert.equal(r[0].pass, true, r[0].detail);
+  });
+});
+
+test('git-hooks-untouched CATCHES a native pre-push hook that git-unchanged cannot see', async () => {
+  await withGitBaseline(async (workdir, baselineSha) => {
+    await writeFile(join(workdir, '.git/hooks/pre-push'), '#!/bin/sh\nnpm run docs:validate\n');
+    // The whole point: the working tree and HEAD are pristine, so the existing
+    // git-state assertions are satisfied by a repository that HAS been wired.
+    const clean = await evaluateAssertions([{ type: 'git-unchanged' }], { workdir, repoRoot: workdir, output: '', baselineSha });
+    assert.equal(clean[0].pass, true, 'git-unchanged is blind to .git/hooks — that is why this assertion exists');
+    const r = await evaluateAssertions([{ type: 'git-hooks-untouched' }], { workdir, repoRoot: workdir, output: '' });
+    assert.equal(r[0].pass, false);
+    assert.match(r[0].detail, /native Git hooks were written: pre-push/);
+  });
+});
+
+test('git-hooks-untouched CATCHES a changed core.hooksPath', async () => {
+  await withGitBaseline(async (workdir) => {
+    git(workdir, 'config', 'core.hooksPath', '.husky');
+    const r = await evaluateAssertions([{ type: 'git-hooks-untouched' }], { workdir, repoRoot: workdir, output: '' });
+    assert.equal(r[0].pass, false);
+    assert.match(r[0].detail, /configured hooks path was changed: core\.hooksPath is \.husky/);
+  });
+});
+
+test('git-hooks-untouched fails on a non-git workdir instead of passing vacuously', async () => {
+  await withDirs(async ({ workdir, repoRoot }) => {
+    const r = await evaluateAssertions([{ type: 'git-hooks-untouched' }], { workdir, repoRoot, output: '' });
+    assert.equal(r[0].pass, false);
+    assert.match(r[0].detail, /not a git repository|failed in workdir/);
+  });
+});
+
 // --- execution-trace assertions (v2 acceptance seam): the harness output
 // carries a machine-readable fenced `execution-trace` block; cases assert its
 // fields and coordinator/worker ownership deterministically. ---

@@ -40,8 +40,8 @@ compatibility contract no consumer reads.
 
 The development-symlink and portable (`npx skills`) channels are explicitly
 unaffected: both keep tracking git, as the distribution-channels decision fixed.
-Writing the release script is implementation work that happens after this map's
-locked spec.
+Writing the release script is implementation work that happens after this Decision is
+settled.
 
 ## Alternatives
 

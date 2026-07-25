@@ -102,3 +102,51 @@ recipes remain unwritten work, not a reversal;
 [/docs-setup/specs/validator.md](/docs-setup/specs/validator.md) and
 [/docs-setup/specs/install-contract.md](/docs-setup/specs/install-contract.md) carry the
 shipped position.
+
+## 2026-07-25 — Enforcement ownership, and what the two managed surfaces actually are
+
+Issue #65 settles enforcement, and two statements in the Decision above no longer describe
+it. The first — "with recipes for husky v4 and v8/v9" — was already self-refuted by the
+amendment directly above: no hook body exists anywhere in the shipped skills, scripts, or
+bundle, and none is planned. **There is no hook "recipe" because the managed block *is* the
+wiring.** The second — that the GitHub Actions asset "runs the same command on pull
+requests" — is now factually wrong: the asset triggers on both events. The exit contract
+(`0` / `1` / `2`), the hard-error floor, the warning suite, and the mirror rules are
+untouched.
+
+**Ownership splits cleanly.** `docs-setup` owns enforcement **discovery, planning,
+installation, upgrade, and verification**; `docs-validate` owns **running and interpreting**
+the strict command and its exit class. Neither reaches into the other's half. The mechanics
+live with the skill that owns them — `skills/docs-setup/references/enforcement.md` — and
+[/docs-setup/specs/install-contract.md](/docs-setup/specs/install-contract.md) states the
+contract at the explanatory level.
+
+There are exactly two managed enforcement surfaces:
+
+- **A managed GitHub Actions workflow**, installed only on GitHub evidence (a GitHub
+  remote, existing workflow structure, or an explicit request) and only when no equivalent
+  strict-validation invocation is already present. It triggers on **both `push` and
+  `pull_request`**, and exit `1` **or** `2` fails the job. Setup never modifies arbitrary CI
+  logic and owns nothing but this one dedicated file.
+- **One marked managed block on an already-active, repository-owned Husky `pre-push`
+  path**, validating the **complete bundle on every push** — never a diff-scoped or
+  path-filtered subset, so merges, validator changes, and errors inherited from another
+  branch cannot bypass enforcement. Existing hook commands stay byte-preserved, the block is
+  idempotent, and an equivalent existing invocation (including one through a repository
+  wrapper script) is a no-op.
+
+Husky detection requires an **initialized hook manager** the repository already owns; a
+`dependencies`/`devDependencies` entry, a lockfile line, or a `prepare` script alone is not
+evidence. With no active configuration, local enforcement is a **reported skip**.
+
+The Decision's "Setup never installs husky" holds and widens: setup never installs,
+initializes, or upgrades Husky, adds no `prepare` script, and never changes native Git
+hooks, the configured hooks path, or any other Git state. Setup also never calls GitHub
+APIs or the GitHub CLI and never configures branch protection, rulesets, or required
+checks — remote repository governance stays outside setup and belongs to a repository
+administrator.
+
+Finally, enforcement is installed **even when the current bundle fails validation** — that
+is precisely the case it exists for. Machinery success and content validation are reported
+independently, and the report states plainly that pushes remain blocked until the bundle is
+repaired.

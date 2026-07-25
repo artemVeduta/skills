@@ -40,9 +40,12 @@ workflows.
 - docs-add
 - docs-validate
 
-New concepts are filed **through docs-add** with the approved plan; the strict
-validator is run **through docs-validate** after every write. Both must be
-discoverable by canonical name at run time.
+## Integration
+
+- **Required sub-skill:** Invoke `/docs-add` to file each new concept from the
+  approved plan.
+- **Required sub-skill:** Invoke `/docs-validate` after every write to run the
+  strict validator. Both must be discoverable by canonical name at run time.
 
 ## When to Use
 

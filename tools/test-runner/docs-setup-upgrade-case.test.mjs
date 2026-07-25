@@ -14,7 +14,7 @@
 //                                 required; nothing managed written;
 //   - docs-setup-repair         — partial repair: missing files created, current
 //                                 files no-op, specifications/ preserved;
-//   - docs-setup-noop           — current-v2 target: no-change plan, git-unchanged
+//   - docs-setup-noop           — current target: no-change plan, git-unchanged
 //                                 (proves no-op classification AND idempotency).
 // These tests never run a model.
 import { test } from 'node:test';
@@ -33,7 +33,7 @@ const casesRoot = join(REPO_ROOT, 'tools/tests');
 const skillsRoot = join(REPO_ROOT, 'skills');
 const skillDir = join(skillsRoot, 'docs-setup');
 
-test('the SKILL.md documents the v2 upgrade / reinstall / partial-repair contract (#53)', async () => {
+test('the SKILL.md documents the upgrade / reinstall / partial-repair contract (#53)', async () => {
   const skill = await readFile(join(skillDir, 'SKILL.md'), 'utf8');
 
   // AC1: every run RECOMPUTES state — never reads or writes a suite-version /
@@ -56,7 +56,7 @@ test('the SKILL.md documents the v2 upgrade / reinstall / partial-repair contrac
   assert.match(skill, /dirty/i);
   assert.match(skill, /explicit approval/i);
 
-  // AC4: exact current-v2 managed files are NO-OPS; MISSING files proposed for
+  // AC4: exact current managed files are NO-OPS; MISSING files proposed for
   // creation; every DIFFERING file is customized-until-reviewed (never blindly
   // overwritten).
   assert.match(skill, /no-op/i);
@@ -225,7 +225,7 @@ test('the partial-repair case creates missing files, no-ops current ones, and pr
   assert.ok(c.assertions.some((a) => a.type === 'portable-contract'));
 });
 
-test('the no-op case proves a current-v2 rerun is a git-unchanged no-change plan (idempotency)', async () => {
+test('the no-op case proves a current-contract rerun is a git-unchanged no-change plan (idempotency)', async () => {
   const c = await loadCase('docs-setup-noop', { casesRoot });
   assert.equal(c.skill, 'docs-setup');
   // A current target is a no-op — a single read-only turn, no approval needed.

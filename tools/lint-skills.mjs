@@ -125,12 +125,25 @@ export function lintHeadings(relPath, body) {
   return { errors: [], warnings };
 }
 
+function hasIntegrationSection(body) {
+  // Fenced examples are documentation, not the skill's own section.
+  return stripFences(body)
+    .split(/\r?\n/)
+    .some((line) => /^##\s+Integration\s*$/.test(line));
+}
+
 export function lintDependencies(relPath, body, knownSkills) {
   const errors = [];
   const declared = parseRequiredSkills(body);
   const invoked = parseRuntimeInvocations(body);
   for (const name of reconcileInvocations(declared, invoked)) {
     errors.push(`${relPath}: runtime invocation \`/${name}\` is not declared in ## Required skills`);
+  }
+  // PRESENCE only: a declared dependency needs a place that explains the
+  // relationship, but the section's prose is never parsed — no label grammar,
+  // no required phrasing. Nothing declared, nothing required.
+  if (declared.length > 0 && !hasIntegrationSection(body)) {
+    errors.push(`${relPath}: declares ## Required skills but has no ## Integration section`);
   }
   for (const dep of declared) {
     if (knownSkills.has(dep) && knownSkills.get(dep).userInvoked) {

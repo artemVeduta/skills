@@ -134,3 +134,24 @@ cross-skill-path ban, and missing-node and cycle rejection (`tools/skill-graph.m
 `research/issue-6-npx-dependency-resolution.md` was removed from the repo on 2026-07-17;
 the surviving evidence for the portable shape is the registry command and the generated
 README portable block.
+
+## 2026-07-25 — `## Integration` presence is enforced; the label grammar is a convention
+
+The Decision above prescribes the `## Integration` section and the labels
+**Required sub-skill** / **Required background** in one breath, which reads as though both
+are checked. Only the first is. `tools/lint-skills.mjs` → `lintDependencies` (through
+`hasIntegrationSection`) treats a non-empty `## Required skills` list as requiring an
+`## Integration` heading and raises an ERROR when the heading is absent; an empty or
+missing dependency list requires nothing. Fenced examples do not satisfy it. That is the
+entire machine contract — the section's prose is never parsed: no label vocabulary, no
+required phrasing, no semantic reading of the relationship. The omission is deliberate. A
+Markdown micro-language for relationship kinds would be brittle, and it would turn every
+wording improvement into a lint break.
+
+The labels are not thereby optional or ignorable. **Required sub-skill** and
+**Required background** remain the prescribed authoring convention inside the section,
+upheld by review, and all three dependency-bearing skills — `docs-setup`, `docs-sync`, and
+`docs-autoresearch` — now carry the section and use them. An author who substitutes a
+different label has written non-conforming prose the linter will not catch. Nothing above
+is reversed; what is narrowed is the enforcement claim, to exactly what the linter does.
+Driven by #65.

@@ -4,7 +4,7 @@
 // paths. Entries carry installation metadata only; the wizard grows no per-harness
 // branch for anything expressible here.
 //
-// Canonical checkout placements (OKF docs skill-suite v2):
+// Canonical checkout placements (docs/decisions/okf-docs-portability-and-distribution.md):
 //   Claude Code  project .claude/skills   global <CLAUDE_CONFIG_DIR>/skills (default ~/.claude/skills)
 //   Codex        project .agents/skills    global ~/.agents/skills
 //   OpenCode     project .agents/skills    global ~/.agents/skills

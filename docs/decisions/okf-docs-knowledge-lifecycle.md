@@ -31,7 +31,9 @@ Bundle membership, exclusions, naming, and semantic splitting are governed by
 [Keep a tool-neutral docs bundle with specs as the canonical section](/decisions/okf-docs-bundle-shape.md).
 
 Whoever changes behavior updates the affected concept bodies in the same working step.
-`docs-sync` owns finish-time reconciliation through two modes:
+That obligation stands on its own. `docs-sync` is an **optional, user-invoked-only**
+reconciliation workflow offering two modes. It is never selected implicitly and is not
+tied to any lifecycle stage; the user chooses when its fanout cost is justified:
 
 - **Branch sync** compares the selected target branch's common ancestor with the full
   current working state and reconciles only branch-affected knowledge.
@@ -70,8 +72,10 @@ confirmation and a replacement Decision that supersedes the old one.
 
 ## Consequences
 
-- The project router requires applicable concepts before non-trivial work, content
-  changes with affected source, and `docs-sync` before source-changing work concludes.
+- The project router requires applicable concepts before non-trivial work and content
+  changes with affected source. `docs-sync` is optional and user-invoked only — never
+  required before source-changing work concludes, and never invoked automatically from
+  implementation, review, validation, pull-request preparation, or inferred intent.
 - Quick fixes and long feature branches use the same lifecycle.
 - Direct `docs-add` keeps its approval gate; invoking `docs-sync` authorizes all
   in-scope reconciliation, including concept creation.
@@ -83,3 +87,53 @@ confirmation and a replacement Decision that supersedes the old one.
 # Amendments
 
 <!-- Append dated entries; never rewrite accepted history. -->
+
+## 2026-07-25 — The finish-time docs-sync obligation is removed
+
+Issue #65 removes the mandatory finish-time `docs-sync` obligation from this Decision, and
+the Decision and Consequences above are edited in place to match. Two sentences are removed;
+both are quoted here verbatim so the accepted history stays recoverable from the Decision
+itself. The Decision dropped the framing sentence "`docs-sync` owns finish-time
+reconciliation through two modes:" — introducing the Branch sync / Bundle-wide
+reconciliation bullets, which remain unchanged — and now instead reads that `docs-sync` is an
+**optional, user-invoked-only** reconciliation workflow offering the same two modes, never
+selected implicitly and never tied to a lifecycle stage. The Consequences bullet dropped its
+closing clause "and `docs-sync` before source-changing work concludes" and now instead states
+that `docs-sync` is optional and user-invoked only, never required before source-changing
+work concludes, and never invoked automatically from implementation, review, validation,
+pull-request preparation, or inferred intent.
+
+The removed router clause was already false when it was removed. The shipped router asset
+`skills/docs-setup/assets/agents/documentation-block.md` has never carried a `docs-sync`
+clause, and neither has this repository's own installed root `AGENTS.md`; both state only
+the two obligations that remain. Code is authoritative for current behavior, so the
+Consequence was describing a surface that does not exist. Removing it corrects the record
+rather than narrowing a live guarantee.
+
+**Amended rather than superseded, deliberately.** The rule above requires "user
+confirmation and a replacement Decision that supersedes the old one" for a change to the
+selected alternative, an ownership boundary, a hard constraint, or material consequences.
+Issue #65 is the user confirmation, and it instructs this removal in place. The change is a
+**narrowing of one obligation**, not a reversal of the selected alternative: executable
+sources remain authoritative for current behavior, the bundle remains authoritative for
+intent and accepted history, both sync modes survive with their scopes unchanged, and the
+write-time rule that whoever changes behavior updates the affected concepts in the same
+working step is untouched and now stands alone. Superseding would fragment accepted
+rationale across two Decisions for a narrowing that reverses nothing, so this dated entry
+carries the change and the reasoning instead.
+
+Also settled by the same issue: `docs-setup` and `docs-sync` both declare user-only
+invocation metadata, and setup never triggers sync — see
+[/decisions/okf-docs-skill-boundaries.md](/decisions/okf-docs-skill-boundaries.md).
+
+## 2026-07-25 — One approval per filing plan, across the suite
+
+The Consequences above state that direct `docs-add` keeps its approval gate and that
+invoking `docs-sync` authorizes in-scope reconciliation. The general rule the pair implies
+is now explicit: a complete filing plan is gated exactly once. When a parent workflow —
+`docs-sync`, `docs-autoresearch`, or a setup run — has already presented an equivalent
+complete plan (frontmatter, body, path, local-index entry, lifecycle entry) and received
+explicit approval, that approval satisfies `docs-add`, and the child does not re-gate the
+same plan. Reuse requires equivalence: a plan the parent never presented is not covered.
+The rule is stated at the point of use in `skills/docs-add/SKILL.md` ("Approval reuse"). No
+authorization is widened — only double-gating is removed.

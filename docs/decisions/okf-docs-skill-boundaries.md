@@ -84,3 +84,72 @@ default, and setup never stages, commits, pushes, or discards.
 # Amendments
 
 <!-- Append dated entries; never rewrite accepted history. -->
+
+## 2026-07-25 — User-invoked-only setup and sync, enforcement ownership, and the retired Claude adapter
+
+Issue #65 sharpens four boundaries the Decision above left open, and corrects one
+repository-machinery item that is no longer shipped. The five-skill split, the
+one-canonical-copy rule, the no-project-local-helper-copies rule, and the conservative
+audit → classify → approve → write → verify workflow are all unchanged.
+
+**`docs-setup` and `docs-sync` are user-invoked-only.** Both declare the platform's
+user-only invocation metadata (`disable-model-invocation: true` in their frontmatter), and
+their `description` fields must not authorize implicit selection — each now opens by saying
+so. Neither is ever invoked automatically: not from implementation, review, validation,
+pull-request preparation, or inferred natural-language intent. The Decision already rejected
+"Let setup invoke synchronization automatically"; this extends the same reasoning to the
+agent's own selection of either skill, because both are repository-wide and expensive.
+
+**`docs-setup` owns two responsibilities this Decision did not name.** First, repository
+validation **enforcement** — its discovery, planning, installation, upgrade, and
+verification — while `docs-validate` owns running and interpreting the strict command
+([/decisions/okf-docs-strict-validation.md](/decisions/okf-docs-strict-validation.md)).
+Second, **versionless retired-surface convergence**: setup derives a complete plan from the
+current managed surfaces, durable retired-surface tombstones, historical fingerprints or
+managed markers, and actual repository state, and it neither reads nor writes an installed
+suite-version marker. Proven obsolete managed surfaces become removals in the normal plan;
+customized or uncertain ones become conflicts needing an explicit keep/remove decision;
+missing ones are no-ops. Evolving OKF knowledge is never a cleanup target. Both contracts
+are stated at the explanatory level in
+[/docs-setup/specs/install-contract.md](/docs-setup/specs/install-contract.md).
+
+**"Deletion-safe Claude rule pointers" are no longer repository-carried machinery.** The
+Decision's machinery list ends with them; the Claude-only docs-authoring adapter is retired
+from the suite contract and its asset no longer exists under
+`skills/docs-setup/assets/`. Portable project memory — the marked `AGENTS.md` router — plus
+the lifecycle Convention are the required documentation-policy surfaces on every supported
+harness ([/decisions/okf-docs-portability-and-distribution.md](/decisions/okf-docs-portability-and-distribution.md)).
+The retired path stays in scope as a **tombstone**, not as a delivered surface. The rest of
+the machinery list is unchanged.
+
+**The two-stage upgrade order is explicit.** Explicit `docs-setup` converges managed
+installation surfaces and the minimal policy substrate (the seed lifecycle Convention, the
+OKF reference, and the marked router, upgraded conservatively so a later migration has
+current rules to follow). Optional, explicitly invoked bundle-wide `docs-sync` then performs
+semantic migration. **Setup never triggers sync** — it may recommend it, exactly as the
+Decision already says. Skipping the second stage leaves a current installation over a legacy
+or validation-failing bundle: an allowed state that must be reported accurately.
+
+## 2026-07-25 — Where docs-autoresearch's defaults, mechanics, and safety floor each live
+
+The decision above gives `docs-autoresearch` one responsibility line and left its internal
+ownership unrecorded. The shipped skill splits it in two, and the split is load-bearing.
+`skills/docs-autoresearch/RESEARCH-DEFAULTS.md` is the single home of every tunable default
+value and of default research policy; `skills/docs-autoresearch/SKILL.md` owns the fixed
+mechanics — orchestration, round barriers, fanout, safety, failure behavior, and filing. A
+repository may add `docs/conventions/research.md` lazily through `docs-add` to carry
+deviations only: it may refine objectives, source preferences, confidence definitions,
+freshness, exclusions, and output style, and it may *lower* a budget, but it can never
+raise one past a hard ceiling nor override fixed mechanics or the safety floor. A missing
+override falls back to the shipped defaults and is announced; an invalid one falls back
+field by field with every rejected value reported and every valid setting preserved;
+missing or unreadable shipped defaults are a corrupt installation and stop the run.
+
+The safety floor is part of the boundary, not an implementation detail. Research workers
+are read-only and cannot delegate, and the coordinator is the sole writer. Fetching is
+limited to user-supplied or search-discovered public HTTP(S) URLs, rejecting
+credential-bearing URLs, localhost, private/link-local/metadata destinations, and
+unvalidated redirects. Fetched content is untrusted data: its instructions are never
+followed and its code never executed, secrets and private or personal material never enter
+a query, and only summaries and citations persist — never raw bodies. Nothing above is
+reversed; this records the ownership the responsibility line assumed.

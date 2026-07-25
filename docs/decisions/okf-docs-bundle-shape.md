@@ -64,3 +64,20 @@ through semantic reconciliation. Setup never renames it as a tooling side effect
 # Amendments
 
 <!-- Append dated entries; never rewrite accepted history. -->
+
+## 2026-07-25 — Length is not a deletion reason either
+
+"Conceptual identity, not size, decides splitting" already settles that **line count alone
+never mandates a split**, and "creates no limit or warning" already forbids a threshold. One
+half was left unstated: length is not a reason to **delete** a concept either. A long concept
+stays whole and stays in the bundle when it is cohesive; only **redundancy** — a durable fact
+that a focused concept already owns — or genuinely **independent lifecycles** justify
+splitting or removing one.
+
+This is recorded because issue #65 removed two long Specifications and must not be read as a
+length precedent. They were removed after a section-level coverage audit proved their durable
+content was owned elsewhere, and in the same change a long cohesive `Decision`
+([/decisions/skill-testing-architecture.md](/decisions/skill-testing-architecture.md)) was
+explicitly retained with its amendments precisely because it is not redundant. The
+300-physical-line figure stays what it was: a cue for explicit semantic review, never a
+limit, never a warning, never an automatic split, and never a deletion rule.

@@ -9,7 +9,7 @@ timestamp: <YYYY-MM-DD>
 
 This bundle conforms to the Open Knowledge Format (OKF) v0.1 — see
 [/references/okf.md](/references/okf.md). This concept is the single source of truth for
-the docs flow; CLAUDE.md and the `.claude` rules link here rather than restating it.
+the docs flow; project memory links here rather than restating it.
 
 ## The bundle
 
@@ -18,8 +18,21 @@ the docs flow; CLAUDE.md and the `.claude` rules link here rather than restating
   ignored by the validator.
 - Repo-wide knowledge lives at the top level (`conventions/`, `glossary/`, `references/`);
   subsystem knowledge nests under the subsystem (`<subsystem>/<area>/...`).
+- **One repository, one bundle.** A repository has exactly one bundle root. A monorepo
+  does not get one bundle per workspace: each workspace is a top-level subsystem node
+  inside the single bundle, nesting its knowledge as `<workspace>/<area>/...` like any
+  other subsystem.
 - A concept = one markdown file = YAML frontmatter + markdown body. Concept ID = the
   file path within the bundle minus `.md` (identity is positional, not a field).
+- **Discovery is progressive and ordered.** A reader — human or agent — enters at
+  `docs/index.md`, descends to the affected subsystem's `index.md`, reads the applicable
+  `Decision`s, `Specification`s, `Glossary` terms, and `Reference`s, and only then
+  searches the repository. Consulting the relevant concepts alongside the code is required
+  before any non-trivial design, review, feature, bugfix, or refactor.
+- **A delegated worker receives its reading scope explicitly.** Any sub-agent dispatched
+  for non-trivial work is handed the exact bundle-relative concept paths it must read;
+  discovery is never left to it. Root `AGENTS.md` states both obligations at the entry
+  point and points here for the policy itself.
 
 ## Frontmatter standard
 
@@ -81,6 +94,11 @@ frontmatter), not by a `type`. There is no `type: Subsystem` frontmatter value.
 - Relationship meaning lives in prose, not in metadata (OKF has no typed relations).
 - Broken links are tolerated (they may be not-yet-written knowledge); the validator
   reports them as warnings, never errors.
+- **Link stable resources; give unstable ones a concept.** A stable repository resource
+  may be linked directly. An external or generated collection that needs durable
+  explanation gets a `Reference` concept describing it instead. Ephemeral output is
+  represented by durable provenance — what produced it, when, and where it lands — never
+  by a link into a directory a later run destroys or a cleanup removes.
 
 ## Code in concepts — separate truth by type
 
@@ -127,9 +145,10 @@ truth everywhere outside it.
 ## The update ceremony
 
 The mechanical bookkeeping of any `docs/**` edit — bump `timestamp`, append a `log.md`
-entry, amend-don't-rewrite `Decision`s, set supersede keys — is surfaced automatically by
-the always-on `docs-authoring` rule (it fires on every `docs/**` edit). `pnpm docs:validate`
-is the strict backstop: exit `0` for a clean or warnings-only bundle, `1` for hard
-errors, `2` for validator malfunction. Warnings never block (a stale `timestamp` older
+entry, amend-don't-rewrite `Decision`s, set supersede keys — is the author's obligation
+under this policy, and it holds wherever the edit is made. No harness-specific
+documentation rule ships; the obligation is portable and identical everywhere.
+`pnpm docs:validate` is the strict backstop: exit `0` for a clean or warnings-only
+bundle, `1` for hard errors, `2` for validator malfunction. Warnings never block (a stale `timestamp` older
 than the newest dated `# Amendments` entry is one of them), and there is no suppression
 grammar.

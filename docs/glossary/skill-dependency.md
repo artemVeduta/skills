@@ -28,10 +28,13 @@ resolution. Runtime instructions invoke the dependency using its slash name, suc
 `/domain-modeling`, rather than an installation path, because harnesses place skills
 differently.
 
-A separate `## Integration` section explains each dependency's role using explicit
-relationship language such as **Required sub-skill** or **Required background**. Every
-runtime `/skill-name` invocation must match an entry in `## Required skills`.
-Installers parse only `## Required skills`; `## Integration` remains explanatory prose.
+A separate `## Integration` section explains each dependency's role. Its *presence* is
+required and machine-checked whenever `## Required skills` is non-empty
+(`tools/lint-skills.mjs` → `lintDependencies`); its prose is never parsed. Explicit
+relationship labels — **Required sub-skill**, **Required background** — are the prescribed
+authoring convention inside it, upheld by review rather than by the linter. Every runtime
+`/skill-name` invocation must match an entry in `## Required skills`. Installers parse only
+`## Required skills`.
 Cross-skill filesystem paths are forbidden, and non-invoking comparisons use plain names
 without a slash.
 

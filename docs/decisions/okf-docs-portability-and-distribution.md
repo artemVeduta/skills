@@ -109,3 +109,37 @@ live outcome test pass.
 # Amendments
 
 <!-- Append dated entries; never rewrite accepted history. -->
+
+## 2026-07-25 — No harness ships a documentation-policy adapter
+
+The Decision above allows Claude Code to "keep pointer-only, path-scoped rules as optional
+conveniences". Issue #65 retires the one that existed. The suite now ships **no
+harness-specific documentation-policy adapter at all** — the Claude-only docs-authoring rule
+is removed from the suite contract, the setup manifest, and acceptance expectations, and its
+asset no longer exists under `skills/docs-setup/assets/`.
+
+The **required** documentation-policy surfaces are therefore portable and identical
+everywhere: the marked Documentation router in root `AGENTS.md` (surface 1 above) plus the
+lifecycle Convention it points to
+([/conventions/documentation.md](/conventions/documentation.md)). Claude Code, Codex, and
+OpenCode receive exactly the same policy; **no harness receives unique documentation
+policy**, and there is no longer a duplicated Claude-only rule for optional adapter drift to
+diverge from. `.claude/rules/docs-*` is now a **retired-surface tombstone** that
+`docs-setup` converges away, not a delivered convenience — see
+[/docs-setup/specs/install-contract.md](/docs-setup/specs/install-contract.md) and
+[/decisions/okf-docs-skill-boundaries.md](/decisions/okf-docs-skill-boundaries.md).
+
+Nothing else in the Decision changes. The general permission for pointer-only, path-scoped
+adapters is not withdrawn for *discovery and presentation* — the rule that they carry no
+unique policy and are deletion-safe is what made retiring this one a no-behaviour-change
+removal, which is the deletion test working as designed. The four shared surfaces, the
+parity definition, the checkout placements, the package-shape matrix, and the
+advertised-only-when-proven obligation are untouched.
+
+**On the canonical placements.** The "Canonical checkout placements are:" list in the
+Decision above, together with the OpenCode-reads-Claude rule, the
+no-extra-OpenCode-placement rule, and the resolve-each-identity-once conformance
+requirement, is the placement authority
+[/specs/install-sh.md](/specs/install-sh.md) defers to for its `--scope` paths. Verified
+current against `scripts/install/registry.mjs` (`skillDirs`, `configRoot`,
+`readsSharedWith`).

@@ -195,3 +195,15 @@ respect and wider in two:
 The 2026-07-16 "carried over unchanged" note above restates decision 3's wording and so
 inherits the same fixture-state over-claim; the retention split it carries over is
 otherwise accurate.
+
+## 2026-07-25 — The release-tag half of the provenance identity set is not emitted
+
+Decision 5 requires the release tag on a recorded summary "when on one". Nothing emits it.
+The run-level library identity comes from `tools/benchmarks/provenance.mjs` →
+`gitProvenance()`, which returns exactly an ISO timestamp, the commit SHA, and a dirty
+flag; the per-arm half — resolved model and harness CLI version — comes from the runner's
+`run.json`. The tag field is therefore optional in practice today. The requirement is not
+withdrawn: a summary recorded on a tagged commit still ought to name its tag, and supplying
+it is a one-field change in `gitProvenance()`. But no committed summary carries it, so a
+reader comparing summaries must not expect it and must not read its absence as a defect in
+the summary. Driven by #65.

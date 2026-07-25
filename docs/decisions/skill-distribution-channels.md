@@ -142,8 +142,9 @@ support; `--skill '*'` is the current whole-library fallback.
 
 The three-channel split and the registry-as-extension-point stand unchanged, as do the
 update semantics by channel. This entry records the shapes the shipped checkout installer
-and the [OKF docs skill-suite v2 spec](/specs/okf-docs-skill-suite-v2.md) settled, which
-the prose above still states at its original granularity.
+and
+[Deliver one portable OKF skill pack through deletion-safe adapters](/decisions/okf-docs-portability-and-distribution.md)
+settled, which the prose above still states at its original granularity.
 
 - **Portable installation is whole-pack only.** The selectivity the 2026-07-10 entry left
   contingent on upstream support never arrived, so no supported journey advertises a
@@ -163,8 +164,8 @@ the prose above still states at its original granularity.
   onto a managed portable or native install, which the original text did not address.
 - **Per-harness placements, plan deduplication, checkout provenance, and stale-link
   ownership** are specified in
-  [/specs/okf-docs-skill-suite-v2.md](/specs/okf-docs-skill-suite-v2.md) and
-  [/specs/install-sh.md](/specs/install-sh.md), not in this Decision.
+  [Deliver one portable OKF skill pack through deletion-safe adapters](/decisions/okf-docs-portability-and-distribution.md)
+  and [/specs/install-sh.md](/specs/install-sh.md), not in this Decision.
 
 Driven by the v2 skill-suite checkout installer (issue #61); no selected alternative is
 reversed.

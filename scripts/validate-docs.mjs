@@ -386,10 +386,12 @@ export function parseFrontmatter(text) {
 // region opened by an exact level-one `# Amendments` heading and closed by the
 // next level-one heading or EOF. Lookalike headings outside the region or
 // inside fenced code (text in a fence is not a Markdown heading) are ignored.
+// The scan reads a fences-only view: an inline code span is real heading text,
+// so a title written as `## YYYY-MM-DD — \`someFunction()\`` stays recognized.
 function newestAmendmentDate(body) {
   let inRegion = false;
   let newest = null;
-  for (const line of stripCode(body).split(/\r?\n/)) {
+  for (const line of stripFences(body).split(/\r?\n/)) {
     if (/^#(?:[ \t]|$)/.test(line)) {
       inRegion = line === '# Amendments';
       continue;
@@ -474,11 +476,11 @@ export function validateReserved(relPath, text, isRoot) {
   return { errors, warnings };
 }
 
-// Strip fenced code blocks (``` or ~~~) and inline code spans so illustrative
-// content inside code (link placeholders, example amendment headings) is not
-// scanned. Per CommonMark the closing fence may be longer than the opener; an
-// unclosed fence runs to EOF.
-function stripCode(text) {
+// Strip fenced code blocks (``` or ~~~) so illustrative content inside a fence
+// (link placeholders, example amendment headings) is not scanned. Per
+// CommonMark the closing fence may be longer than the opener; an unclosed fence
+// runs to EOF. This is the shared fence pass behind both scanning views.
+function stripFences(text) {
   const kept = [];
   let open = null; // { ch, len } of the open fence
   for (const line of text.split(/\r?\n/)) {
@@ -496,7 +498,13 @@ function stripCode(text) {
     }
     kept.push(line);
   }
-  return kept.join('\n').replace(/(`+)[^\n]*?\1/g, '');
+  return kept.join('\n');
+}
+
+// The fence pass plus inline code spans removed — the view used for link and
+// index scanning, where a span may hold a placeholder path that must not warn.
+function stripCode(text) {
+  return stripFences(text).replace(/(`+)[^\n]*?\1/g, '');
 }
 
 // Bundle-absolute Markdown link targets in text (leading slash stripped),

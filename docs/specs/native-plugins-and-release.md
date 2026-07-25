@@ -7,11 +7,11 @@ timestamp: 2026-07-25
 
 # Native aggregate plugins & release script
 
-Implements the "Distribution and installation" (native channel) and
-"Versioning and releases" sections of the
-[platform PRD](/specs/skills-platform.md); governed by
+Governed by
 [Use three skill distribution channels](/decisions/skill-distribution-channels.md)
-and [Snapshot releases with mirrored manifest versions](/decisions/versioning-and-release-policy.md).
+(the native channel) and
+[Snapshot releases with mirrored manifest versions](/decisions/versioning-and-release-policy.md)
+(versioning and releases).
 Terms: [harness](/glossary/harness.md), [skill](/glossary/skill.md).
 
 ## Manifest contract
@@ -74,8 +74,8 @@ mean something.
 
 ## Resolved implementer gaps
 
-From the platform PRD "Further Notes": the release-script preconditions
-(git work tree, non-detached branch, a configured `origin` remote, clean tree
+Gaps the governing Decisions left implementer-owned are fixed here: the
+release-script preconditions (git work tree, non-detached branch, a configured `origin` remote, clean tree
 unless `--force`, `gh` installed + authenticated — `scripts/release.mjs` →
 `preflight()`), the `scripts/`↔`tools/` boundary (the release script reads
 `tools/benchmarks/summaries/`), and the existence-only, warn-and-proceed

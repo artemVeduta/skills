@@ -2,7 +2,8 @@
 // assertions (filesystem + structured-output containment). Advisory signal
 // (skill-selection evidence, judge scores) is NEVER evaluated here — that is a
 // hard rule of the testing architecture.
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { readdir } from 'node:fs/promises';
 import { isDeepStrictEqual } from 'node:util';
 import { spawnSync } from 'node:child_process';
 import { checkPortableContract, readIf } from './static-contract.mjs';
@@ -61,6 +62,24 @@ async function evaluateOne(a, { workdir, repoRoot, output, baselineSha, skillsSu
       }
       return { pass: true, detail: '' };
     }
+    case 'file-occurrences': {
+      // Exact multiplicity of a marker in a file — the proof that a managed
+      // block was installed EXACTLY ONCE. `file-contains` cannot see a
+      // duplicate: a hook carrying the marked validation block twice contains
+      // it just as much as one carrying it once, so "appended once, never
+      // duplicated" needs a count.
+      const c = await readIf(join(workdir, a.path));
+      if (c === null) return { pass: false, detail: `missing ${a.path}` };
+      if (typeof a.value !== 'string' || a.value === '' || !Number.isInteger(a.count) || a.count < 0) {
+        return { pass: false, detail: 'file-occurrences requires a non-empty value and a non-negative integer count' };
+      }
+      const actual = c.split(a.value).length - 1;
+      const pass = actual === a.count;
+      return {
+        pass,
+        detail: pass ? '' : `${a.path} contains ${JSON.stringify(a.value)} ${actual} time(s), expected ${a.count}`,
+      };
+    }
     case 'file-equals': {
       const actual = await readIf(join(workdir, a.path));
       const expected = await readIf(join(repoRoot, a.against));
@@ -85,6 +104,8 @@ async function evaluateOne(a, { workdir, repoRoot, output, baselineSha, skillsSu
       return evaluateGitOnlyPaths(workdir, baselineSha, a.paths);
     case 'file-unchanged':
       return evaluateFileUnchanged(workdir, baselineSha, a.path);
+    case 'git-hooks-untouched':
+      return evaluateGitHooksUntouched(workdir);
     case 'portable-contract': {
       // Static shared-reader contract over the projected pack in the fixture
       // (skill metadata, relative support references, project-memory routing,
@@ -253,6 +274,57 @@ async function evaluateFileUnchanged(workdir, baselineSha, path) {
   }
   const pass = current === base.stdout;
   return { pass, detail: pass ? '' : `${path} differs from its baseline content` };
+}
+
+// --- git-hooks-untouched (#65 enforcement seam) ---
+// Proves a run installed NO NATIVE-Git push enforcement: the repository's
+// configured hooks path is still unset, and `.git/hooks/` still carries only
+// git's own `*.sample` templates.
+//
+// This is the one half of docs-setup's "never change native `.git/hooks/*` or
+// the configured hooks path" rule that no other assertion can see. `.git/` lives
+// OUTSIDE the working tree and `core.hooksPath` is repository CONFIG, so a run
+// that quietly wrote `.git/hooks/pre-push` — or repointed `core.hooksPath` at its
+// own directory — leaves `git status` completely clean and passes
+// git-unchanged, git-uncommitted, and git-only-paths alike. Enforcement must come
+// from the capability the repository already owns (an active Husky hooks
+// directory in the working tree), never from native git plumbing.
+//
+// A non-git workdir or a failing `git config` FAILS rather than passing
+// vacuously, exactly like the other git assertions. `--local` is deliberate: a
+// developer's global hooksPath is not the run's doing.
+async function evaluateGitHooksUntouched(workdir) {
+  const cfg = spawnSync('git', ['config', '--local', '--get', 'core.hooksPath'], { cwd: workdir, encoding: 'utf8' });
+  // `git config --get` exits 1 when the key is absent — the required state.
+  // Exit 0 means the key IS set (a violation); any other status means git could
+  // not run here at all, which must fail rather than pass vacuously.
+  if (cfg.status === 0) {
+    return { pass: false, detail: `the configured hooks path was changed: core.hooksPath is ${cfg.stdout.trim()}` };
+  }
+  if (cfg.status !== 1) {
+    return {
+      pass: false,
+      detail: `git config --local --get core.hooksPath failed in workdir: ${(cfg.stderr || '').trim() || 'not a git repository'}`,
+    };
+  }
+  const gitDir = spawnSync('git', ['rev-parse', '--git-dir'], { cwd: workdir, encoding: 'utf8' });
+  if (gitDir.status !== 0) {
+    return { pass: false, detail: `git rev-parse --git-dir failed in workdir: ${(gitDir.stderr || '').trim() || 'not a git repository'}` };
+  }
+  const hooksDir = resolve(workdir, gitDir.stdout.trim(), 'hooks');
+  let entries;
+  try {
+    entries = await readdir(hooksDir);
+  } catch (err) {
+    // No hooks directory at all is the strongest possible form of untouched.
+    if (err.code === 'ENOENT') return { pass: true, detail: '' };
+    return { pass: false, detail: `could not read ${hooksDir}: ${err.message}` };
+  }
+  const written = entries.filter((e) => !e.endsWith('.sample')).sort();
+  if (written.length > 0) {
+    return { pass: false, detail: `native Git hooks were written: ${written.join(', ')}` };
+  }
+  return { pass: true, detail: '' };
 }
 
 // --- execution-trace assertions (v2 acceptance seam) ---

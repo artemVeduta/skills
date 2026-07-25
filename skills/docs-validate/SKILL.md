@@ -66,11 +66,19 @@ script and confirm the new exit code.
 
 ## Enforcement wiring (owned by setup, not this skill)
 
-The strict exit makes the plain `docs:validate` script hook- and CI-ready: the
-documented portable hook is **pre-push**, and an optional GitHub Actions
-workflow fails a pull request on exit `1`. Installing that wiring — hook
-recipes, workflow asset — is the docs-setup skill's managed surface. This
-skill only interprets the failures such wiring produces.
+The strict exit makes the plain `docs:validate` script hook- and CI-ready.
+Ownership splits cleanly: **docs-setup owns enforcement discovery, planning,
+installation, upgrade, and verification; this skill owns running and
+interpreting the strict validation command.** Nothing more, in either
+direction.
+
+There are exactly two managed enforcement surfaces, both installed by
+docs-setup: a managed **GitHub Actions workflow** that runs the same command on
+**both `push` and `pull_request`** events, and one managed block on an
+**already-active Husky `pre-push`** path that validates the **complete bundle**
+on every push. No hook **recipe** ships or is documented anywhere in the suite
+— the managed surfaces *are* the wiring, and there is no hook body to copy.
+This skill only interprets the failures such wiring produces.
 
 ## Common Mistakes
 

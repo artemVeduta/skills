@@ -13,20 +13,20 @@ This is the contract for the shipped checkout installer, specified as the rebuil
 three-harness checkout installer (issue #61). It is governed by
 [Use three skill distribution channels](/decisions/skill-distribution-channels.md)
 (as amended 2026-07-10: whole-library development installs) and
-[Declare skill dependencies in SKILL.md](/decisions/skill-dependencies.md), and
-implements the "Distribution and installation" section of the
-[locked platform specification](/specs/skills-platform.md). Vocabulary:
+[Declare skill dependencies in SKILL.md](/decisions/skill-dependencies.md). Vocabulary:
 [skill](/glossary/skill.md), [harness](/glossary/harness.md) (including *harness
 profile*), [skill dependency](/glossary/skill-dependency.md).
 
-> **Status note (2026-07-24).** This PRD predates the
-> [OKF docs skill-suite v2 spec](/specs/okf-docs-skill-suite-v2.md), the governing
-> authority for the three-harness (Claude Code, Codex, OpenCode) checkout installer
-> (issue #61). Where this document leaves a choice implementer-owned or describes older
-> intent — notably the blanket `~/.agents/skills` channel-mixing warning and
-> `CODEX_HOME`-based Codex resolution — the v2 spec supersedes it: channel mixing is a
-> precise managed-shape **refusal** (not a warning), and Codex resolves to a fixed
-> `~/.agents/skills` (its `configRoot.env` is `null`, so no `CODEX_HOME` lookup).
+> **Authority boundary.** This Specification is active and owns the *detailed mechanics*
+> of the checkout installer: skill discovery, the harness registry's shape, the wizard
+> flow and its flag surface, linking and pruning, the guards, the exit classes, and
+> provenance output. The surrounding distribution decisions — which channels exist, which
+> (channel × harness) cells are offered, the canonical placements each harness uses, and
+> the one-package-shape-per-profile rule — belong to
+> [Use three skill distribution channels](/decisions/skill-distribution-channels.md) and
+> [Deliver one portable OKF skill pack through deletion-safe adapters](/decisions/okf-docs-portability-and-distribution.md).
+> Where the two meet, those Decisions govern the choice and this concept governs how the
+> installer carries it out.
 
 ## Problem Statement
 
@@ -46,7 +46,8 @@ the way:
 - It changes the filesystem **without a plan preview or confirmation**, including
   silently deleting non-symlink entries that collide with a skill name.
 - Its skill discovery is a depth-limited filesystem scan that predates the flat
-  `skills/<name>/` layout locked by the platform spec.
+  `skills/<name>/` layout fixed by the
+  [library-structure Decision](/decisions/skill-library-structure.md).
 
 ## Solution
 
@@ -150,8 +151,8 @@ profile live, and `git pull` is the only update command.
     selection or path-resolution logic, so that improving the UI never risks the
     install contract.
 29. As a maintainer, I want the installer to remain a repository-operator entry point
-    under `scripts/`, so that the `scripts/` vs `tools/` boundary from the platform
-    spec stays intact.
+    under `scripts/`, so that the `scripts/` vs `tools/` boundary from the
+    [library-structure Decision](/decisions/skill-library-structure.md) stays intact.
 
 ## Implementation Decisions
 
@@ -168,7 +169,7 @@ profile live, and `git pull` is the only update command.
   managed-channel metadata alongside checkout paths.
 - **Skill discovery.** A skill is exactly a directory `skills/<name>/` with a root
   `SKILL.md`, per the flat-layout rule of the
-  [platform spec](/specs/skills-platform.md), implemented in
+  [library-structure Decision](/decisions/skill-library-structure.md), implemented in
   `scripts/install/discovery.mjs` → `discoverSkills()`. This replaced the pre-rebuild
   depth-limited filesystem scan. Nested `SKILL.md` files are children of their parent
   skill and are never installed standalone. Discovering zero skills is a hard failure.
@@ -223,14 +224,25 @@ profile live, and `git pull` is the only update command.
   The **self-symlink guard** is kept: a target directory that is itself a symlink
   resolving into this repository is refused with remediation guidance.
 - **Channel-mixing guard.** A single harness profile must not consume the library
-  through more than one channel (per the distribution-channels Decision). The
-  [v2 skill-suite spec](/specs/okf-docs-skill-suite-v2.md) settled the previously
-  implementer-owned warn-vs-refuse choice: before any mutation the installer detects an
+  through more than one channel (per the distribution-channels Decision). Its
+  2026-07-25 amendment settled the previously implementer-owned warn-vs-refuse choice
+  ([Use three skill distribution channels](/decisions/skill-distribution-channels.md),
+  naming `managedShapeGuard()`): before any mutation the installer detects an
   already-present **managed** portable or native shape — an `.okf-managed.json` marker at
   the skill directory (portable) or at its parent config root (native plugin) — and
   refuses the checkout overlay with the exact conflicting path and channel. A plain
   `~/.agents/skills` directory with no managed marker is Codex/OpenCode's own canonical
   location and is linked normally; the older blanket `~/.agents/skills` warning is gone.
+
+  The refusal covers only the *checkout* side, because the two managed channels' install
+  and update commands belong to external package managers — the portable CLI and each
+  harness's plugin updater — and no preinstall hook of theirs is this repository's to
+  install. The enforceable substitute is the generated guidance itself: the
+  portable/native incompatibility warning, and the statement that updating a managed pack
+  never mutates a repository previously configured by `docs-setup`, must each sit adjacent
+  to **both** managed install paths. Both are asserted over the committed `README.md` by
+  `scripts/managed-channels.test.mjs`, so the warning is a contract of the guidance rather
+  than a recommendation to its author.
 - **Non-interactive surface.** A flag-driven, TTY-free invocation drives automation and
   tests; the flag surface and the exit-code split are now fixed in `scripts/install.mjs`
   (`usage()`, `EXIT`). Four distinct nonzero classes are contract: a usage error, a hard
@@ -240,9 +252,9 @@ profile live, and `git pull` is the only update command.
 - **Scope.** `--scope global|project` selects the placement: global resolves the harness's
   global skill directory under the profile's configuration root, project resolves it
   relative to the working directory (`install/profiles.mjs` → `resolveSkillDir()`). The
-  per-harness paths are fixed by the placement table of the
-  [v2 skill-suite spec](/specs/okf-docs-skill-suite-v2.md), which this installer resolves
-  rather than restates.
+  per-harness paths are fixed by the canonical-checkout-placements list of
+  [Deliver one portable OKF skill pack through deletion-safe adapters](/decisions/okf-docs-portability-and-distribution.md),
+  which this installer resolves rather than restates.
 - **Checkout provenance.** Both `--inspect` and the plan preview print the checkout's
   commit, symbolic ref, and dirty flag, so a preview is attributable to a working-copy
   state (`scripts/install/provenance.mjs` → `checkoutProvenance()` / `formatProvenance()`).
@@ -296,10 +308,12 @@ profile live, and `git pull` is the only update command.
 ## Out of Scope
 
 - **Portable pure-skill installs** (`npx skills add …`) — owned by the upstream CLI;
-  contract in the [platform spec](/specs/skills-platform.md) and the
+  contract in [Use three skill distribution channels](/decisions/skill-distribution-channels.md)
+  (channel 2, as amended 2026-07-25) and the
   [skill-dependencies Decision](/decisions/skill-dependencies.md).
 - **Native aggregate plugins** (Codex / Claude Code manifests, marketplaces, adapters'
-  plugin operations) — platform-spec territory.
+  plugin operations) — specified by
+  [Native aggregate plugins & release script](/specs/native-plugins-and-release.md).
 - **Per-skill selective installation** — removed from the development channel by the
   2026-07-10 amendment to the
   [distribution-channels Decision](/decisions/skill-distribution-channels.md);
@@ -308,8 +322,11 @@ profile live, and `git pull` is the only update command.
   this installer is a consumer.
 - **Per-skill closure expansion** — unnecessary here (whole-library linking) and a
   portable-channel concern elsewhere.
-- **The skill linter, test/benchmark harness, release script, and CI wiring** — own
-  sections of the platform spec.
+- **The skill linter, test/benchmark harness, release script, and CI wiring** — owned by
+  [Skill authoring conventions and quality bar](/decisions/skill-authoring-conventions.md),
+  [Skill testing and benchmark architecture](/decisions/skill-testing-architecture.md),
+  [Native aggregate plugins & release script](/specs/native-plugins-and-release.md), and
+  [CI and automation wiring](/decisions/ci-and-automation-wiring.md).
 - **The README install-guidance generator's mechanics** — only the registry contract it
   consumes is specified here.
 
@@ -323,20 +340,19 @@ profile live, and `git pull` is the only update command.
   1 nothing-to-do). The rebuild carries forward the linking mechanics, idempotence, and
   self-symlink guard; it replaces per-skill selection, the hard-coded target list, and
   undisclosed destructive replacement.
-- **Precedence.** The platform spec's precedence note said the old revision of this
-  concept described the *current* script and would be revised when the new installer
-  lands; this revision is that rewrite, done ahead of implementation as the PRD issue
-  #16 builds against. The rebuild has since shipped (issue #61), so the pre-rebuild
+- **Precedence.** The rebuild has shipped (issue #61), so the pre-rebuild
   `find`/`DEFAULT_TARGETS`/`--list`/`--all`/`--target` contract in the "Prior art /
   baseline" bullet is retained as history only.
 - **Gaps left implementer-owned, and how they were settled** (none reopened a Decision):
   the registry's file format and location, the exact flag names and exit-code
   assignments, and the README guidance generation mechanism were all fixed by the
   shipped installer, cited in the Implementation Decisions above. The
-  warn-vs-refuse choice for a colliding managed shape and stale-link pruning on re-run
-  were later settled by the [v2 skill-suite spec](/specs/okf-docs-skill-suite-v2.md): a
-  precise managed-shape refusal, and pruning of a stale link only when ownership proves
-  it points into the same checkout.
+  warn-vs-refuse choice for a colliding managed shape was later settled as a precise
+  managed-shape refusal by the 2026-07-25 amendment to
+  [Use three skill distribution channels](/decisions/skill-distribution-channels.md);
+  stale-link pruning on re-run — a stale link removed only when ownership proves it points
+  into the same checkout — is owned by the "Reconciliation on rerun" bullet above
+  (`planPrunes()` / `ownedByCheckout()`).
 - **Related but different:** the
   [docs-setup install contract](/docs-setup/specs/install-contract.md)
   describes what that *skill* installs into target repositories when it runs — not how
