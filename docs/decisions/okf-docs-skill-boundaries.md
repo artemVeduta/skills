@@ -2,7 +2,7 @@
 type: Decision
 title: Separate OKF documentation skills by lifecycle responsibility
 description: Make docs-setup, docs-add, docs-validate, docs-sync, and docs-autoresearch distinct portable skills with one canonical library home and non-overlapping responsibilities.
-timestamp: 2026-07-24
+timestamp: 2026-07-25
 ---
 
 # Separate OKF documentation skills by lifecycle responsibility
@@ -81,6 +81,6 @@ default, and setup never stages, commits, pushes, or discards.
 - Conservative upgrades cost an audit and approval round, but preserve local
   customization and make an already-current rerun a provable no-op.
 
-## Amendments
+# Amendments
 
 <!-- Append dated entries; never rewrite accepted history. -->

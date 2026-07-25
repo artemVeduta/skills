@@ -17,6 +17,213 @@
   canonical hyphenated `claude-opus-4-8`, so the historical parenthetical pointing at
   the dotted `claude-opus-4.8` in that live file no longer holds. The dated history is
   left intact; the note cross-references the reconciliation.
+- **Creation** of [Skill-contract recognition tests](/conventions/skill-contract-tests.md)
+  — the deterministic suites that keep a prose-defined skill contract present had no
+  concept anywhere, while the bundle's acceptance prose ("observable outcomes, not
+  prose") read as forbidding them; an engineer meeting an opaque failure at a prose
+  assertion would read the bundle as licence to delete it and silently retire acceptance
+  evidence. The Convention fixes what the tier may assert (a stated contract commitment,
+  case-definition shape, the static portable contract), the prohibition that a
+  recognition pass is never behavioral evidence for a distribution cell, and the
+  obligation that contract prose and its assertion co-change.
+- **Update** of [install.sh — development-links install wizard](/specs/install-sh.md) —
+  now the contract of the shipped checkout installer rather than the rebuild it once
+  proposed: the operator entry point is a launcher over a Node CLI and its single-purpose
+  modules; the dependency graph is validated before any prompt or plan exists, not after
+  confirmation; the interactive step selects harnesses only, with profiles, custom
+  configuration roots, and scope reached by flag; the flag surface and the four nonzero
+  exit classes are fixed rather than implementer-owned; and scope placement, checkout Git
+  provenance, and rerun reconciliation (pruning only links this checkout owns, collapsing
+  coincident placements) are specified for the first time. The pasted registry shape gave
+  way to prose naming the registry's axes, plus why the registry — not the native
+  channel — owns native adapter metadata and the shared-read list.
+- **Update** of [Skills library & building platform — PRD](/specs/skills-platform.md) —
+  distribution, automation, benchmark, and CI statements now match the delivered
+  platform. The checkout channel is an advertised package shape across all three harness
+  products rather than a development-only affordance; the portable channel is whole-pack
+  only; the one-shape-per-profile rule is an enforced pre-mutation refusal instead of an
+  unbacked prohibition; `scripts/` and `tools/` list what they actually hold; benchmark
+  runs are single-arm with harness breadth distinguishing the presets, and the paired
+  arm, with/without delta, regression flag, and baseline promotion are recorded as
+  deferred rather than current; and CI is three static gates, the third carrying the
+  acceptance matrix's `advertised == proven` invariant. Precedence now points at the v2
+  skill-suite spec for the harness matrix and at the installer spec for the checkout
+  contract.
+- **Update** of [Native aggregate plugins & release script](/specs/native-plugins-and-release.md)
+  — native packaging and the release ritual are recorded against their single sources.
+  The manifests stay hand-authored, but their plugin/marketplace ids and the documented
+  install and update operations have exactly one definition in the harness registry,
+  which the generated README native block renders and the manifest tests verify against
+  the committed manifests, so guidance, manifests, and tests cannot drift; native
+  OpenCode packaging is asserted absent rather than merely unmentioned. The release
+  script's staleness guard is existence-only over the committed summaries directory and
+  warns and proceeds; the benchmark harness has since shipped into that same directory,
+  and baseline promotion, full-preset selection, and recent-ancestor matching are
+  deferred by the benchmark decision rather than awaiting a harness. The preflight's
+  origin-remote requirement is now listed.
+- **Update** of [Use three skill distribution channels](/decisions/skill-distribution-channels.md)
+  — amended for the shipped channel shapes. Portable installation is advertised as the
+  whole pack only: the selectivity earlier made contingent on upstream dependency support
+  never arrived, so no supported journey offers a per-skill picker. The checkout channel
+  is an advertised package shape across Claude Code, Codex, and OpenCode, with no native
+  OpenCode plugin. The prohibition on mixing package shapes in one profile is enforced
+  before any mutation by a managed-marker refusal naming the conflicting path and
+  channel, and it also forbids overlaying checkout links onto a managed install — a case
+  the original text did not address. Per-harness placements, plan deduplication,
+  provenance, and stale-link ownership belong to the v2 spec and the installer spec, not
+  to this decision. The Amendments heading was raised to level one.
+- **Update** of [Snapshot releases with mirrored manifest versions](/decisions/versioning-and-release-policy.md)
+  — amended to narrow decision 3 to where the version actually lives: only the two native
+  plugin manifests carry the snapshot version, and the release script bumps both so they
+  cannot diverge from the tag. The marketplace catalogs deliberately carry no version
+  field, so the earlier wording about bumping marketplace manifests overstated the
+  surface. One number still answers what version is installed across the native channel.
+  The Amendments heading was raised to level one.
+- **Update** of [OKF documentation skill-suite v2](/specs/okf-docs-skill-suite-v2.md) —
+  turned from a target-state contract into the description of the shipped suite: the
+  status section, the advertised-only-when-proven rule, and the now-closed
+  implementation-delta record match the landed #47–#63 implementation; the single shipped
+  Claude rule replaces the two planned pointers; the old-identity absolute is scoped to
+  live surfaces, with the historical and explanatory places the retired name still occurs
+  — prior Decisions, this log, dated `research/` briefs and handoffs, test comments — named
+  rather than denied; the
+  restated validator floor includes a non-scalar `type` and the documented YAML subset,
+  with the validator Specification named as the oracle's authority; and the copied
+  autoresearch budgets and Reference skeleton give way to citations of their single
+  sources in the docs-autoresearch skill.
+- **Update** of [Enforce minimal OKF errors through one strict validator contract](/decisions/okf-docs-strict-validation.md)
+  — amended because the decision text promised husky v4 and v8/v9 pre-push recipes that
+  were never written: `skills/docs-validate/SKILL.md` names only the `pre-push` hook and
+  hands the wiring to docs-setup, and no skill carries a recipe. The settled position —
+  the plain `docs:validate` script behind a documented `pre-push` name, no installed hook,
+  no husky dependency, no `prepare` script, and the optional pull-request workflow — is
+  untouched, so this is unwritten work rather than a reversal. It also brings the Decision
+  back into agreement with the two Specifications corrected the same day. The Amendments
+  heading was raised to level one so the validator's amendment region sees the dated entry.
+- **Update** of [Install contract](/docs-setup/specs/install-contract.md) — pre-push
+  enforcement is still never installed and setup still adds no husky dependency or
+  `prepare` script, but the concept no longer claims plain-hook and husky recipes are
+  documented in the docs-validate skill. The documented portable hook is `pre-push`
+  running the package-manager-neutral `docs:validate` script; no concrete recipe ships in
+  any skill.
+- **Update** of [OKF validator behaviour and invocation](/docs-setup/specs/validator.md)
+  — the enforcement-wiring section no longer locates plain-Git, husky v4, and husky
+  v8/v9 pre-push recipes in the docs-validate skill, which ships none. It records the
+  shipped position: a documented `pre-push` invocation of plain `npm run docs:validate`,
+  with setup installing no hook, no husky dependency, and no package lifecycle script.
+- **Update** of [Skill testing and benchmark architecture](/decisions/skill-testing-architecture.md)
+  — a second dated amendment, distinct from the parity-gate entry above. It corrects
+  decision 3's cardinality (a case directory is a case ID, decoupled from the projected
+  skill by the case manifest, so one skill carries sibling case variants while cases stay
+  central and never ship to an install) and records the harness capability classes the v2
+  acceptance cases rest on: the write-path Git guarantee and why a clean tree cannot be
+  required where an install legitimately writes, exact-change-set and baseline-content
+  proofs as robust negatives, execution-trace budget invariants whose ceilings are
+  checker-owned so a run cannot satisfy them by reporting its own bound, the fixture's
+  deterministic baseline-branch pin and its uncommitted-input seam, and the bound on the
+  parity gate — an attestation binds to its recorded commit, not to a content hash of the
+  pack it exercised, so re-recording after a skill-content change is a manual obligation.
+  Its `Amendments` heading was raised to level one so the dated entries fall inside the
+  region the validator scans.
+- **Update** of [Benchmark metrics and comparison design](/decisions/benchmark-metrics-and-comparison-design.md)
+  — a second dated amendment, on retention rather than model ids. Decision 3's
+  raw-artifact enumeration over-claimed: resulting fixture state is never retained and
+  cannot be, because fixtures are ephemeral out-of-repo tmpdirs that both the benchmark
+  flow and the runner CLI destroy. The retained local set has meanwhile grown numbered
+  transcripts for later resumed turns and a run-level cross-harness comparison record
+  beside per-assertion results and per-leg provenance. The commit-summaries /
+  keep-raw-artifacts-local split itself is unchanged. Its `Amendments` heading was raised
+  to level one so the dated entries fall inside the region the validator scans.
+- **Update** of [Benchmark run artifacts](/references/benchmark-run-artifacts.md) —
+  repointed at its live governing concepts, replacing a pointer to a design spec deleted
+  from the bundle on 2026-07-17, and reframed the two artifact homes as the flow's write
+  destinations — created on demand immediately before each write and tolerated absent by
+  the release script's baseline-freshness check — rather than directories that already
+  hold committed artifacts.
+- **Update** of [Test-profile provisioning](/conventions/test-profile-provisioning.md) —
+  scoped two over-general claims to what the script actually verifies: the
+  real-config-unchanged confinement proof (a before/after recursive mtime snapshot that
+  downgrades the leg to BLOCKED) exists for opencode only, and claude-code's verdict is
+  the CLI's own `loggedIn` field rather than marker existence — marker existence being
+  what the runner's preflight checks. Also corrected the codex `--skip-git-repo-check`
+  rationale: every fixture has been a git repo with a pinned baseline since the opencode
+  fixture-escape fix, so the flag is defensive rather than required by a non-git fixture,
+  and out-of-repo is not the same as non-git.
+- **Update** of [Benchmark and test run flow handoff](/superpowers/handoffs/2026-07-17-benchmark-run-flow-handoff.md)
+  — bounded with a dated scope note, its body byte-preserved as accepted history: the
+  case identity it exercises throughout was retired, its one-case-per-skill invariant is
+  lifted, its cited run artifacts were removed, its harness file map and oracle
+  description are now incomplete, its branch shipped, and its governing spec and plan
+  paths were deleted from the bundle — with readers pointed at the skill-testing
+  architecture amendments and the benchmark run artifacts concept for current truth.
+- **Update** of [Documentation lifecycle policy](/conventions/documentation.md) — the
+  repo-wide directory enumeration is open rather than closed (`decisions/` and `specs/`
+  join `conventions/`, `glossary/`, `references/`), the illustrative frontmatter block
+  records `resource` as the recommendation Reference concepts carry, and the update
+  ceremony is stated as the author's obligation under this policy — the `docs-authoring`
+  Claude rule described as the optional, path-scoped, deletion-safe adapter it actually
+  is, with `docs:validate` as the backstop that does not depend on it. No ceremony
+  obligation changed.
+- **Update** of [Open Knowledge Format (OKF) v0.1](/references/okf.md) — the Tooling
+  paragraph now says which part of §9 this repo's validator actually gates: parseable
+  frontmatter and a non-empty `type` are hard errors, while reserved-file structure and
+  everything beyond the floor are non-blocking warnings. The summary of the external spec
+  is unchanged; readers no longer mis-read `index.md`/`log.md` defects as exit-1 errors.
+- **Update** of [mattpocock/skills skill library](/references/mattpocock-skills.md) — the
+  CLI-ownership citation points at the research notes that still exist and still carry
+  the confirming command output, replacing a pointer to a research file deleted from the
+  repo. The claim and the commit-pinned citations are unchanged.
+- **Update** of [Harness](/glossary/harness.md) — the supported install targets are one
+  declarative harness registry covering three harness products, each with a project and a
+  global skill directory and Claude Code's global root selected by an environment
+  variable, replacing a citation to a default-targets list that no longer exists and an
+  enumeration of two Claude profiles plus a shared directory.
+- **Update** of [Skill](/glossary/skill.md) — skill delivery is defined as the three
+  mutually exclusive package shapes (checkout links, managed portable whole-pack copy,
+  native aggregate plugin) instead of symlinking with one exception, and `docs-setup`'s
+  asset copy is separated out as installing documentation machinery into a target
+  repository rather than delivering a skill to a harness.
+- **Update** of [Skill dependency](/glossary/skill-dependency.md) — dependency closure is
+  present by construction because every supported channel delivers the complete pack; the
+  term no longer describes per-skill selection expanding a closure. Installer rejection of
+  a missing dependency or a cycle stays a requirement, and closure resolution is located
+  where it is actually live — projecting a skill and its dependencies into a test fixture.
+- **Update** of [CI and automation wiring](/decisions/ci-and-automation-wiring.md) —
+  amended for CI's third gating step: the deterministic `npm test` suite (installer and
+  plugin manifests, the managed-channel README generator, the acceptance-matrix parity
+  invariant, test-runner and benchmark units) also turns the job red, so red means linter
+  ERRORs, docs-validate hard errors, or a deterministic test failure. The inference-free,
+  keyless, static-only rationale is untouched because the suite runs no model. The
+  Amendments heading was raised to level one so the validator's amendment region — and
+  therefore this decision's dated history — is visible to the staleness check.
+- **Update** of [Declare skill dependencies in SKILL.md](/decisions/skill-dependencies.md)
+  — amended for whole-pack distribution: with no per-skill picker in any supported
+  channel, dependency closure holds by construction rather than by CLI resolution, which
+  makes the selective-portable-installation target and its `--no-deps` bypass historical.
+  The machine-readable contract (bare names in `## Required skills`, slash-only runtime
+  invocation, missing-node and cycle rejection) is unaffected and enforced. A deleted
+  research pointer is recorded as gone, with the surviving evidence named. The Amendments
+  heading was raised to level one.
+- **Update** of [Skill authoring conventions and quality bar](/decisions/skill-authoring-conventions.md)
+  — amended for two shipped movements: `references/` is a fourth first-class support role
+  and a second progressive-disclosure target beside a flat UPPERCASE sibling file, and the
+  exemplar is `docs-setup` at 259 body lines with three of five shipped skills now in the
+  soft-200 WARN band and none near the hard 500 — the bar itself unchanged. Decision 5's
+  live example was corrected to the post-rename identity, and the Amendments heading was
+  raised to level one.
+- **Update** of [Keep a tool-neutral docs bundle with specs as the canonical section](/decisions/okf-docs-bundle-shape.md),
+  [Reconcile OKF knowledge by accepted state, not editing residue](/decisions/okf-docs-knowledge-lifecycle.md),
+  [Deliver one portable OKF skill pack through deletion-safe adapters](/decisions/okf-docs-portability-and-distribution.md),
+  [Separate OKF documentation skills by lifecycle responsibility](/decisions/okf-docs-skill-boundaries.md), and
+  [Organize the library around flat, skill-owned directories](/decisions/skill-library-structure.md)
+  — completed the `Amendments` heading normalization across the remaining Decisions so
+  every Decision in the bundle now opens its amendment region on the exact level-one
+  heading the taxonomy in [the lifecycle policy](/conventions/documentation.md) specifies
+  and `scripts/validate-docs.mjs` → `newestAmendmentDate()` scans for. Four carried empty
+  placeholder regions, where the level was a latent trap: a dated entry appended under the
+  level-two heading would never have reached the staleness comparison. The fifth had a
+  dated 2026-07-10 entry that the scan could not see. No amendment text, rationale, or
+  decision content changed.
 
 ## 2026-07-24
 

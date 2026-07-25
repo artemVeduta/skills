@@ -2,7 +2,7 @@
 type: Decision
 title: Keep a tool-neutral docs bundle with specs as the canonical section
 description: Retain docs/ and specs/, classify content by durable purpose, and validate every retained Markdown concept without tool-specific exclusions.
-timestamp: 2026-07-24
+timestamp: 2026-07-25
 ---
 
 # Keep a tool-neutral docs bundle with specs as the canonical section
@@ -61,6 +61,6 @@ through semantic reconciliation. Setup never renames it as a tooling side effect
   repository-machinery responsibilities.
 - The validator removes its hardcoded exclusion and no suppression replacement ships.
 
-## Amendments
+# Amendments
 
 <!-- Append dated entries; never rewrite accepted history. -->

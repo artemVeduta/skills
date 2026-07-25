@@ -2,7 +2,7 @@
 type: Specification
 title: Install contract
 description: What a docs-setup install delivers into a target repo — the managed surfaces, the per-install substitutions, the claude/ rename, the audit/classify/approve/write/verify workflow, and what "done" means.
-timestamp: 2026-07-24
+timestamp: 2026-07-25
 ---
 
 # Install contract
@@ -54,9 +54,10 @@ required behaviour by their presence or absence:
   installed to `.github/workflows/docs-validate.yml`) that runs `docs:validate` on pull
   requests and fails the job on exit `1`.
 
-Pre-push enforcement is never installed — the plain-hook, husky v4, and husky v8/v9
-recipes are documented in the `docs-validate` skill, and setup adds no husky dependency
-or `prepare` script.
+Pre-push enforcement is never installed. The documented portable hook is `pre-push`
+running the package-manager-neutral `docs:validate` script, named in the `docs-validate`
+skill under "Enforcement wiring"; no concrete plain-Git or husky recipe ships in any
+skill today. Setup adds no husky dependency and no `prepare` script.
 
 ## Per-install substitutions
 

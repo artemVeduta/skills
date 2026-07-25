@@ -2,7 +2,7 @@
 type: Decision
 title: CI and automation wiring
 description: Push/PR CI runs only the free static checks and goes red solely on linter ERRORs; all inference-bearing runs stay local with no API keys or schedules in CI; the release script warns on stale benchmark summaries but proceeds.
-timestamp: 2026-07-24
+timestamp: 2026-07-25
 ---
 
 # CI and automation wiring
@@ -77,7 +77,7 @@ baselines.
 - If the library outgrows solo maintenance, moving test runs into CI is an amendment
   to this decision (add keys and a `workflow_dispatch`), not a rearchitecture.
 
-## Amendments
+# Amendments
 
 <!-- Append dated entries; never rewrite the decision above.
 ## YYYY-MM-DD — <short title>
@@ -93,3 +93,17 @@ step now fails the job on hard bundle errors. Decision 1's "red means linter
 ERRORs" widens to "red means linter ERRORs or docs-validate hard errors"; CI
 remains static-only, free, and deterministic, so the cost rationale is
 unchanged. The linter's own default advisory invocation is untouched.
+
+## 2026-07-25 — The deterministic test suite is CI's third gating step
+
+Push/PR CI runs a third gating step after the linter and the docs validator:
+`npm test` (`.github/workflows/ci.yml`; the suite's file set is `package.json` →
+`test`). It is the deterministic Node layer — installer and plugin-manifest tests,
+the managed-channel generator checked against the committed `README.md`, the
+advertised-versus-proven acceptance-matrix invariant, and test-runner and benchmark
+units — so decision 1's red condition now reads "linter ERRORs, docs-validate hard
+errors, or a deterministic `npm test` failure". Decision 1's rationale is unchanged:
+the suite runs no model and CI still holds no keys, so per-change CI stays
+static-only, free, and inference-free — decision 2 is intact. The matrix gate's
+own mechanics live in
+[skill testing and benchmark architecture](/decisions/skill-testing-architecture.md).

@@ -2,7 +2,7 @@
 type: Convention
 title: Documentation lifecycle policy
 description: How knowledge concepts are created, updated, and superseded in this repository's OKF docs bundle.
-timestamp: 2026-07-24
+timestamp: 2026-07-25
 ---
 
 # Documentation lifecycle policy
@@ -16,8 +16,9 @@ the docs flow; CLAUDE.md and the `.claude` rules link here rather than restating
 - One bundle rooted at `docs/`. Every retained `.md` file under it is validated
   uniformly — there is no exclusion or suppression grammar; non-Markdown sidecars are
   ignored by the validator.
-- Repo-wide knowledge lives at the top level (`conventions/`, `glossary/`, `references/`);
-  subsystem knowledge nests under the subsystem (`<subsystem>/<area>/...`).
+- Repo-wide knowledge lives in top-level directories — `conventions/`, `glossary/`,
+  `references/`, plus `decisions/` and `specs/` as they appear; subsystem knowledge nests
+  under the subsystem (`<subsystem>/<area>/...`).
 - A concept = one markdown file = YAML frontmatter + markdown body. Concept ID = the
   file path within the bundle minus `.md` (identity is positional, not a field).
 
@@ -30,6 +31,7 @@ Every concept (everything except `index.md` / `log.md`) opens with:
 type: <one of the taxonomy values> # REQUIRED — non-empty
 title: <human-readable name> # recommended
 description: <one-sentence summary> # recommended
+resource: <canonical URI> # recommended for a Reference concept
 timestamp: <ISO 8601> # recommended — last meaningful change
 tags: [<tag>, ...] # optional
 # extension keys allowed, e.g. for retiring a concept:
@@ -127,9 +129,11 @@ truth everywhere outside it.
 ## The update ceremony
 
 The mechanical bookkeeping of any `docs/**` edit — bump `timestamp`, append a `log.md`
-entry, amend-don't-rewrite `Decision`s, set supersede keys — is surfaced automatically by
-the always-on `docs-authoring` rule (it fires on every `docs/**` edit). `npm run docs:validate`
-is the strict backstop: exit `0` for a clean or warnings-only bundle, `1` for hard
-errors, `2` for validator malfunction. Warnings never block (a stale `timestamp` older
+entry, amend-don't-rewrite `Decision`s, set supersede keys — is the author's obligation
+under this policy, and it holds wherever the edit is made. A `docs-authoring` Claude rule
+scoped to `docs/**/*.md` surfaces the ceremony at edit time where it is installed, but it
+is an optional deletion-safe adapter: removing it changes no obligation here.
+`npm run docs:validate` is the strict backstop: exit `0` for a clean or warnings-only
+bundle, `1` for hard errors, `2` for validator malfunction. Warnings never block (a stale `timestamp` older
 than the newest dated `# Amendments` entry is one of them), and there is no suppression
 grammar.

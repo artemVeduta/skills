@@ -2,7 +2,7 @@
 type: Decision
 title: Organize the library around flat, skill-owned directories
 description: Keep skills flat under `skills/`, separate repository automation from developer tooling, and give each skill ownership of its executable support material.
-timestamp: 2026-07-10
+timestamp: 2026-07-25
 ---
 
 # Organize the library around flat, skill-owned directories
@@ -73,7 +73,7 @@ the repository structure.
 - Explanatory contracts can evolve in `docs/` without becoming part of a distributed
   skill payload.
 
-## Amendments
+# Amendments
 
 ## 2026-07-10 — Move skill invariants into the OKF bundle
 

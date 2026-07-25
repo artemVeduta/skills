@@ -1,15 +1,16 @@
 ---
 type: Specification
 title: install.sh — development-links install wizard
-description: PRD for rebuilding scripts/install.sh into the registry-driven interactive wizard that validates the skill dependency graph and symlinks the whole library into selected harness profiles.
-timestamp: 2026-07-24
+description: Contract for the shipped checkout installer — the registry-driven wizard that validates the skill dependency graph and symlinks the whole library into selected harness profiles.
+timestamp: 2026-07-25
 ---
 
 # install.sh — development-links install wizard
 
-This is the forward-looking PRD for the development-links installer — the rebuild of
-`scripts/install.sh` tracked in
-[issue #16](https://github.com/artemVeduta/skills/issues/16). It is governed by
+This is the contract for the shipped checkout installer, specified as the rebuild of
+`scripts/install.sh` under
+[issue #16](https://github.com/artemVeduta/skills/issues/16) and delivered by the
+three-harness checkout installer (issue #61). It is governed by
 [Use three skill distribution channels](/decisions/skill-distribution-channels.md)
 (as amended 2026-07-10: whole-library development installs) and
 [Declare skill dependencies in SKILL.md](/decisions/skill-dependencies.md), and
@@ -31,7 +32,8 @@ profile*), [skill dependency](/glossary/skill-dependency.md).
 
 A library developer authors [skills](/glossary/skill.md) in a local checkout and wants
 every edit — and every `git pull` — to reach all the [harnesses](/glossary/harness.md)
-they use, immediately and without reinstalling. The current installer gets in the way:
+they use, immediately and without reinstalling. The installer this one replaced got in
+the way:
 
 - It forces **per-skill selection**, so a partial install can silently omit a
   [skill dependency](/glossary/skill-dependency.md) and break a dependent skill at
@@ -48,17 +50,16 @@ they use, immediately and without reinstalling. The current installer gets in th
 
 ## Solution
 
-Rebuild `scripts/install.sh` as the **development-only interactive wizard** of the
-development-links channel. The developer runs it from the checkout and steps through a
-modern terminal flow: choose harness types, choose or add one or more **harness
-profiles** per harness (unknown setups reachable through a validated custom
-configuration-directory option), review an explicit installation preview, and confirm.
-On confirmation the wizard first **validates the skill dependency graph** — a missing
-canonical dependency or a cycle rejects the whole install with a clear message before
-anything changes — and then **symlinks every library skill** into each selected
-profile's skill directory. There is no per-skill selection: because the whole canonical
-tree is linked, every dependency is present by construction and no closure computation
-is needed.
+`scripts/install.sh` is the **interactive wizard** of the checkout channel. The developer
+runs it from the checkout and it proceeds in a fixed order: discover the library's
+skills, report the checkout's Git provenance, **validate the skill dependency graph** — a
+missing canonical dependency or a cycle rejects the whole run before any prompt or plan
+exists — select harnesses (and, by flag, profiles and scope), reduce the selection to
+distinct write placements, refuse a self-referential or managed-shape target, render an
+explicit installation preview, confirm, and only then **symlink every library skill**
+into each selected profile's skill directory. There is no per-skill selection: because
+the whole canonical tree is linked, every dependency is present by construction and no
+closure computation is needed.
 
 All harness knowledge lives in a **declarative harness registry** — the single source
 of truth shared by the wizard and the README install guidance. Adding an ordinary
@@ -154,42 +155,56 @@ profile live, and `git pull` is the only update command.
 
 ## Implementation Decisions
 
-- **Module.** `scripts/install.sh` is rebuilt in place as the development-links wizard.
-  It remains a repository-operator entry point in `scripts/` per the
-  [library-structure Decision](/decisions/skill-library-structure.md). It serves the
-  development channel only.
+- **Module.** The operator entry point stays `./scripts/install.sh` — a launcher that
+  locates and hands off to the implementation, which is Node: `scripts/install.mjs` →
+  `main()` orchestrating single-purpose modules under `scripts/install/`
+  (`discovery.mjs`, `graph.mjs`, `profiles.mjs`, `planner.mjs`, `preview.mjs`,
+  `linker.mjs`, `provenance.mjs`, `readme.mjs`, `registry.mjs`). It remains a
+  repository-operator entry point in `scripts/` per the
+  [library-structure Decision](/decisions/skill-library-structure.md). It *installs*
+  only the checkout channel, but the same CLI is also the generator and validator of the
+  README install guidance for all three channels (`--check-readme` / `--write-readme`,
+  wired as the `readme:check` package script) — which is why the registry carries
+  managed-channel metadata alongside checkout paths.
 - **Skill discovery.** A skill is exactly a directory `skills/<name>/` with a root
   `SKILL.md`, per the flat-layout rule of the
-  [platform spec](/specs/skills-platform.md). This replaces the current depth-limited
-  filesystem scan. Nested `SKILL.md` files are children of their parent skill and are
-  never installed standalone. Discovering zero skills is a hard failure.
+  [platform spec](/specs/skills-platform.md), implemented in
+  `scripts/install/discovery.mjs` → `discoverSkills()`. This replaced the pre-rebuild
+  depth-limited filesystem scan. Nested `SKILL.md` files are children of their parent
+  skill and are never installed standalone. Discovering zero skills is a hard failure.
 - **Declarative harness registry.** One registry is the single source of truth for the
-  wizard and the README install guidance. Each entry owns installation metadata only —
-  the trimmed shape (which encodes the Decision's contract):
+  wizard and the README install guidance; its definition is `scripts/install/registry.mjs`
+  → `REGISTRY`. Each entry owns installation metadata only, along these axes: a stable
+  harness id and a display name; the skill directories the harness supports per scope; a
+  configuration root (an optional environment variable plus the named default profiles);
+  the supported scopes and channels; the validation rule for a user-supplied profile
+  directory; an optional native adapter; and an optional shared-read list. The wizard must
+  not accumulate per-harness branches for anything expressible in the registry.
 
-  ```yaml
-  - id: <stable harness identifier>
-    name: <display name>
-    skill_dirs: # only where the harness supports them
-      project: <path template>
-      global: <path template relative to the configuration root>
-    config_root:
-      env: <configuration-root environment variable, if any>
-      discovery: <profile-discovery rule>
-    scopes: [project, global] # as actually supported
-    channels: [development, portable, native] # as actually supported
-    custom_profile_validation: <rule for a user-supplied profile directory>
-  ```
+  Native adapter metadata lives in the registry — not in the native channel's own
+  material — because the README native guidance and the manifest tests must read one
+  definition: `registry.mjs` → `nativeCommands()` derives each harness's exact
+  marketplace/install/update operations, `install/readme.mjs` → `renderNativeSection()`
+  renders them, and `scripts/manifests.test.mjs` verifies them against the real committed
+  manifests. This installer performs no native operation, but it owns the registry that
+  defines them. The shared-read list is what lets an OpenCode selection contribute no
+  placement a selected Claude or Codex target already exposes
+  (`install/profiles.mjs` → `resolveReadDirs()` / `reduceSelections()`).
 
-  The wizard must not accumulate per-harness branches for anything expressible in the
-  registry. Behavioral adapters are permitted only where native plugin or marketplace
-  operations need behavior rather than path metadata (Codex, Claude Code) — and those
-  operations belong to the native channel, not this installer. The registry's file
-  format and location are implementer-owned.
-- **Wizard flow (interaction contract).** Step-by-step: choose harness types → choose
-  or add profiles/configuration roots per harness (multiple profiles per harness per
-  run; unknown profiles via a validated custom configuration-directory option) → review
-  an explicit installation summary → confirm → validate the dependency graph → link.
+  The registry is also the *advertised* surface that CI gates as advertised == proven —
+  every (channel × harness) cell it offers must carry recorded evidence; see the
+  [testing-architecture Decision](/decisions/skill-testing-architecture.md) and
+  `tools/acceptance/matrix.test.mjs`.
+- **Wizard flow (interaction contract).** The shipped order is: discover skills → report
+  checkout provenance → validate the dependency graph (a defect rejects the run *before*
+  any prompt or plan) → select harnesses, and by flag also profiles and scope → reduce the
+  selections to distinct placements → refuse on a self-symlink or managed-shape conflict →
+  render the preview → confirm → link and prune. The interactive step selects **harnesses
+  only** (`promptSelections()`: comma-separated ids, blank meaning all); profiles come from
+  the entry's named defaults (`resolveSelections()`), and a custom configuration root is
+  reachable only through `--profile <id>:<path>` (`install/profiles.mjs` →
+  `resolveProfile()`). Multiple profiles, named profiles, custom roots, and scope are
+  therefore flag-driven — user stories 6–8 are satisfied non-interactively today.
   Presentation is replaceable; selection and path resolution are independent of the
   terminal UI and depend only on the registry.
 - **Dependency-graph validation.** Before any filesystem change, the wizard validates
@@ -198,10 +213,12 @@ profile live, and `git pull` is the only update command.
   names, and detect missing nodes and cycles. Any defect rejects the entire install
   with a message naming the defect. Because the whole library is linked, no per-skill
   closure expansion is needed — validation is of the graph itself.
-- **Linking mechanics (carried forward from the current script).** Each skill is
+- **Linking mechanics (carried forward from the pre-rebuild script).** Each skill is
   installed as one symlink `<profile skill dir>/<name>` → `<checkout>/skills/<name>`
-  via `ln -sfn`; target directories are created if missing; re-runs are idempotent
-  because `ln -sfn` replaces links in place. A non-symlink entry colliding with a skill
+  with `ln -sfn` semantics (force, no-dereference), implemented in
+  `scripts/install/linker.mjs` → `linkSkill()`; target directories are created if
+  missing; re-runs are idempotent because an existing link is replaced in place. A
+  non-symlink entry colliding with a skill
   name is replaced — but only after the preview disclosed it and the user confirmed.
   The **self-symlink guard** is kept: a target directory that is itself a symlink
   resolving into this repository is refused with remediation guidance.
@@ -214,14 +231,32 @@ profile live, and `git pull` is the only update command.
   refuses the checkout overlay with the exact conflicting path and channel. A plain
   `~/.agents/skills` directory with no managed marker is Codex/OpenCode's own canonical
   location and is linked normally; the older blanket `~/.agents/skills` warning is gone.
-- **Non-interactive surface.** A flag-driven, TTY-free invocation exists for automation
-  and tests (in the spirit of the current `--list` / `--all` / `--target`), and exit
-  statuses distinguish usage errors, nothing-to-do outcomes, and validation rejection
-  (all nonzero). The exact flag names and exit-code assignments are implementer-owned.
+- **Non-interactive surface.** A flag-driven, TTY-free invocation drives automation and
+  tests; the flag surface and the exit-code split are now fixed in `scripts/install.mjs`
+  (`usage()`, `EXIT`). Four distinct nonzero classes are contract: a usage error, a hard
+  refusal (a guard tripped, or nothing discovered), a nothing-to-do outcome, and a
+  dependency-graph rejection — the class boundaries are the contract, the numeric values
+  are read from `EXIT`.
+- **Scope.** `--scope global|project` selects the placement: global resolves the harness's
+  global skill directory under the profile's configuration root, project resolves it
+  relative to the working directory (`install/profiles.mjs` → `resolveSkillDir()`). The
+  per-harness paths are fixed by the placement table of the
+  [v2 skill-suite spec](/specs/okf-docs-skill-suite-v2.md), which this installer resolves
+  rather than restates.
+- **Checkout provenance.** Both `--inspect` and the plan preview print the checkout's
+  commit, symbolic ref, and dirty flag, so a preview is attributable to a working-copy
+  state (`scripts/install/provenance.mjs` → `checkoutProvenance()` / `formatProvenance()`).
+  Provenance is best-effort: a non-Git checkout is reported as such and still installs.
+- **Reconciliation on rerun.** A rerun creates missing links, and removes a stale link
+  only when its literal target proves this checkout owns it — links belonging to another
+  checkout and real (non-symlink) entries are never removed
+  (`install/planner.mjs` → `planPrunes()` / `ownedByCheckout()`). Prunes are disclosed in
+  the preview and gated by the same confirmation as links. Selections that resolve to the
+  same directory collapse to one placement (`install/profiles.mjs` → `reduceSelections()`),
+  so a profile never receives the same link twice in one run.
 - **Update semantics.** None beyond git: edits and `git pull` reach every linked
   profile live. The installer has no update, sync, or uninstall subcommand mandate;
-  pruning links for skills deleted from the library is implementer-owned (see Further
-  Notes).
+  a rerun is what reconciles pack membership, per the reconciliation bullet above.
 - **README install guidance** is derived from the same registry (regenerated or
   validated against it), replacing the hand-written section; the generation mechanism
   is implementer-owned.
@@ -242,8 +277,13 @@ profile live, and `git pull` is the only update command.
   links every library skill into each selected profile; a second run is idempotent; an
   injected cycle or missing canonical dependency rejects the install with a clear
   message and leaves the profile untouched; the self-symlink guard refuses a target
-  linking into the repo; the `~/.agents/skills` channel-mixing behavior fires; a
-  non-symlink collision is disclosed and only replaced after confirmation.
+  linking into the repo; a plain `~/.agents/skills` (no managed marker) links normally
+  while a portable managed marker at the skill directory and a native marker at its
+  parent configuration root each refuse before any mutation, naming the exact path and
+  channel; stale-link pruning is disclosed in the preview and gated by confirmation; a
+  non-symlink collision is disclosed and only replaced after confirmation. The seams are
+  `scripts/install.test.mjs` (installer behaviour) and `scripts/managed-channels.test.mjs`
+  (the generated guidance side).
 - **Registry contract tests:** each registry entry's path resolution and selection
   behavior is exercised through the same CLI seam against fixture configuration roots;
   adding a toy harness entry must pass its contract tests with zero wizard code
@@ -276,7 +316,7 @@ profile live, and `git pull` is the only update command.
 ## Further Notes
 
 - **Prior art / baseline.** The pre-rebuild `scripts/install.sh` and this concept's
-  previous revision (in git history) document the current contract: `find`-based
+  previous revision (in git history) document the pre-rebuild contract: `find`-based
   discovery, per-skill and per-target menus over a hard-coded `DEFAULT_TARGETS` list,
   `--list` / `--all` / `--target` flags, `ln -sfn` linking, unconditional replacement
   of non-symlink collisions, the self-symlink guard, and the exit-code split (2 usage,
@@ -286,11 +326,13 @@ profile live, and `git pull` is the only update command.
 - **Precedence.** The platform spec's precedence note said the old revision of this
   concept described the *current* script and would be revised when the new installer
   lands; this revision is that rewrite, done ahead of implementation as the PRD issue
-  #16 builds against. Until the rebuild ships, the script on disk still implements the
-  baseline contract above.
-- **Implementer-owned gaps** (consistent with the platform spec's implementation
-  notes; none reopens a Decision): the registry's file format and location; exact flag
-  names and exit-code assignments; the README guidance generation mechanism. The
+  #16 builds against. The rebuild has since shipped (issue #61), so the pre-rebuild
+  `find`/`DEFAULT_TARGETS`/`--list`/`--all`/`--target` contract in the "Prior art /
+  baseline" bullet is retained as history only.
+- **Gaps left implementer-owned, and how they were settled** (none reopened a Decision):
+  the registry's file format and location, the exact flag names and exit-code
+  assignments, and the README guidance generation mechanism were all fixed by the
+  shipped installer, cited in the Implementation Decisions above. The
   warn-vs-refuse choice for a colliding managed shape and stale-link pruning on re-run
   were later settled by the [v2 skill-suite spec](/specs/okf-docs-skill-suite-v2.md): a
   precise managed-shape refusal, and pruning of a stale link only when ownership proves

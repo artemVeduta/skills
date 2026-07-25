@@ -2,7 +2,7 @@
 type: Convention
 title: Test-profile provisioning
 description: How to provision the persistent, pre-authenticated per-harness test profiles the gating skill-test runner uses.
-timestamp: 2026-07-16
+timestamp: 2026-07-25
 ---
 
 # Test-profile provisioning
@@ -14,13 +14,24 @@ one-time, developer-run step per machine.
 - Profiles live at exactly `~/.skills-test-profiles/<harness-id>/` (fixed convention, no
   env-var override); ids are `claude-code`, `codex`, `opencode`.
 - Provision with `scripts/setup-test-profiles.sh`: it creates each profile, runs the
-  harness's own login, **pauses for the browser OAuth**, then verifies the auth material
-  landed inside the profile and the developer's real config is untouched. Idempotent
+  harness's own login, **pauses for the browser OAuth**, then verifies the profile is
+  authenticated. That verdict differs per harness, deliberately: claude-code's is the
+  CLI's own `auth status --json` `loggedIn` field rather than the presence of a file,
+  because Keychain material can exist while the profile itself is logged out; codex's is
+  the presence of its in-profile auth marker; opencode's is that marker PLUS a
+  confinement proof — a before/after recursive mtime snapshot of the developer's real
+  opencode config and data roots, any change downgrading the leg to BLOCKED
+  (`provision_opencode` / `real_mtime_snapshot`). The real-config-unchanged proof is
+  opencode-specific; `provision_claude` and `provision_codex` carry no equivalent
+  check. Idempotent
   (skips an already-authenticated harness unless `--force`); `--only <id>` scopes to one
   harness; `--probe-discovery` runs a one-call codex skill-discovery check. Portable
   across macOS (Bash 3.2) and Linux.
 - Each harness is confined by env only — the developer's real files are never edited. The
-  login command and auth-material marker per harness:
+  login command and auth-material marker per harness — the marker being what the runner's
+  preflight checks for EXISTENCE only, spending no inference to probe auth
+  (`preflightHarness` in `tools/test-runner/runner.mjs`, `authMaterialPath` in
+  `tools/test-runner/profiles.mjs`):
 
   | harness | login command | auth-material marker |
   |---|---|---|
@@ -37,8 +48,13 @@ one-time, developer-run step per machine.
 
 ## Caveats
 
-- `codex exec` refuses to run in a non-git directory unless given `--skip-git-repo-check`
-  — required because fixtures are out-of-repo tmpdirs.
+- `codex exec` refuses to start in a non-git directory unless given
+  `--skip-git-repo-check`, and both codex invocations still pass it
+  (`tools/test-runner/drivers.mjs`) — but the flag is now defensive rather than
+  load-bearing. Since the opencode fixture-escape fix, every fixture is `git init`-ed
+  with a deterministically pinned baseline branch and a baseline commit (`gitInitFixture`
+  in `tools/test-runner/fixture.mjs`), so a fixture is an out-of-repo tmpdir that IS a
+  git repo: out-of-repo is not the same as non-git.
 - codex also reads a global, HOME-based `~/.agents/skills/` independent of `CODEX_HOME`;
   `CODEX_HOME` + `HOME` together confine the HOME-derived `~/.agents/skills` leak
   (finding #4), with the residual out-of-scope surfaces (the system/managed config layer

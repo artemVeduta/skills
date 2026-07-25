@@ -2,7 +2,7 @@
 type: Reference
 title: Benchmark and test run flow handoff
 description: Zero-context handoff mapping the end-to-end skills-library test and benchmark run flow (#24 harness, #25 bench) as of the 2026-07-17 green runs.
-timestamp: 2026-07-17
+timestamp: 2026-07-25
 ---
 
 # Handoff — the full picture of what a benchmark/test run actually does
@@ -11,6 +11,24 @@ timestamp: 2026-07-17
 > report flow (#24 harness + #25 bench). It explains, end to end, what happens when a
 > run executes, where everything lives, what was deviated/fixed to get it green, and
 > where the improvement seams are. Read the code as the source of truth; this is the map.
+
+> **Scope note (2026-07-25):** everything below is a dated snapshot of the 2026-07-17
+> state and is retained as such; several of its present-tense claims have since been
+> overtaken. The case identity it exercises throughout (`okf-docs-setup` — §2, §3, §9)
+> was retired when the `docs-setup` identity migration landed, so those commands no
+> longer resolve to a skill; `tools/tests/` now holds many case directories, several per
+> skill. §3's "one case per skill, `case.name === skill`" invariant is LIFTED — a case
+> manifest names the skill it projects, so one skill carries sibling case variants. §7's
+> cited summary and report files were removed with the other stale artifacts of that
+> migration. §2's harness file map has since grown a case loader, a cross-harness
+> outcome-comparison module and a static portable-contract checker, and its oracle now
+> exports a full assertion evaluator rather than only `allPassed`. §10's "PR not yet
+> opened" is stale — the branch shipped as PR #27. The **Governing design** bullet's
+> spec and plan paths were deleted from the bundle by the same commit that added this
+> handoff. For current truth read
+> [Skill testing and benchmark architecture](/decisions/skill-testing-architecture.md)
+> (its dated amendments) and
+> [Benchmark run artifacts](/references/benchmark-run-artifacts.md).
 
 - **Repo:** `/Users/artemveduta/coding/skills` · **Branch:** `feat/24-test-runner` (one PR ships #24 + #25 together)
 - **Status (2026-07-17):** smoke + full live runs are **GREEN**, committed. `npm test` 184/184; harness unit tests 53/53.

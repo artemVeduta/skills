@@ -106,7 +106,7 @@ releases are no-contract snapshots
   architecture: the case format and fixture builder are designed to be wrapped, not
   replaced.
 
-## Amendments
+# Amendments
 
 <!-- Append dated entries; never rewrite the decision above.
 ## YYYY-MM-DD — <short title>
@@ -306,3 +306,62 @@ fixtures, model+version provenance):
   `--harness <id>=<model>`.
 
 Driven by #63.
+
+## 2026-07-25 — Case-directory cardinality, write-path proofs, and what an attestation binds to
+
+Decision 3 carried a cardinality assumption that no longer holds, and three harness
+capability classes the v2 acceptance cases depend on were never recorded. Nothing
+above is reversed: the oracle stays deterministic-only, cases stay central, fixtures
+stay out-of-repo and profile-isolated, and every verdict still carries model and
+version provenance.
+
+- **A case directory is a case ID, not a skill name.** "One directory per skill" was
+  an assumption of decision 3's era, not part of its substance. A case manifest may
+  name the skill it projects, and both the loader and the fixture projection honour
+  that name, falling back to the directory name when a case omits it (`loadCase` in
+  `tools/test-runner/case-loader.mjs`; `runHarness` in `tools/test-runner.mjs`). One
+  skill therefore carries sibling case variants — a deny-gate case beside an
+  approve/write case, one case per mode — as separate directories. Decision 3's
+  substance is UNCHANGED: cases live centrally under `tools/tests/`, never inside
+  `skills/`, so no test material ships to an install. This is a cardinality
+  correction, not a reversal. The sibling check anticipated in Consequences is now
+  realized (`lintTestCases` in `tools/lint-skills.mjs`).
+- **Write-path Git guarantee.** The #48 `git-unchanged` assertion proves a DENIED
+  plan changed nothing; its counterpart proves an APPROVED one changed only what it
+  was allowed to. A clean tree cannot be required on the write path — a successful
+  install legitimately dirties it, so `git-unchanged` would reject the very outcome
+  the case wants. The write-path assertion therefore permits working-tree drift and
+  forbids only the acts a run must never take: no commit past the recorded fixture
+  baseline, nothing staged in the index, and no remote added (with no remote a pull
+  request is impossible). See `tools/test-runner/oracle.mjs`.
+- **Exact-change-set and baseline-content proofs.** Two robust negatives that a
+  substring or slug proxy cannot give. The set of changed working-tree paths must
+  EQUAL the set the case declares, with untracked directories expanded to individual
+  files so a brand-new directory cannot collapse into a single entry; and a named
+  file must be byte-identical to its content at the fixture's baseline commit. A
+  stray write under any other name or verb fails. See `tools/test-runner/oracle.mjs`.
+- **Budget invariants over the execution trace, with checker-owned bounds.** Beyond
+  the ownership checks recorded in the #48 amendment, assertions bound a fanout run's
+  per-round search budget and its fetch accounting. The ceilings are constants owned
+  by the CHECKER and deliberately never read from the trace under test: a run that
+  reported its own ceiling next to its own cap could satisfy the bound by raising
+  both, making the invariant self-satisfiable. A cap above the normal cap is
+  admissible only as an explicitly flagged one-run approved raise. See
+  `evaluateTrace` in `tools/test-runner/oracle.mjs`.
+- **Two fixture seams these proofs rest on** (`buildFixture` and `gitInitFixture` in
+  `tools/test-runner/fixture.mjs`). The fixture's initial branch is pinned
+  deterministically rather than inherited from the contributor's
+  `init.defaultBranch`, because a case that computes a merge-base against a fixed
+  branch name would otherwise fail to resolve it — and a git-state assertion could
+  then pass vacuously off that error. And a case input may be flagged UNCOMMITTED,
+  seeded after the baseline commit, so a case can exercise a dirty-worktree gate live
+  while HEAD still equals the recorded baseline.
+- **What a live attestation binds to — a bound on the parity gate above.** An
+  attestation is bound to its recorded commit but NOT to a content hash of the pack
+  it exercised, so a later skill-content change does not auto-invalidate a prior
+  passing run; re-recording is a manual obligation on whoever changes skill content.
+  The deterministic half of every cell does re-run against current content on each
+  `npm test`. The intended closure is for the runner to emit a closure content hash
+  into its per-leg provenance record and for the matrix invariant to assert it; the
+  limitation is recorded at the head of `tools/acceptance/matrix.mjs`. This BOUNDS
+  the advertised == proven claim — it does not reverse it.

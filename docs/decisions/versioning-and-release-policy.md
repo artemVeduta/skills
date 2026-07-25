@@ -2,7 +2,7 @@
 type: Decision
 title: Snapshot releases with mirrored manifest versions
 description: Tag GitHub releases as no-contract snapshots, mirror the tag into native plugin manifests, and drive the ritual with a release script in scripts/.
-timestamp: 2026-07-11
+timestamp: 2026-07-25
 ---
 
 # Snapshot releases with mirrored manifest versions
@@ -72,9 +72,21 @@ locked spec.
 - The release script must handle the current state where no manifest exists yet,
   and it is one more `scripts/` utility to write and maintain post-map.
 
-## Amendments
+# Amendments
 
 <!-- Append dated entries; never rewrite the decision above.
 ## YYYY-MM-DD — <short title>
 <what changed and why; link the driving work>
 -->
+
+## 2026-07-25 — The mirrored version lives in the plugin manifests, not the catalogs
+
+Decision 3 speaks of bumping "the Codex and Claude marketplace manifests". Those
+manifests now exist, and the split turned out narrower than that wording: the mirrored
+snapshot version lives only in the two native **plugin** manifests, which the shipped
+release script bumps (`scripts/release.mjs` → `MANIFESTS`, `bumpManifest()`) and which
+`scripts/manifests.test.mjs` holds to a single shared value. The marketplace catalogs
+deliberately carry no version field at all, so nothing there can drift from the tag.
+Decision 3's substance is unchanged — one number still answers "what version is
+installed" across the native channel. Mechanics:
+[/specs/native-plugins-and-release.md](/specs/native-plugins-and-release.md).

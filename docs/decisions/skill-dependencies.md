@@ -2,7 +2,7 @@
 type: Decision
 title: Declare skill dependencies in SKILL.md
 description: Use a machine-readable Required skills section and a separate explanatory Integration section for runtime skill relationships.
-timestamp: 2026-07-10
+timestamp: 2026-07-25
 ---
 
 # Declare skill dependencies in SKILL.md
@@ -110,9 +110,27 @@ captured in `research/issue-6-npx-dependency-resolution.md`.
 - The convention adds a repo-specific structured Markdown section that upstream tooling
   must deliberately adopt; it is not part of the base Agent Skills specification.
 
-## Amendments
+# Amendments
 
 <!-- Append dated entries; never rewrite the decision above.
 ## YYYY-MM-DD — <short title>
 <what changed and why; link the driving work>
 -->
+
+## 2026-07-25 — The portable channel ships the whole pack, so closure is structural
+
+[OKF docs portability and distribution](/decisions/okf-docs-portability-and-distribution.md)
+settled the packaging question this decision left open: every supported channel delivers
+the complete pack and there is no skill picker in any supported journey (the portable
+command is defined once, in `scripts/install/registry.mjs` → `portableCommand()`, and the
+committed README is gated on advertising no picker by `scripts/managed-channels.test.mjs`).
+Dependency closure therefore holds by construction rather than by CLI resolution, which
+makes the "selective portable installation" paragraph, the `--no-deps` upstream target,
+and the matching Consequences bullet about the portable channel's fallback historical.
+The machine-readable half of this decision is unaffected and enforced: bare names in
+`## Required skills`, slash-only runtime invocation, declared-invocation matching, the
+cross-skill-path ban, and missing-node and cycle rejection (`tools/skill-graph.mjs`,
+`tools/lint-skills.mjs`, `scripts/install/graph.mjs`). The supporting evidence pointer
+`research/issue-6-npx-dependency-resolution.md` was removed from the repo on 2026-07-17;
+the surviving evidence for the portable shape is the registry command and the generated
+README portable block.

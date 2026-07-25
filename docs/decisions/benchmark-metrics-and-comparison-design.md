@@ -101,7 +101,7 @@ comparable. Cost anchors the design: one paired trial is two full agent sessions
 - The report generator is a small deterministic tool over committed JSON — rerunnable
   anywhere, no inference cost.
 
-## Amendments
+# Amendments
 
 <!-- Append dated entries; never rewrite the decision above.
 ## YYYY-MM-DD — <short title>
@@ -168,3 +168,30 @@ that the file no longer holds the dotted id. See the 2026-07-25 "Model drift
 reconciled" note in
 [Skill testing and benchmark architecture](/decisions/skill-testing-architecture.md).
 Driven by #63.
+
+## 2026-07-25 — What the retained raw artifact set actually contains
+
+Decision 3's retention SPLIT is unchanged — summary JSON committed, raw artifacts kept
+local under a git-ignored runs directory. What that raw set contains is narrower in one
+respect and wider in two:
+
+- **Resulting fixture state is not retained, and cannot be.** A fixture is an
+  ephemeral out-of-repo `os.tmpdir()` directory and both callers destroy it: the
+  benchmark flow removes each leg's fixture as soon as that leg's provenance record
+  has been read (`runBench` in `tools/benchmarks/run.mjs`), and the runner CLI removes
+  every fixture after reporting (`main` in `tools/test-runner.mjs`). Nothing copies
+  fixture state elsewhere first, so decision 3's enumeration over-claimed on this
+  item. The post-mortem value it was reaching for is carried by the per-assertion
+  results, which record what each assertion observed in the fixture before it was
+  destroyed.
+- **Per-leg and per-run records the decision predates.** Each executed leg retains its
+  session transcripts — turn 1 plus one numbered file per later resumed turn, the #48
+  plan/approval seam — its per-assertion results, and its structured provenance
+  record. A run that declares cross-harness outcome comparison additionally retains a
+  run-level comparison record, because that equivalent/diverged verdict gates the exit
+  code and a gating verdict must stay attributable after the run. See `runHarness` and
+  `runCase` in `tools/test-runner.mjs`.
+
+The 2026-07-16 "carried over unchanged" note above restates decision 3's wording and so
+inherits the same fixture-state over-claim; the retention split it carries over is
+otherwise accurate.

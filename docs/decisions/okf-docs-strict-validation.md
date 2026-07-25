@@ -2,7 +2,7 @@
 type: Decision
 title: Enforce minimal OKF errors through one strict validator contract
 description: Give docs:validate stable 0/1/2 exits, limit blocking errors to the OKF conformance floor, and carry enforcement through portable shell wiring.
-timestamp: 2026-07-24
+timestamp: 2026-07-25
 ---
 
 # Enforce minimal OKF errors through one strict validator contract
@@ -81,6 +81,24 @@ tests.
 - A malfunction is distinguishable from an invalid bundle, so setup and sync can report
   the correct failure class.
 
-## Amendments
+# Amendments
 
 <!-- Append dated entries; never rewrite accepted history. -->
+
+## 2026-07-25 — The husky recipes were never written
+
+The Decision above states that portable enforcement carries "recipes for husky v4 and
+v8/v9". No such recipe ships. `skills/docs-validate/SKILL.md` ("Enforcement wiring")
+names the portable hook — `pre-push` running the package-manager-neutral `docs:validate`
+script — and assigns the wiring itself to docs-setup's managed surface; it supplies no
+hook body, and no other skill mentions husky except `skills/docs-setup/SKILL.md`, which
+forbids installing it.
+
+What the decision actually settled is unchanged and still holds: enforcement is the plain
+script behind a documented `pre-push` name, setup installs no hook, no husky dependency,
+and no `prepare` script, and the optional GitHub Actions asset runs the same command on
+pull requests. Only the claim that concrete recipes are already documented was wrong. The
+recipes remain unwritten work, not a reversal;
+[/docs-setup/specs/validator.md](/docs-setup/specs/validator.md) and
+[/docs-setup/specs/install-contract.md](/docs-setup/specs/install-contract.md) carry the
+shipped position.

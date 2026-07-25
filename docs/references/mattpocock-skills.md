@@ -3,7 +3,7 @@ type: Reference
 title: mattpocock/skills skill library
 description: Example-reference skill library and stated inspiration baseline; snapshot researched at commit 391a270, including its writing-great-skills quality bar and invocation-axis convention.
 resource: https://github.com/mattpocock/skills
-timestamp: 2026-07-11
+timestamp: 2026-07-25
 ---
 
 # mattpocock/skills skill library
@@ -49,5 +49,5 @@ CI over skill content, whereas this library is choosing to have some.
 - Full research notes with per-claim citations:
   `research/reference-mattpocock-skills.md` (repo root, outside the docs bundle)
 - The `npx skills` installer CLI is owned by vercel-labs, not Matt Pocock
-  (`npm view skills repository`); its behavior is covered in
-  `research/issue-6-npx-dependency-resolution.md`
+  (`npm view skills repository`); the confirming command output is recorded in
+  `research/reference-mattpocock-skills.md`

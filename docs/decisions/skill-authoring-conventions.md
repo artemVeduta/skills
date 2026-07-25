@@ -2,7 +2,7 @@
 type: Decision
 title: Skill authoring conventions and quality bar
 description: Layer trigger-only descriptions, a minimal section skeleton, an invocation-axis frontmatter allowlist, role-named support subdirs, and an advisory two-tier linter on top of the portable Agent Skills floor.
-timestamp: 2026-07-24
+timestamp: 2026-07-25
 ---
 
 # Skill authoring conventions and quality bar
@@ -59,7 +59,7 @@ below is the **repo layer** this library adds on top.
 5. **Role-named support subdirectories.** Disclosed reference documents sit flat next
    to `SKILL.md`. Executable and copyable material lives only in role-named subdirs:
    `scripts/` (helpers the skill runs), `templates/` (material to fill in), `assets/`
-   (payloads copied verbatim, as in okf-docs-setup). Other subdirectory names are lint
+   (payloads copied verbatim, as in docs-setup). Other subdirectory names are lint
    warnings.
 6. **Skills name actions, not tools.** Skill bodies describe harness-agnostic actions
    ("dispatch a subagent", "search the codebase"), never harness-specific tool names —
@@ -115,7 +115,7 @@ below is the **repo layer** this library adds on top.
 - Portable installs of a single skill carry their UPPERCASE sibling files and role
   subdirs automatically because everything lives under the skill directory.
 
-## Amendments
+# Amendments
 
 <!-- Append dated entries; never rewrite the decision above.
 ## YYYY-MM-DD — <short title>
@@ -131,3 +131,24 @@ below is the **repo layer** this library adds on top.
 linter's own bar is unchanged: its default invocation stays advisory (always
 exit 0) with `--strict` as the CI gate, per
 [CI and automation wiring](/decisions/ci-and-automation-wiring.md).
+
+## 2026-07-25 — A fourth support role subdir, and docs-setup as the exemplar
+
+Progressive disclosure has a second shipped target alongside a flat UPPERCASE sibling
+file: a file under `references/`, the home for heavy reference material pulled out of
+`SKILL.md`. It is a first-class support role, not a non-canonical subdir — the linter's
+role set is a single declaration (`tools/lint-skills.mjs` → `ROLE_SUBDIRS`) and now
+carries it, so `skills/docs-sync/references/migration.md` lints clean beside the flat
+form `skills/docs-autoresearch/RESEARCH-DEFAULTS.md`. Decision 4's disclosure target
+therefore reads "a flat UPPERCASE sibling file or a file under `references/`", and
+decision 5's role set gains it. Nothing else in either decision moves: disclosed
+reference documents may still sit flat, and any other subdir name is still a warning.
+
+The Consequences bullet's exemplar identity and line count are superseded by the shipped
+suite. `okf-docs-setup` was renamed completely to `docs-setup`
+([OKF docs skill suite v2](/specs/okf-docs-skill-suite-v2.md)), and that skill is now 259
+body lines. Three of the five shipped skills sit in the soft-200 WARN band
+(`docs-autoresearch` 418, `docs-sync` 353, `docs-setup` 259) with none approaching the
+hard 500 — see `npm run lint:skills`. The bar itself is unchanged; what changed is that
+the WARN band is now the normal state for the library's larger workflow skills rather
+than a single nudge on one exemplar.

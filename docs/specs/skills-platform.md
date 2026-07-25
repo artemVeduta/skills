@@ -2,7 +2,7 @@
 type: Specification
 title: Skills library & building platform — PRD
 description: Whole-platform PRD for the skills library and building platform — problem, solution, user stories, and implementation and testing decisions across repository structure, distribution channels, skill dependencies, authoring conventions, versioning, the test/benchmark harness, and CI — consolidated from the governing Decisions.
-timestamp: 2026-07-11
+timestamp: 2026-07-25
 ---
 
 # Skills library & building platform — PRD
@@ -14,12 +14,14 @@ normative statement below consolidates its governing `Decision`, which remains t
 authority on rationale, alternatives, and amendments; nothing here invents or reopens a
 decision.
 
-**Precedence note:** [install.sh — library skill installer](/specs/install-sh.md)
-documents the *current* development installer script and is being rewritten as the
-dev-installer PRD. Where it conflicts with the target installer behaviour below
-(whole-library, registry-driven — per the amended
-[distribution-channels Decision](/decisions/skill-distribution-channels.md)), the
-Decision governs; that spec is revised when the new installer lands.
+> **Precedence note.** This PRD predates the
+> [OKF docs skill-suite v2 spec](/specs/okf-docs-skill-suite-v2.md). Where the two
+> differ, v2 and its Decisions govern the three-harness distribution matrix, the
+> per-harness checkout placements, and the managed-shape refusal that the
+> "Distribution and installation" section below states at coarser granularity, and
+> [install.sh — development-links install wizard](/specs/install-sh.md) is the shipped
+> checkout-installer contract. This PRD remains the consolidated statement of platform
+> intent across all its subsystems.
 
 ## Problem Statement
 
@@ -277,9 +279,11 @@ Governed by [Organize the library around flat, skill-owned directories](/decisio
   beneath its own directory. No top-level shared or templates area; a concrete second
   consumer triggers a new Decision, not automatic shared storage.
 - **Two automation homes.** `scripts/` holds repository-operator entry points and
-  workflow automation (the development installer, the docs validator, later the release
-  script). `tools/` is reserved for developer infrastructure — the skill linter and the
-  test/benchmark harness — and may legitimately be absent until that work lands.
+  workflow automation: the checkout installer, the docs validator, the release script,
+  and the test-profile provisioner (whose contract is the
+  [test-profile provisioning Convention](/conventions/test-profile-provisioning.md)).
+  `tools/` holds developer infrastructure: the skill linter, the shared dependency-graph
+  module, the test runner, the benchmark flow, and the acceptance matrix.
 - **README skill index + sync rule.** Root `README.md` is the public skill inventory and
   install entry point (one line per skill: name + purpose, plus install instructions for
   all three channels). Adding or removing a skill updates `README.md`; root `AGENTS.md`
@@ -297,31 +301,39 @@ Governed by [Organize the library around flat, skill-owned directories](/decisio
 ### Distribution and installation
 
 Governed by [Use three skill distribution channels](/decisions/skill-distribution-channels.md)
-(as amended 2026-07-10: whole-library development installs). Terms:
-[Harness](/glossary/harness.md) (and harness profile).
+(as amended 2026-07-10: whole-library development installs; and 2026-07-25: the shipped
+channel shapes). Terms: [Harness](/glossary/harness.md) (and harness profile).
 
 One canonical authoring tree is delivered through exactly three channels — alternative
 package shapes, not harness categories:
 
-1. **Development links.** The `scripts/` installer becomes a development-only
-   interactive wizard: choose harness types → choose or add one or more harness profiles
-   per harness (independently configured harness instances identified by their
-   configuration roots) → review an explicit installation preview → confirm. On confirm
+1. **Checkout links.** The `scripts/` installer is an interactive wizard over the
+   harness products the registry models (`scripts/install/registry.mjs` → `REGISTRY`):
    it validates the dependency graph (reusing the shared graph module; a missing node or
-   cycle rejects the install), then symlinks **every** library skill from the working
-   checkout so edits and `git pull` reach every linked profile live. No per-skill
-   selection.
-2. **Portable pure skills.** `npx skills@latest add artemVeduta/skills` is the supported
-   package-like install. The upstream CLI owns skill/harness selection, project vs.
-   global scope, its own storage, lock state, and `skills update`; it may target any
-   harness it supports.
+   cycle rejects the run), selects harness profiles, previews, confirms, then symlinks
+   **every** library skill from the working checkout so edits and `git pull` reach every
+   linked profile live. No per-skill selection. This is a publicly advertised channel,
+   not a development-only affordance — the README's generated install guidance offers it
+   alongside the two managed shapes — and `git pull` is its update path (rerun the
+   installer to reconcile pack membership).
+2. **Portable pure skills.** The supported portable shape is the **whole pack only** —
+   `scripts/install/registry.mjs` → `portableCommand()` emits the `--skill '*'` form, and
+   no supported journey advertises a per-skill picker (`scripts/managed-channels.test.mjs`
+   over the generated README portable block). The upstream CLI owns harness selection,
+   project vs. global scope, its own storage, lock state, and `skills update`; it may
+   target any harness it supports.
 3. **Native aggregate plugins.** Codex and Claude Code each get a thin native manifest
    and marketplace entry packaging the complete skill tree as one plugin; the harness
    CLI owns install, caching, namespacing, enablement, and updates, per configuration
    root.
 
-- A single harness profile must not install the library through both the pure-skill and
-  native-plugin channels (duplicate namespaced/unnamespaced capabilities).
+- A profile uses exactly **one** package shape — otherwise the harness exposes duplicate
+  namespaced and unnamespaced capabilities. The rule is enforced, not merely stated:
+  before any mutation the checkout installer refuses when a managed portable or native
+  marker is already present at the target, naming the exact conflicting path and channel
+  (`scripts/install/planner.mjs` → `managedShapeGuard()`), and the generated README
+  guidance carries the same incompatibility warning adjacent to both managed install
+  paths.
 - **Declarative harness registry.** The wizard and the generated README install guidance
   share one declarative registry as their single source of truth. Per-entry shape:
 
@@ -332,6 +344,8 @@ package shapes, not harness categories:
     configRoot: env var | profile-discovery rules
     supported: { scopes, channels }
     customProfileValidation
+    native?                                 # adapter, native-plugin harnesses only
+    readsSharedWith?                        # products whose canonical dirs it also reads
   ```
 
   Adding an ordinary pure-skill harness is a registry-entry-plus-contract-tests change,
@@ -419,8 +433,8 @@ Governed by [Snapshot releases with mirrored manifest versions](/decisions/versi
 - Native plugin manifest versions mirror the tag: cutting a release bumps the Codex and
   Claude manifests to the tag's value (tolerating manifests that don't exist yet).
 - A release script in `scripts/` owns the ritual — bump manifests, commit, tag, create
-  the GitHub release — plus baseline promotion and the advisory staleness warning from
-  the benchmark design (below).
+  the GitHub release — plus the advisory staleness warning from the benchmark design
+  (below). Baseline promotion is deferred with the benchmark comparison arm.
 - The development-symlink and portable channels are unaffected: both keep tracking git.
 
 ### Testing and benchmark harness
@@ -447,21 +461,26 @@ deferred upgrade layers only.
   runner's home in `tools/` (scenario prompt + fixture inputs + expected-state
   assertions). Skill directories stay pure deliverables: no test material ships to
   installs.
-- **Benchmarks are paired trials:** the same case with and without the skill installed,
-  reporting the delta; additionally comparable across harnesses, release tags (trend
-  only), and model ids.
-- **Two presets:** `smoke` = 1 paired trial (wiring check); `full` = 5 paired trials —
-  only `full` summaries are comparable and promotable to baseline. Every recorded score
-  names its preset.
-- **Regression flag (advisory):** a `full` run flags a case only when its with-skill
-  pass rate falls ≥ 2-of-5 trials below baseline; a single stochastic failure never
-  flags.
+- **Benchmark runs are single-arm** — the case with the skill installed — comparable
+  across harnesses, release tags (trend only), and model ids. The paired without-skill
+  arm and the with/without delta that user stories 45–50 ask for are **deferred, not
+  removed**, by the 2026-07-16 amendment to the
+  [benchmark-metrics Decision](/decisions/benchmark-metrics-and-comparison-design.md).
+- **Two presets** (`tools/benchmarks/presets.mjs` → `PRESETS`): harness breadth, not
+  trial count, is what distinguishes `smoke` from `full` today — `smoke` runs one harness,
+  `full` runs all three, each at one trial. Trial count stays an independent, adjustable
+  per-preset knob. Every recorded score names its preset.
+- **Regression flag and baseline promotion (advisory, deferred):** the ≥ 2-of-5-trial
+  regression flag is inert without a comparison arm and at a trial count of 1, and
+  release-time baseline promotion needs a delta to mean anything; both remain deferred by
+  the same amendment rather than dropped.
 - **Retention:** per-run summary JSON (scores, per-trial marks, deltas, flags,
   provenance, preset) is committed; raw artifacts (transcripts, fixture state,
   per-assertion results) go to a git-ignored runs area under `tools/`.
-- **Baselines:** the cross-run baseline is a `full` summary promoted explicitly by the
-  release script; the within-run baseline is the fresh without-skill arm of the same
-  run.
+- **Baselines:** the intended cross-run baseline is a `full` summary promoted explicitly
+  by the release script and the intended within-run baseline is the fresh without-skill
+  arm of the same run. Both wait on the deferred comparison arm, so no baseline or
+  promotion machinery exists under `tools/benchmarks/`.
 - **Provenance — required identity set** on every recorded summary:
 
   ```
@@ -470,28 +489,41 @@ deferred upgrade layers only.
     library: commit SHA + dirty flag (+ release tag when on one)
     case: skill + case name
     run: preset + trial count
-    per arm: harness name + version, model id
+    per harness: harness name + version, model id
   ```
 
-  Resource-usage fields (tokens, durations, cost) are optional extras.
+  Resource-usage fields (tokens, durations, cost) are optional extras. Because a run is
+  single-arm, the per-arm identity is recorded per harness: the runner's `run.json`
+  supplies each harness's resolved model and CLI version, and
+  `tools/benchmarks/provenance.mjs` → `gitProvenance()` supplies the run-level library
+  identity (timestamp, commit, dirty flag). The optional release-tag field is not
+  currently emitted.
 - **Reporting:** a deterministic generator renders per-case markdown from committed
-  summaries (per-trial marks, with/without pass rates, delta, regression flag, advisory
-  judge scores). No blended cross-case score exists.
+  summaries — preset, trial count, library identity, and per-harness model, version,
+  per-trial marks, and pass rate (`tools/benchmarks/report.mjs` → `renderReport()`);
+  identical input yields byte-identical output. The with/without pass rates, delta,
+  regression flag, and advisory judge scores follow the deferred comparison arm and
+  advisory recording. No blended cross-case score exists.
 
 ### CI and automation
 
 Governed by [CI and automation wiring](/decisions/ci-and-automation-wiring.md).
 
-- Push/PR CI runs only the free static checks — skill linter + docs validator — and
-  fails **only** on linter ERRORs; WARNs and all docs-validate output surface as
-  advisory.
+- Push/PR CI stays static, free, and deterministic, and now has **three** gates
+  (`.github/workflows/ci.yml`): the strict skill linter (red on ERRORs, WARNs advisory);
+  the strict docs validator (red on hard bundle errors, exit 2 on validator malfunction —
+  see [/decisions/okf-docs-strict-validation.md](/decisions/okf-docs-strict-validation.md));
+  and the deterministic Node test suite reached by `npm test` (see the `test` script in
+  `package.json`), which carries the installer, manifest, and managed-channel tests plus
+  the acceptance matrix's advertised == proven invariant (see
+  [/decisions/skill-testing-architecture.md](/decisions/skill-testing-architecture.md)).
 - **No inference in CI, ever:** per-skill cases, per-harness contract tests, and
   benchmarks run only locally via the `tools/` runner; CI holds no model API keys and
   has no scheduled workflows. "On-demand" means the developer invoking the local runner.
-- **Release-time staleness guard (advisory):** before promoting the baseline, the
-  release script verifies committed full-preset summaries exist and match the current
-  commit or a recent ancestor; if missing or stale it warns and proceeds — the ritual
-  never wedges.
+- **Release-time staleness guard (advisory):** the release script checks that committed
+  benchmark summaries exist and, when they are missing, warns and proceeds — the ritual
+  never wedges. Full-preset selection and recent-ancestor matching wait on the deferred
+  baseline; see [/specs/native-plugins-and-release.md](/specs/native-plugins-and-release.md).
 
 ## Testing Decisions
 
@@ -504,7 +536,8 @@ artifacts — never internals:
 1. **The skill-linter CLI.** Its default invocation always exits 0 and prints two-tier
    ERROR/WARN findings; its strict mode derives a nonzero exit from ERROR presence.
    Tests exercise every ERROR and WARN class against fixture skill trees and assert the
-   classification and exit codes. This is the only gate CI ever has.
+   classification and exit codes. It is one of the three static gates CI runs (see
+   [CI and automation](#ci-and-automation)); no inference gate was ever added.
 2. **The test-runner CLI** (developer infrastructure in `tools/`). Tested at the runner
    boundary: the fixture builder produces a fixture containing the skill plus its full
    dependency closure with canonical sources verifiably unmodified; each headless
@@ -513,8 +546,10 @@ artifacts — never internals:
    and the exit code. The runner is gating-capable locally and never runs in CI.
 3. **The release-script CLI.** Tested on exit behavior and produced artifacts: manifest
    versions bumped to the tag value (tolerating absent manifests), commit + tag +
-   release created in one invocation, baseline promotion of a chosen full-preset
-   summary, and the advisory staleness warning that never blocks the ritual.
+   release created in one invocation, and the advisory staleness warning that never
+   blocks the ritual. That guard is existence-only over the committed summaries directory
+   (`scripts/release.mjs` → `checkBenchmarkStaleness()`, `scripts/release.test.mjs`);
+   baseline promotion is deferred, so no test covers it.
 
 Cross-cutting rules for good tests here:
 
@@ -556,22 +591,21 @@ tests follow that pattern.
 
 ## Further Notes
 
-Implementer-owned gaps deliberately left to the build effort; none reopens a decision:
+Gaps deliberately left to the build effort, and how they settled; none reopens a
+decision:
 
-- The current development installer must be rebuilt to the target wizard: its directory
-  discovery predates the flat skill tree, it has no dependency-graph validation, and its
-  hard-coded target menu predates the registry/profile model. Revise
-  [/specs/install-sh.md](/specs/install-sh.md) when the new installer lands, per the
-  precedence note above.
-- The harness-neutral shared skills directory is both a development symlink target and
-  the portable CLI's own storage; the installer should call out (or refuse) mixing
-  channels there.
+- The installer rebuild has shipped: flat-tree discovery (`scripts/install/discovery.mjs`
+  → `discoverSkills()`), dependency-graph gating (`scripts/install/graph.mjs` →
+  `validateGraph()`), and registry-driven selection (`scripts/install/registry.mjs` →
+  `REGISTRY`) replaced the pre-rebuild scan, absent validation, and hard-coded target
+  menu. Its contract is [/specs/install-sh.md](/specs/install-sh.md).
 - The exact `scripts/`↔`tools/` invocation boundary (how the release script locates the
   runner's committed summaries), the staleness guard's "recent ancestor" matching rule,
   the report generator's summary-selection scope, and the release script's preconditions
   (clean tree, branch, pre-flight checks) are implementation details.
-- Once `tools/` exists, extend the `.claude` docs-maintenance rule's source glob to
-  cover it.
+- The source-change documentation obligation is carried by root `AGENTS.md` and the
+  `docs-sync` skill; the surviving Claude rule (`.claude/rules/docs-authoring.md`) is a
+  pointer-only reminder scoped to `docs/**/*.md`, so it needs no source glob.
 - The linter's strict mode may be a flag or an output parse in CI — an implementation
   detail of the `tools/` linter, so long as the default invocation stays advisory
   (exit 0).

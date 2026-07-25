@@ -2,7 +2,7 @@
 type: Specification
 title: OKF validator behaviour and invocation
 description: The strict validator contract (0/1/2 exits, YAML frontmatter oracle, warning suite, uniform walk), how to run it and its tests, and how enforcement is wired.
-timestamp: 2026-07-24
+timestamp: 2026-07-25
 ---
 
 # OKF validator behaviour and invocation
@@ -88,9 +88,10 @@ code do not warn.
 - This repo's CI (`.github/workflows/ci.yml`) runs `npm run docs:validate` as a
   gating step — exit `1` or `2` fails the job.
 - For target repos, the documented portable hook is `pre-push` running plain
-  `npm run docs:validate`, with recipes for a plain Git hook, husky v4, and
-  husky v8/v9 in the `docs-validate` skill. Setup never installs husky or adds
-  package lifecycle (`prepare`) scripts.
+  `npm run docs:validate`, named in the `docs-validate` skill's "Enforcement
+  wiring" section. Setup installs no hook, no husky dependency, and no package
+  lifecycle (`prepare`) script; no concrete plain-Git or husky recipe ships in
+  any skill yet.
 - An optional minimal GitHub Actions asset
   (`skills/docs-setup/assets/github/workflows/docs-validate.yml`) runs the
   same command on pull requests; exit `1` fails the job.

@@ -2,7 +2,7 @@
 type: Specification
 title: OKF documentation skill-suite v2
 description: Implementation-ready contract for a portable five-skill OKF documentation suite, its repository machinery, lifecycle, research flow, validation, distribution, migration, and cross-harness acceptance tests.
-timestamp: 2026-07-24
+timestamp: 2026-07-25
 ---
 
 # OKF documentation skill-suite v2
@@ -17,11 +17,11 @@ The suite is version 2; the bundle format remains upstream OKF v0.1 and root
 
 ## Status and precedence
 
-This is a target-state specification. Code and existing concepts remain authoritative
-for current shipped behavior until an implementation slice lands. Where current v1
-docs or code conflict with this target, the linked v2 Decisions and this Specification
-govern implementation; current-behavior docs are reconciled in the same slice that
-changes their code.
+The suite shipped through the #47–#63 implementation slices, so this Specification now
+describes the shipped suite rather than a target state. Code remains authoritative for
+current shipped behavior; the linked Decisions below remain the rationale of record.
+Where a current-behavior concept and the code conflict, the code wins and the concept is
+reconciled in the same slice that changes it.
 
 Rationale and alternatives live in:
 
@@ -45,8 +45,9 @@ Claude Code, Codex, and OpenCode:
 - portable installation, native plugins where supported, and checkout links;
 - no harness-specific workflow fork or third-party workflow dependency.
 
-Implementation is complete only when every advertised channel/harness cell and every
-skill contract below has deterministic and live behavioral evidence.
+A channel/harness cell or skill contract is advertised as supported only once it has both
+deterministic and live behavioral evidence; the gate that withholds unproven cells is
+`tools/acceptance/matrix.mjs` → `CELLS` / `provenHarnessesByChannel()`.
 
 ## Domain language
 
@@ -79,9 +80,12 @@ skill authoring and dependency conventions except where portability below narrow
 | `docs-sync` | Semantic reconciliation, creation, bookkeeping, compaction, verification | `docs-validate` |
 | `docs-autoresearch` | Explicit bounded research and approved filing | `docs-add`, `docs-validate` |
 
-`okf-docs-setup` is renamed completely to `docs-setup`. No path, metadata, inventory,
-dependency, fixture, report, installed link, or invocation remains outside Git history
-under the old identity.
+`okf-docs-setup` is renamed completely to `docs-setup`. No live surface — skill directory,
+skill name, dependency declaration, test-case directory, fixture, manifest, README
+inventory entry, installed link, or invocation — uses the old identity. The name still
+occurs as a historical or explanatory reference: in prior Decisions and the bundle log
+that record the rename, in dated `research/` briefs and handoffs, and in test comments
+naming what was retired. None of those are rewritten.
 
 `docs-add` owns its templates beneath its own directory and references them
 self-relatively. `docs-validate` contains no validator implementation and names the
@@ -153,8 +157,10 @@ Root `CLAUDE.md` is exactly `@AGENTS.md`. Setup writes that shim only after clas
 all existing content: portable guidance moves to `AGENTS.md`, genuine Claude-only
 convenience may move to an optional deletion-safe adapter, and ambiguity blocks.
 
-The two Claude rule files may remain as pointer-only, path-scoped reminders. They carry
-no unique policy or procedure. Codex receives no required `.codex` project
+One pointer-only, path-scoped Claude rule ships, at
+`skills/docs-setup/assets/claude/rules/docs-authoring.md`. It carries no unique policy or
+procedure. The former `docs-maintenance` rule was removed because it made docs
+authoritative for current behavior. Codex receives no required `.codex` project
 configuration. OpenCode receives no required configuration, plugin, command, agent
 definition, or imported Claude rule.
 
@@ -474,11 +480,14 @@ explicit unsupported-capability failure. It does not silently reduce the worker 
 or execute inline. This is failure handling after an attempted required operation, not
 a separate capability-preflight or remediation workflow.
 
-The normal global cap is 20 fetch attempts, including failures and retries, recommended
-as 12/5/3. Unused quota moves only at round boundaries. The user may approve a one-run
-increase up to 45; the next run resets to 20. Repository policy may lower budgets but
-cannot persistently raise them. One run creates or materially updates at most three
-concepts, excluding indexes and logs.
+The normal global fetch cap and the recommended per-round split are the shipped tunable
+defaults in `skills/docs-autoresearch/RESEARCH-DEFAULTS.md` ("Fetch budget"); every
+attempt counts, including failures and retries. Unused quota moves only at round
+boundaries. The user may approve a one-run increase up to the fixed one-run ceiling in
+`skills/docs-autoresearch/SKILL.md` ("Fetch accounting"), after which the next run resets
+to the default cap. Repository policy may lower budgets but cannot persistently raise
+them. One run creates or materially updates no more concepts than the mutation ceiling
+fixed in that same file ("Filing"), excluding indexes and logs.
 
 Stop early when the question is supported, material claims have authoritative evidence,
 contested or empirical claims have independent corroboration, no unresolved
@@ -517,22 +526,8 @@ Missing or unreadable shipped defaults indicate corrupt installation and stop th
 
 #### Filing
 
-The default Reference shape is:
-
-```markdown
-# <Topic>
-
-## Overview
-
-## Key Findings
-
-## Contradictions
-
-## Open Questions
-
-# Citations
-```
-
+The default Reference shape is the section skeleton under "Default Reference shape" in
+`skills/docs-autoresearch/RESEARCH-DEFAULTS.md`, and a repository may tune it there.
 Claims carry adjacent confidence and citations in prose; there is no `confidence`
 frontmatter. Open Questions live in the most relevant concept and are removed, narrowed,
 or retained as later evidence changes their current state.
@@ -571,12 +566,16 @@ entrypoint:
 - exit `1`: one or more hard bundle errors;
 - exit `2`: validator malfunction.
 
-Hard errors are exactly unparseable frontmatter and missing/empty `type`. The
-frontmatter oracle is a YAML 1.2 mapping delimited by standalone `---` lines, with the
-opening delimiter on the first line. Duplicate top-level keys, invalid YAML, missing
-delimiters, a non-mapping document, or an unterminated block are unparseable. Values may
-use valid YAML scalar, sequence, or mapping shapes; `type` itself must be a non-empty
-scalar string. Reserved `index.md` and `log.md` files follow their separate soft checks.
+Hard errors are exactly unparseable frontmatter and a missing, empty, or non-scalar
+`type`. The frontmatter oracle is a YAML 1.2 mapping delimited by standalone `---` lines,
+with the opening delimiter on the first line. Duplicate top-level keys, invalid YAML,
+missing delimiters, a non-mapping document, or an unterminated block are unparseable. The
+oracle is dependency-free and accepts only a documented YAML subset, so forms outside that
+subset — anchors, aliases, tags, multi-line quoted scalars, multi-line flow collections —
+are unparseable too; `type` itself must be a non-empty scalar string.
+[/docs-setup/specs/validator.md](/docs-setup/specs/validator.md) is the authority for the
+exact accepted subset. Reserved `index.md` and `log.md` files follow their separate soft
+checks.
 
 Warnings are:
 
@@ -626,7 +625,10 @@ concepts with seed assets.
 ### Structure and migration
 
 - All five canonical suite skills are discoverable as top-level library skills.
-- No current path/content outside Git history contains the old setup identity.
+- No live surface — skill directories, skill names, dependency declarations, test-case
+  directories, fixtures, manifests, README inventory, installed links, invocations — uses
+  the old setup identity; historical and explanatory references to it (prior Decisions,
+  the bundle log, dated `research/` briefs and handoffs, test comments) remain.
 - `docs-setup` declares its two dependencies and installs no helper-skill copies.
 - Fresh setup uses `docs/` and `specs/`, creates no universal artifact zone, and
   contains no tool-named exclusion.
@@ -749,7 +751,8 @@ concepts with seed assets.
 
 ## Implementation sequence
 
-The SDD plan should preserve these seams:
+The SDD plan should preserve these seams. All seven landed through the #47–#63 slices;
+the list stands as the plan of record.
 
 1. Add target contract tests and v2 fixtures without weakening current v1 coverage.
 2. Extract `docs-add` and `docs-validate`, add `docs-sync` and `docs-autoresearch`, then
@@ -767,9 +770,11 @@ The SDD plan should preserve these seams:
 No implementation slice may claim support for a matrix cell or workflow until its
 acceptance evidence passes.
 
-## Known implementation deltas
+## Implementation deltas (closed)
 
-These are work, not open design questions:
+These were the v1→v2 gaps this specification was written to close. Every one was closed by
+the #47–#63 slices and none of them describes current behavior; the list is retained as
+the historical gap record:
 
 - current setup name, subsystem paths, README entries, tests, and plugin invocation use
   the old identity;

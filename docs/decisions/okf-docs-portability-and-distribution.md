@@ -2,7 +2,7 @@
 type: Decision
 title: Deliver one portable OKF skill pack through deletion-safe adapters
 description: Keep one byte-identical semantic core across Claude Code, Codex, and OpenCode while limiting harness adapters to discovery and presentation.
-timestamp: 2026-07-24
+timestamp: 2026-07-25
 ---
 
 # Deliver one portable OKF skill pack through deletion-safe adapters
@@ -106,6 +106,6 @@ live outcome test pass.
 - Optional adapters are tested by deletion: removing them cannot change the required
   result.
 
-## Amendments
+# Amendments
 
 <!-- Append dated entries; never rewrite accepted history. -->

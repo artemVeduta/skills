@@ -2,7 +2,7 @@
 type: Decision
 title: Reconcile OKF knowledge by accepted state, not editing residue
 description: Make executable sources authoritative for current behavior and use docs-sync to preserve accepted history while compacting branch-local churn.
-timestamp: 2026-07-24
+timestamp: 2026-07-25
 ---
 
 # Reconcile OKF knowledge by accepted state, not editing residue
@@ -80,6 +80,6 @@ confirmation and a replacement Decision that supersedes the old one.
 - The retired `**Noted**` marker is not a debt queue: branch-unrelated drift is reported
   in branch mode and repaired only in bundle-wide mode.
 
-## Amendments
+# Amendments
 
 <!-- Append dated entries; never rewrite accepted history. -->

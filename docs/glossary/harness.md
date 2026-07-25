@@ -2,7 +2,7 @@
 type: Glossary
 title: Harness
 description: The agent runtime a skill is installed into — it discovers skills in its skill directory and loads their SKILL.md instructions.
-timestamp: 2026-07-16
+timestamp: 2026-07-25
 ---
 
 # Harness
@@ -26,11 +26,13 @@ once via `npm run test:auth -- <harness-id>` and used as the only user-scope sta
 skill-test run sees — never the developer's personal profiles above. See
 [Skill testing and benchmark architecture](/decisions/skill-testing-architecture.md).
 
-The harness targets supported by the installer today (the `DEFAULT_TARGETS` in
-`scripts/install.sh` — see [/specs/install-sh.md](/specs/install-sh.md)) are Claude
-Code's personal profile (`~/.claude/skills`), a Claude Code work profile
-(`~/.claude-work/skills`), and the harness-neutral shared directory
-(`~/.agents/skills`); any other harness is reachable as a custom install path.
+The harness targets the installer supports are declared in one registry
+(`scripts/install/registry.mjs` → `REGISTRY`), which models three harness products —
+Claude Code, Codex, and OpenCode — each with a project-scoped and a global-scoped skill
+directory, Claude Code's global configuration root selected by `CLAUDE_CONFIG_DIR`
+(personal `.claude`, work `.claude-work`); any other location is reachable as a custom
+install path. The resolved paths per product and scope are in
+[/specs/install-sh.md](/specs/install-sh.md).
 
 Used in: [/specs/install-sh.md](/specs/install-sh.md),
 [/glossary/skill.md](/glossary/skill.md),

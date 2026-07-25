@@ -2,7 +2,7 @@
 type: Decision
 title: Use three skill distribution channels
 description: Keep development links, portable skill installation, and native plugin distribution as separate channels sharing one canonical skill tree.
-timestamp: 2026-07-10
+timestamp: 2026-07-25
 ---
 
 # Use three skill distribution channels
@@ -121,7 +121,7 @@ resolution remain independent of the terminal UI and depend on the registry.
 - Supporting several channels adds documentation and validation work, but each external
   package manager remains responsible for its own installation lifecycle.
 
-## Amendments
+# Amendments
 
 ## 2026-07-10 — Link the whole library during development
 
@@ -137,3 +137,34 @@ dependencies by default and permits bypass only through an explicit unsafe optio
 current upstream `skills` CLI does not yet implement dependency metadata or closure, so
 safe selective portable installation of dependent skills remains contingent on upstream
 support; `--skill '*'` is the current whole-library fallback.
+
+## 2026-07-25 — The shipped channel shapes
+
+The three-channel split and the registry-as-extension-point stand unchanged, as do the
+update semantics by channel. This entry records the shapes the shipped checkout installer
+and the [OKF docs skill-suite v2 spec](/specs/okf-docs-skill-suite-v2.md) settled, which
+the prose above still states at its original granularity.
+
+- **Portable installation is whole-pack only.** The selectivity the 2026-07-10 entry left
+  contingent on upstream support never arrived, so no supported journey advertises a
+  per-skill picker: `scripts/install/registry.mjs` → `portableCommand()` emits the
+  whole-pack form, that is what the generated README portable block publishes, and
+  `scripts/managed-channels.test.mjs` asserts no advertised journey offers a picker. The
+  target contract for a *safe* selective portable install is unchanged as intent — it
+  simply has no advertised surface.
+- **The checkout channel is an advertised package shape,** not a development-only
+  affordance, across the three harness products the registry models — Claude Code, Codex,
+  and OpenCode (`REGISTRY`). OpenCode gets no native aggregate plugin; v2's distribution
+  matrix records checkout links as supported for all three harnesses.
+- **The one-shape-per-profile rule is enforced, not merely stated.** Before any mutation
+  the checkout installer refuses a target already holding a managed portable or native
+  marker, naming the exact conflicting path and channel (`scripts/install/planner.mjs` →
+  `managedShapeGuard()`). The prohibition therefore also covers overlaying checkout links
+  onto a managed portable or native install, which the original text did not address.
+- **Per-harness placements, plan deduplication, checkout provenance, and stale-link
+  ownership** are specified in
+  [/specs/okf-docs-skill-suite-v2.md](/specs/okf-docs-skill-suite-v2.md) and
+  [/specs/install-sh.md](/specs/install-sh.md), not in this Decision.
+
+Driven by the v2 skill-suite checkout installer (issue #61); no selected alternative is
+reversed.

@@ -3,14 +3,20 @@ type: Reference
 title: Benchmark run artifacts
 description: Where committed benchmark summary JSON and rendered markdown reports live, and what schema they follow.
 resource: tools/benchmarks/
-timestamp: 2026-07-17
+timestamp: 2026-07-25
 ---
 
 # Benchmark run artifacts
 
 The benchmark test + report flow (`npm run bench`, `tools/benchmarks/run.mjs`)
 commits two artifacts per run, so a run's verdict and provenance are shared truth
-without churning the knowledge graph with per-run data:
+without churning the knowledge graph with per-run data. The two homes below are the
+flow's write DESTINATIONS rather than populated directories: `runBench` resolves each
+from its own path constant and creates it recursively immediately before writing, so a
+home exists in the tree only once a run has recorded into it — and consumers tolerate
+its absence (`checkBenchmarkStaleness` in `scripts/release.mjs` reads a missing
+summaries directory as "no committed full-preset summaries yet" and skips the baseline
+freshness check instead of failing).
 
 - `tools/benchmarks/summaries/` — one summary JSON per run: preset name and trial
   count, per-harness per-trial pass/fail marks, per-harness and overall pass rate,
@@ -30,9 +36,10 @@ only the summary JSON and the report are committed. The run spends real inferenc
 against locally-authenticated harness profiles, so it is local-only and never wired
 into CI.
 
-Governing design: `docs/superpowers/specs/2026-07-16-benchmark-test-report-flow-design.md`;
-retention/provenance/no-blend decisions:
-[Benchmark metrics and comparison design](/decisions/benchmark-metrics-and-comparison-design.md).
+Governing concepts — retention, provenance, and no-blend decisions:
+[Benchmark metrics and comparison design](/decisions/benchmark-metrics-and-comparison-design.md);
+end-to-end map of what a run does:
+[Benchmark and test run flow handoff](/superpowers/handoffs/2026-07-17-benchmark-run-flow-handoff.md).
 
 # Citations
 

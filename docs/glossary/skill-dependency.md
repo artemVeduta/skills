@@ -2,7 +2,7 @@
 type: Glossary
 title: Skill dependency
 description: A runtime requirement that permits one skill to rely on another skill being available.
-timestamp: 2026-07-10
+timestamp: 2026-07-25
 ---
 
 # Skill dependency
@@ -11,9 +11,13 @@ A **skill dependency** is a directed runtime requirement from a dependent skill 
 another skill. The dependent skill may assume that dependency is available when it
 runs.
 
-Selecting a skill for installation automatically selects its complete transitive
-dependency closure. An installer must reject the installation when any required
-dependency cannot be satisfied or when the dependency graph contains a cycle. Bypassing
+Every supported distribution channel delivers the complete pack, so a dependent skill's
+closure is present by construction rather than by per-skill selection (see
+[/decisions/okf-docs-portability-and-distribution.md](/decisions/okf-docs-portability-and-distribution.md)).
+An installer must still reject the installation when any required dependency cannot be
+satisfied or when the dependency graph contains a cycle (`scripts/install/graph.mjs` →
+`validateGraph`); closure resolution itself stays live where a genuine subset is
+projected — the test runner's fixture builder (`tools/test-runner/fixture.mjs`). Bypassing
 resolution must be an explicit, visibly unsafe operation rather than an implicit effect
 of selecting a named skill.
 
