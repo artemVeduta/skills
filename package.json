@@ -1,0 +1,17 @@
+{
+  "name": "skills",
+  "version": "1.0.0",
+  "description": "53 agent skills for real engineering — merged from obra/superpowers and mattpocock/skills",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/artemVeduta/skills"
+  },
+  "license": "MIT",
+  "scripts": {
+    "link-skills": "bash scripts/link-skills.sh",
+    "list-skills": "bash scripts/list-skills.sh",
+    "bump-version": "bash scripts/bump-version.sh",
+    "lint-shell": "bash scripts/lint-shell.sh"
+  }
+}

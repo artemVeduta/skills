@@ -1,0 +1,20 @@
+{
+  "name": "skills",
+  "description": "Merged agent skills library from obra/superpowers and mattpocock/skills",
+  "owner": {
+    "name": "Artem Veduta",
+    "url": "https://github.com/artemVeduta"
+  },
+  "plugins": [
+    {
+      "name": "skills",
+      "description": "53 composable agent skills: TDD, debugging, code review, grilling, domain modeling, planning, and delivery workflows",
+      "version": "1.0.0",
+      "source": "./",
+      "author": {
+        "name": "Artem Veduta",
+        "url": "https://github.com/artemVeduta"
+      }
+    }
+  ]
+}

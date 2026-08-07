@@ -1,0 +1,24 @@
+{
+  "name": "skills",
+  "version": "1.0.0",
+  "description": "Merged agent skills library. 53 skills from obra/superpowers and mattpocock/skills — planning, TDD, code review, grilling, domain modeling, and delivery workflows.",
+  "author": {
+    "name": "Artem Veduta",
+    "url": "https://github.com/artemVeduta"
+  },
+  "homepage": "https://github.com/artemVeduta/skills",
+  "repository": "https://github.com/artemVeduta/skills",
+  "license": "MIT",
+  "keywords": [
+    "skills",
+    "tdd",
+    "debugging",
+    "code-review",
+    "grilling",
+    "domain-modeling",
+    "workflows",
+    "planning",
+    "productivity",
+    "engineering"
+  ]
+}
