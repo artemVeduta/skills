@@ -10,8 +10,6 @@
   "license": "MIT",
   "scripts": {
     "link-skills": "bash scripts/link-skills.sh",
-    "list-skills": "bash scripts/list-skills.sh",
-    "bump-version": "bash scripts/bump-version.sh",
-    "lint-shell": "bash scripts/lint-shell.sh"
+    "list-skills": "bash scripts/list-skills.sh"
   }
 }
