@@ -7,6 +7,8 @@ description: Diagnosis loop for hard bugs and performance regressions. Use when 
 
 A discipline for hard bugs. Skip phases only when explicitly justified.
 
+**Core principle:** Find root cause before attempting fixes. Symptom fixes are failure.
+
 When exploring the codebase, read `CONTEXT.md` (if it exists) to get a clear mental model of the relevant modules, and check ADRs in the area you're touching.
 
 ## Redact
@@ -21,7 +23,11 @@ If the redacted output is not enough to diagnose the bug, say so and ask the use
 
 Spend disproportionate effort here. **Be aggressive. Be creative. Refuse to give up.**
 
-### Ways to construct one — try them in roughly this order
+### Before building the loop — check what changed
+
+Read error messages carefully. Check `git diff`, recent commits, new dependencies, config changes, environmental differences. The answer is often in what moved.
+
+### Ways to construct a loop — try them in roughly this order
 
 1. **Failing test** at whatever seam reaches the bug — unit, integration, e2e.
 2. **Curl / HTTP script** against a running dev server.
@@ -34,7 +40,16 @@ Spend disproportionate effort here. **Be aggressive. Be creative. Refuse to give
 9. **Differential loop.** Run the same input through old-version vs new-version (or two configs) and diff outputs.
 10. **HITL bash script.** Last resort. If a human must click, drive _them_ with `scripts/hitl-loop.template.sh` so the loop is still structured. Captured output feeds back to you.
 
-Build the right feedback loop, and the bug is 90% fixed.
+### Gather evidence across component boundaries
+
+When the system has multiple components (CI → build → signing, API → service → database), add diagnostic instrumentation **before proposing fixes**:
+
+- Log what data enters each component
+- Log what data exits each component
+- Verify environment/config propagation
+- Check state at each layer
+
+Run once to gather evidence showing where it breaks, then investigate that specific component. See `defense-in-depth.md` in this directory.
 
 ### Tighten the loop
 
@@ -48,7 +63,7 @@ A 30-second flaky loop is barely better than no loop; a 2-second deterministic o
 
 ### Non-deterministic bugs
 
-The goal is not a clean repro but a **higher reproduction rate**. Loop the trigger 100×, parallelise, add stress, narrow timing windows, inject sleeps. A 50%-flake bug is debuggable; 1% is not — keep raising the rate until it's debuggable.
+The goal is not a clean repro but a **higher reproduction rate**. Loop the trigger 100×, parallelise, add stress, narrow timing windows, inject sleeps. A 50%-flake bug is debuggable; 1% is not — keep raising the rate until it's debuggable. See `condition-based-waiting.md` in this directory for replacing arbitrary timeouts with condition polling.
 
 ### When you genuinely cannot build a loop
 
@@ -79,15 +94,24 @@ Confirm:
 
 Once it's red, shrink the repro to the **smallest scenario that still goes red**. Cut inputs, callers, config, data, and steps **one at a time**, re-running the loop after each cut — keep only what's load-bearing for the failure.
 
-Why bother: a minimal repro shrinks the hypothesis space in Phase 3 (fewer moving parts left to suspect) and becomes the clean regression test in Phase 5.
+A minimal repro shrinks the hypothesis space in Phase 3 (fewer moving parts left to suspect) and becomes the clean regression test in Phase 5.
 
 Done when **every remaining element is load-bearing** — removing any one of them makes the loop go green.
 
 Do not proceed until you have reproduced **and** minimised.
 
-## Phase 3 — Hypothesise
+## Phase 3 — Pattern analysis + hypothesise
 
-Generate **3–5 ranked hypotheses** before testing any of them. Single-hypothesis generation anchors on the first plausible idea.
+### Find working examples
+
+- Locate similar working code in the same codebase
+- Compare against reference implementations line-by-line — don't skim
+- List every difference between working and broken, however small
+- Understand what dependencies, config, and assumptions the working version has
+
+### Generate 3-5 ranked hypotheses
+
+Generate multiple hypotheses before testing any of them. Single-hypothesis generation anchors on the first plausible idea.
 
 Each hypothesis must be **falsifiable**: state the prediction it makes.
 
@@ -95,7 +119,11 @@ Each hypothesis must be **falsifiable**: state the prediction it makes.
 
 If you cannot state the prediction, the hypothesis is a vibe — discard or sharpen it.
 
-**Show the ranked list to the user before testing.** They often have domain knowledge that re-ranks instantly ("we just deployed a change to #3"), or know hypotheses they've already ruled out. Cheap checkpoint, big time saver. Don't block on it — proceed with your ranking if the user is AFK.
+**Show the ranked list to the user before testing.** They often have domain knowledge that re-ranks instantly, or know hypotheses they've already ruled out. Cheap checkpoint, big time saver. Don't block on it — proceed with your ranking if the user is AFK.
+
+### Trace data flow
+
+When the error is deep in the call stack, trace backward: where does the bad value originate? What called this with the bad value? Keep tracing up until you find the source. Fix at the source, not at the symptom. See `root-cause-tracing.md` in this directory.
 
 ## Phase 4 — Instrument
 
@@ -117,15 +145,22 @@ Write the regression test **before the fix** — but only if there is a **correc
 
 A correct seam is one where the test exercises the **real bug pattern** as it occurs at the call site. If the only available seam is too shallow (single-caller test when the bug needs multiple callers, unit test that can't replicate the chain that triggered the bug), a regression test there gives false confidence.
 
-**If no correct seam exists, that itself is the finding.** Note it. The codebase architecture is preventing the bug from being locked down. Flag this for the next phase.
+**If no correct seam exists, that itself is the finding.** Note it. The codebase architecture is preventing the bug from being locked down. Flag this for Phase 6.
 
 If a correct seam exists:
 
 1. Turn the minimised repro into a failing test at that seam.
 2. Watch it fail.
-3. Apply the fix.
+3. Apply the fix — **one change at a time**. No bundled refactoring, no "while I'm here" improvements.
 4. Watch it pass.
 5. Re-run the Phase 1 feedback loop against the original (un-minimised) scenario.
+
+### If the fix doesn't work
+
+Stop. Count how many fixes you've tried:
+
+- **< 3:** Return to Phase 3, re-analyze with new information.
+- **≥ 3: STOP and question the architecture.** Each fix revealing new shared state, coupling, or symptoms in different places is a wrong architecture, not a bug. Discuss with your human partner before attempting more fixes.
 
 ## Phase 6 — Cleanup + post-mortem
 
@@ -138,3 +173,43 @@ Required before declaring done:
 - [ ] The hypothesis that turned out correct is stated in the commit / PR message — so the next debugger learns
 
 **Then ask: what would have prevented this bug?** If the answer involves architectural change (no good test seam, tangled callers, hidden coupling) hand off to the `/improve-codebase-architecture` skill with the specifics. Make the recommendation **after** the fix is in, not before — you have more information now than when you started.
+
+## Red Flags — STOP and return to Phase 1
+
+| Thought | Reality |
+|---------|---------|
+| "Quick fix for now, investigate later" | First fix sets the pattern. Do it right from the start. |
+| "Just try changing X and see if it works" | Guessing without a loop is thrashing. |
+| "Add multiple changes, run tests" | Can't isolate what worked. Causes new bugs. |
+| "Skip the test, I'll manually verify" | Untested fixes don't stick. |
+| "It's probably X, let me fix that" | Seeing symptoms ≠ understanding root cause. |
+| "One more fix attempt" (after 2+ failures) | 3+ failures = architectural problem. Stop. |
+| "I see the problem, let me fix it" | You don't yet. Phase 1 first. |
+
+## Human Partner Signals You're Doing It Wrong
+
+- "Is that not happening?" — You assumed without verifying.
+- "Will it show us...?" — You should have added evidence gathering.
+- "Stop guessing" — You're proposing fixes without understanding.
+- "Ultra-think this" — Question fundamentals, not just symptoms.
+
+When you see these: **STOP. Return to Phase 1.**
+
+## Quick Reference
+
+| Phase | Key Activities | Success Criteria |
+|-------|---------------|------------------|
+| **1. Feedback loop** | Check changes, build tight red-capable loop, gather evidence across boundaries | One command that goes red on this bug |
+| **2. Reproduce + minimise** | Confirm symptom matches, shrink repro, every element load-bearing | Minimal reproduction scenario |
+| **3. Pattern + hypotheses** | Find working examples, compare differences, trace data flow, rank 3-5 falsifiable hypotheses | Ranked, falsifiable hypotheses |
+| **4. Instrument** | Debugger/REPL > targeted logs, one variable at a time, tagged logs | Prediction confirmed or ruled out |
+| **5. Fix + regression test** | Regression test at correct seam, single fix, verify | Bug resolved, tests pass |
+| **6. Cleanup + post-mortem** | Remove debug artifacts, document hypothesis, suggest architectural prevention | Clean codebase, documented root cause |
+
+## Supporting Techniques
+
+These techniques are part of diagnosing bugs and available in this directory:
+
+- **`root-cause-tracing.md`** — Trace bugs backward through call stack to find original trigger
+- **`defense-in-depth.md`** — Validate at every layer data passes through
+- **`condition-based-waiting.md`** — Replace arbitrary timeouts with condition polling

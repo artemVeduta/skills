@@ -1,6 +1,6 @@
 # Skills
 
-53 composable agent skills for real engineering — merged from [obra/superpowers](https://github.com/obra/superpowers) and [mattpocock/skills](https://github.com/mattpocock/skills). Planning, TDD, debugging, code review, grilling, domain modeling, and delivery workflows.
+44 composable agent skills for real engineering — merged from [obra/superpowers](https://github.com/obra/superpowers) and [mattpocock/skills](https://github.com/mattpocock/skills). Planning, TDD, debugging, code review, grilling, domain modeling, and delivery workflows.
 
 ## Installation
 
@@ -39,37 +39,32 @@ Fetch and follow instructions from https://raw.githubusercontent.com/artemVeduta
 
 Skills trigger automatically. Your agent sees you want to build something and steps back — asks what you're really trying to do, teases out a spec, builds a plan, then dispatches subagents to execute each task with TDD, code review, and verification at every step.
 
-Or you invoke skills directly: `/grill-me` to align on design, `/tdd` for red-green-refactor, `/code-review` to review a diff.
+Or you invoke skills directly: `/grilling` to align on design, `/tdd` for red-green-refactor, `/to-spec` to write a spec.
 
 ## Skills Index
 
-### From superpowers
+### Workflow & Quality (from superpowers)
 
-**Workflow**
 - **brainstorming** — Socratic design refinement, saves design doc
-- **writing-plans** — Break approved design into bite-sized tasks
-- **executing-plans** — Batch execution with human checkpoints
 - **subagent-driven-development** — Dispatch fresh subagent per task, two-stage review
 - **dispatching-parallel-agents** — Concurrent subagent workflows
 - **finishing-a-development-branch** — Verify, present merge/PR options, clean up worktree
 - **using-git-worktrees** — Isolated workspace per branch, clean test baseline
-
-**Quality**
 - **test-driven-development** — RED-GREEN-REFACTOR, deletes code written before tests
-- **systematic-debugging** — 4-phase root cause process with defense-in-depth
 - **verification-before-completion** — Evidence before claiming done
 
-**Collaboration**
+### Collaboration (from superpowers)
+
 - **requesting-code-review** — Pre-review checklist against plan
 - **receiving-code-review** — Respond to feedback with technical rigor
 
-**Meta**
+### Meta (from superpowers)
+
 - **using-superpowers** — Introduction to the skills system
 - **writing-skills** — Create new skills following best practices
 
-### From mattpocock
+### Engineering — User-invoked (from mattpocock)
 
-**Engineering — User-invoked**
 - **ask-matt** — Router: which skill fits your situation
 - **grill-with-docs** — Grilling session that builds domain model, ADRs
 - **triage** — Move issues through triage state machine
@@ -80,29 +75,31 @@ Or you invoke skills directly: `/grill-me` to align on design, `/tdd` for red-gr
 - **implement** — Build work described by spec/tickets, drive /tdd at seams
 - **wayfinder** — Plan huge work as shared map of decision tickets
 
-**Engineering — Model-invoked**
+### Engineering — Model-invoked (from mattpocock)
+
 - **prototype** — Throwaway prototype to answer design question
-- **diagnosing-bugs** — Disciplined diagnosis loop: reproduce → isolate → hypothesize → fix
+- **diagnosing-bugs** — Disciplined 6-phase diagnosis: feedback loop → minimise → hypothesise → instrument → fix → post-mortem. Includes root-cause-tracing, defense-in-depth, and condition-based-waiting techniques.
 - **research** — Investigate against primary sources, capture as cited Markdown
 - **tdd** — Red-green-refactor, one vertical slice at a time
 - **domain-modeling** — Build and sharpen project's domain model
 - **codebase-design** — Vocabulary for designing deep modules
-- **code-review** — Two-axis review (standards + spec), parallel sub-agents
 - **resolving-merge-conflicts** — Resolve hunk by hunk, traced to intent
 - **wizard** — Generate interactive bash wizard for manual steps
 
-**Productivity — User-invoked**
-- **grill-me** — Relentless interview about a plan or design
+### Productivity — User-invoked (from mattpocock)
+
 - **handoff** — Compact conversation into handoff document
 - **teach** — Teach a skill or concept over multiple sessions
 - **to-questionnaire** — Turn undecided question into Markdown questionnaire
 - **wait-what** — Re-pitch the last message with missing context
 
-**Productivity — Model-invoked**
-- **grilling** — Reusable interview primitive behind grill-me, grill-with-docs, etc.
+### Productivity — Model-invoked (from mattpocock)
+
+- **grilling** — Interview the user relentlessly about a plan, decision, or idea until every branch is resolved
 - **writing-for-agents** — Writing documents for agents: skills, AGENTS.md, etc.
 
-**Misc & In-progress**
+### Misc & In-progress
+
 - **git-guardrails-claude-code** — Git safety rules for Claude Code
 - **migrate-to-shoehorn** — Migration helper
 - **scaffold-exercises** — Exercise scaffolding
