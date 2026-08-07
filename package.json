@@ -2,7 +2,6 @@
   "name": "skills",
   "version": "1.0.0",
   "description": "53 agent skills for real engineering — merged from obra/superpowers and mattpocock/skills",
-  "type": "module",
   "repository": {
     "type": "git",
     "url": "https://github.com/artemVeduta/skills"
